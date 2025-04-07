@@ -1,0 +1,57 @@
+&smd {
+	sec_auth_ds28e30: sec-auth-ds28e30 {
+			status = "okay";
+			compatible = "samsung,sec_auth_ds28e30";
+#if 1
+			sec_auth_ds28e30,swi_gpio = <
+				SEC_GPIO_REF(AP,pio,27) 0 /* SWI_GPIO */
+#if 0
+				SEC_GPIO_REF(${swi_gpio_2}) 0 /* SWI_GPIO_2 */
+#endif
+			>;
+#endif
+			};
+};
+
+
+/* /home/dpi/qb5_8814/workspace/P4_1716/android/kernel/kmodule/battery/suwon/battery_auth/ds28e30/a16/sec_auth_ds28e30.dtsi */
+#if 1
+&pio {
+		sec_auth_gpio_init: sec_auth_gpio_init {
+			GPIO_CONFIG_PUD(AP,pio,27, FUNC_OUTPUT_HIGH, PULL_NONE);
+		};
+		sec_auth_gpio_sleep: sec_auth_gpio_sleep {
+			GPIO_CONFIG_PUD(AP,pio,27, FUNC_OUTPUT_HIGH, PULL_NONE);
+		};
+	};
+#endif
+
+&smd {
+	sec_auth_ds28e30: sec-auth-ds28e30 {
+		status = "okay";
+		compatible = "samsung,sec_auth_ds28e30";
+
+#if 1
+		/* SWI_GPIO */
+		ds28e30,swi_gpio = <SEC_GPIO_REF(AP,pio,27) 0 >;
+		/* Change according to AP and GPIO */
+		ds28e30,base_phys_addr = <0x10005000 0x204>;
+		/* control_set , control_clr , data_set , data_clr , data_read */
+		ds28e30,offset = <0x4 0x8 0x104 0x108 0x200>;
+		/* Control bit is 27th , Data bit is 27th --> Change according to AP and GPIO */
+		ds28e30,bit_pos = <27 27>;
+		/* 400ns delay for tW1L , 400ns delay for tRL, 500ns delay for tSETUP */
+		ds28e30,rw_delay_ns = <400 400 500>;
+		/* DTS flag to implement vamm loop wa in 1-wire mtk protocol */
+		ds28e30,vamm_wa = <1>;
+
+		pinctrl-names = "init", "sleep";
+		pinctrl-0 = <&sec_auth_gpio_init >;
+		pinctrl-1 = <&sec_auth_gpio_sleep >;
+#endif
+#if 1
+		/*EUR_DETECTION_NODE*/
+		ds28e30,eur_detection = <SEC_GPIO_REF(AP,pio,34) 0 >;
+#endif
+	};
+};

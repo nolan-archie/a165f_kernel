@@ -1,0 +1,41 @@
+/ {
+	fragment@model {
+		target-path = "/";
+		__overlay__ {
+			shub {
+				compatible = "shub";
+			};
+		};
+	};
+};
+
+/* /home/dpi/qb5_8814/workspace/P4_1716/android/kernel/kmodule/sensorhub/mtk/mt6789_shub/dts/sensorhub_mt6789_shub.a16.dtsi */
+/ {
+	fragment@model {
+		target-path = "/";
+		__overlay__ {
+			shub {
+				acc-motor-coef = <20>;
+				acc-lis2dwe12tr-position = <5>;
+				mag-mxg4300s-position = <0>;
+				mag-mxg4300s-array = /bits/ 8 <0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0>;
+
+				light-position = /bits/ 32 <43 72 9 45 3 0>;
+				brightness-array-len = <11>;
+				brightness-array = /bits/ 32 <19 48 54 58 63 67 70 73 75 77 100>;
+			};
+		};
+	};
+};
+
+/* /home/dpi/qb5_8814/workspace/P4_1716/android/kernel/kmodule/sensorhub/mtk/mt6789_shub/dts/sensorhub_mt6789_shub.a16.02.dtsi */
+/ {
+	fragment@model {
+		target-path = "/";
+		__overlay__ {
+			shub {
+				mag-mxg4300s-array = /bits/ 8 <39 82 6 117 2 107 5 129 36 2 253 173 0 2 0 20 39 215 0 0 0 0 0 0 0 0 0>;
+			};
+		};
+	};
+};
