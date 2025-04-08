@@ -25,3 +25,33 @@ if [[ ! -d "${WDIR}/kernel/prebuilts" || ! -d "${WDIR}/prebuilts" ]]; then
     tar -xf toolchain.tar.gz && rm toolchain.tar.gz
     cd "${WDIR}"
 fi
+
+# CHANGED DIR
+cd "${WDIR}/kernel-5.10"
+
+# Cook the build config
+python2 scripts/gen_build_config.py \
+    --kernel-defconfig a16_00_defconfig \
+    --kernel-defconfig-overlays entry_level.config \
+    -m user \
+    -o ../out/target/product/a16/obj/KERNEL_OBJ/build.config
+
+# OEM's variables from build_kernel.sh/README_Kernel.txt
+export ARCH=arm64
+export PLATFORM_VERSION=13
+export CROSS_COMPILE="aarch64-linux-gnu-"
+export CROSS_COMPILE_COMPAT="arm-linux-gnueabi-"
+export OUT_DIR="../out/target/product/a16/obj/KERNEL_OBJ"
+export DIST_DIR="../out/target/product/a16/obj/KERNEL_OBJ"
+export BUILD_CONFIG="../out/target/product/a16/obj/KERNEL_OBJ/build.config"
+
+# Build options
+export GKI_KERNEL_BUILD_OPTIONS="
+    SKIP_MRPROPER=1 \
+"
+
+# CHANGED DIR
+cd "${WDIR}/kernel"
+
+# Main cooking progress
+env ${GKI_KERNEL_BUILD_OPTIONS} ./build/build.sh
