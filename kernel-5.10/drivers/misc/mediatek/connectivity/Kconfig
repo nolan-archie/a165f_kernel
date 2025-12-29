@@ -430,3 +430,11 @@ config CONN_PWR_DEBUG
 	  Will support test if set to 'y',
 	  otherwise will not support test.
 
+config MTK_BT_DRV_EXTERNAL
+	bool "Build Mediatek Bluetooth driver as a kernel module"
+	default y
+	help
+	  This will build the Mediatek Bluetooth driver (bt_drv) as a
+	  loadable kernel module (.ko) from the external source tree.
+
+	  If unsure, say Y.
