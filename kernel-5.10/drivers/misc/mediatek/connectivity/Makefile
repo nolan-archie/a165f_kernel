@@ -161,6 +161,8 @@ ifneq ($(KERNELRELEASE),)
         $(shell ln -s -f $(TOP)/$(PATH_TO_WLAN_DRV) $(srctree)/$(src)/wlan_drv_gen4m_ext)
 
         # Essential WLAN include paths
+        # Note: Order matters! mgmt/include must come before adaptor/include
+        # to ensure correct wlan_ring.h is found (mgmt version, not adaptor version)
         subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/os/linux/include
         subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/os/none/include
         subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/os
@@ -172,25 +174,47 @@ ifneq ($(KERNELRELEASE),)
         subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/include/mgmt
         subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/include/chips
         subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/include/wpa_supp
+        # Note: Adaptor include path is handled by adaptor's own Makefile
+        # (adaptor Makefile adds it FIRST to ensure adaptor headers are found)
         subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/wlan_service/service/include
         subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/wlan_service/glue/osal/include
         subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/wlan_service/glue/hal/include
         subdir-ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m_ext/include
         subdir-ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m_ext/include/mgmt
-        subdir-ccflags-y += -Wno-unused-variable -Wno-unused-but-set-variable
+        # Define LIST_SEG_MAX to fix missing definition in gl_qa_agent.h
+        # (defined in net_adaption.h but not included by gl_qa_agent.h)
+        subdir-ccflags-y += -DLIST_SEG_MAX=100
+        # Redefine CONFIG_WLAN_SERVICE to enable nicCmdEventListmode function
+        # (kernel config defines it as 0, we need it as 1 - suppress redefinition warning)
+        subdir-ccflags-y += -Wno-macro-redefined -DCONFIG_WLAN_SERVICE=1
+        subdir-ccflags-y += -Wno-unused-variable
 
-        # Build wmt_chrdev_wifi.ko by pointing to the correct subdirectory
+        # Build wmt_chrdev_wifi.ko by pointing to the adaptor directory
         # and exporting the variables its internal Kbuild needs.
+        # IMPORTANT: Set MODULE_NAME for adaptor BEFORE building it
         export CONNAC_VER=1_0
+        export MODULE_NAME=wmt_chrdev_wifi
+        obj-m += wmt_chrdev_wifi_ext/
 
-        obj-m += wmt_chrdev_wifi_ext/build/connac1x/
-
-        # Build wlan_drv_gen4m_6835.ko
+        # Build wlan_drv_gen4m_6789.ko
+        # MT6789 Configuration (from Android.mk analysis):
+        # - CONNAC_VER: 1_0 (ConnAC 1.0, not 2.0)
+        # - MTK_COMBO_CHIP: SOC2_1X1 (same as MT6855, MT6765)
+        # - WLAN_CHIP_ID: 6789
+        # - HIF: axi (AXI bus interface)
+        # - Module name: wlan_drv_gen4m_6789
+        # IMPORTANT: Set MODULE_NAME for WLAN driver AFTER adaptor build
         export CONFIG_MTK_COMBO_WIFI_HIF=axi
         export MTK_COMBO_CHIP=SOC2_1X1
-        export WLAN_CHIP_ID=6835
+        export WLAN_CHIP_ID=6789
         export MTK_ANDROID_WMT=y
-        export MODULE_NAME=wlan_drv_gen4m_6835
+        export MODULE_NAME=wlan_drv_gen4m_6789
+        # Export MTK_WLAN_SERVICE=yes to enable CONFIG_WLAN_SERVICE=1 in WLAN driver Makefile
+        # This enables nicCmdEventListmode function
+        export MTK_WLAN_SERVICE=yes
+        # Export MTK_ANDROID_EMI=y to enable CFG_MTK_ANDROID_EMI=1 in WLAN driver Makefile
+        # This enables gConEmiPhyBaseFinal, gConEmiSizeFinal, WIFI_EMI_ADDR_MASK
+        export MTK_ANDROID_EMI=y
 
         obj-m += wlan_drv_gen4m_ext/
     endif

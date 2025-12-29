@@ -23,7 +23,8 @@
 #include <linux/inetdevice.h>
 #include <linux/string.h>
 #include "fw_log_ics.h"
-#include "wlan_ring.h"
+/* Use adaptor's wlan_ring.h explicitly with relative path to avoid mgmt conflict */
+#include "include/wlan_ring.h"
 
 MODULE_LICENSE("Dual BSD/GPL");
 
