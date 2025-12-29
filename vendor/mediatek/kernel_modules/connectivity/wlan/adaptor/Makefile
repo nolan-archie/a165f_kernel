@@ -9,8 +9,20 @@ ifndef TOP
     TOP := $(srctree)/..
 endif
 
+# Override MODULE_NAME to ensure adaptor builds as wmt_chrdev_wifi.ko
+# (parent Makefile exports MODULE_NAME=wlan_drv_gen4m_6789 for WLAN driver,
+#  but adaptor must always use wmt_chrdev_wifi)
+MODULE_NAME := wmt_chrdev_wifi
+
 # Force build fail on modpost warning
 KBUILD_MODPOST_FAIL_ON_WARNINGS := y
+
+# Add adaptor's own include path FIRST to ensure adaptor headers are found
+# This must come before other include paths to avoid conflicts with mgmt/wlan_ring.h
+# Prepend to existing ccflags-y (from parent's subdir-ccflags-y) to ensure priority
+# Note: subdir-ccflags-y from parent is processed separately, so we need to ensure
+# adaptor path comes first in the final command line by prepending here
+ccflags-y := -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/wlan/adaptor/include $(ccflags-y)
 
 ccflags-y += \
     -I$(srctree)/drivers/misc/mediatek/include/mt-plat \
@@ -28,7 +40,7 @@ endif
 ifneq ($(CONFIG_MTK_CONNSYS_DEDICATED_LOG_PATH),)
 ccflags-y += -DCONFIG_MTK_CONNSYS_DEDICATED_LOG_PATH
 ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/common/debug_utility
-ccflags-y += -I$(src)/include
+# Note: -I$(src)/include is already added unconditionally above
 endif
 
 ifeq ($(CONFIG_MTK_CONN_LTE_IDC_SUPPORT),y)
