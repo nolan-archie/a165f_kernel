@@ -14,6 +14,11 @@
 # Connectivity combo driver
 # If KERNELRELEASE is defined, we've been invoked from the
 # kernel build system and can use its language.
+
+ifndef TOP
+    TOP := $(srctree)/..
+endif
+
 ifneq ($(KERNELRELEASE),)
     subdir-ccflags-y += -I$(srctree)/
     subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
@@ -117,6 +122,30 @@ ifneq ($(KERNELRELEASE),)
         obj-y += wmt_drv/
         obj-y += wmt_chrdev_wifi/
         obj-y += wlan_drv_gen4m/
+    endif
+
+    # Cooking missing MTK Modules @ ravindu644
+    # WMT driver (Common dependency)
+    PATH_TO_WMT_DRV := vendor/mediatek/kernel_modules/connectivity/common
+    $(shell ln -s -f $(TOP)/$(PATH_TO_WMT_DRV) $(srctree)/$(src)/wmt_drv_ext)
+
+    obj-m += wmt_drv_ext/
+
+    # --- Mediatek Bluetooth Driver ---
+    ifeq ($(CONFIG_MTK_BT_DRV_EXTERNAL),y)
+
+        PATH_TO_BT_DRV := vendor/mediatek/kernel_modules/connectivity/bt
+
+        $(warning Building external BT module from $(PATH_TO_BT_DRV))
+        $(shell ln -s -f $(TOP)/$(PATH_TO_BT_DRV) $(srctree)/$(src)/bt_drv_ext)
+
+        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_BT_DRV)/linux_v2/include
+        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_BT_DRV)/mt66xx/include/btif
+
+        export BT_PLATFORM=connac1x
+        export MTK_PLATFORM=mt6789
+
+        obj-m += bt_drv_ext/mt66xx/wmt/
     endif
 
 # Otherwise we were called directly from the command line;
