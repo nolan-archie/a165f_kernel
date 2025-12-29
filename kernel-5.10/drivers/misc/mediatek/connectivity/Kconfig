@@ -438,3 +438,13 @@ config MTK_BT_DRV_EXTERNAL
 	  loadable kernel module (.ko) from the external source tree.
 
 	  If unsure, say Y.
+
+config WLAN_DRV_MODULE
+	bool "Build Mediatek WLAN driver as a kernel module"
+	default y
+	help
+	  This will build the Mediatek WLAN driver (wlan_drv) and its
+	  dependencies (wmt, chrdev) as loadable kernel modules (.ko).
+	  This is the standard method for Android devices.
+
+	  If unsure, say Y.

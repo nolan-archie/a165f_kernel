@@ -148,6 +148,53 @@ ifneq ($(KERNELRELEASE),)
         obj-m += bt_drv_ext/mt66xx/wmt/
     endif
 
+    # --- Mediatek WLAN Driver ---
+    ifeq ($(CONFIG_WLAN_DRV_MODULE),y)
+
+        PATH_TO_WLAN_CHR_DRV := vendor/mediatek/kernel_modules/connectivity/wlan/adaptor
+        PATH_TO_WLAN_DRV := vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m
+
+        WLAN_HIF_TYPE := axi
+
+        $(warning Building WLAN driver modules)
+        $(shell ln -s -f $(TOP)/$(PATH_TO_WLAN_CHR_DRV) $(srctree)/$(src)/wmt_chrdev_wifi_ext)
+        $(shell ln -s -f $(TOP)/$(PATH_TO_WLAN_DRV) $(srctree)/$(src)/wlan_drv_gen4m_ext)
+
+        # Essential WLAN include paths
+        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/os/linux/include
+        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/os/none/include
+        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/os
+        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/os/linux/hif/$(WLAN_HIF_TYPE)/include
+        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/os/linux/hif/common/include
+        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/wlan_service/include
+        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/include
+        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/include/nic
+        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/include/mgmt
+        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/include/chips
+        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/include/wpa_supp
+        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/wlan_service/service/include
+        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/wlan_service/glue/osal/include
+        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/wlan_service/glue/hal/include
+        subdir-ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m_ext/include
+        subdir-ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m_ext/include/mgmt
+        subdir-ccflags-y += -Wno-unused-variable -Wno-unused-but-set-variable
+
+        # Build wmt_chrdev_wifi.ko by pointing to the correct subdirectory
+        # and exporting the variables its internal Kbuild needs.
+        export CONNAC_VER=1_0
+
+        obj-m += wmt_chrdev_wifi_ext/build/connac1x/
+
+        # Build wlan_drv_gen4m_6835.ko
+        export CONFIG_MTK_COMBO_WIFI_HIF=axi
+        export MTK_COMBO_CHIP=SOC2_1X1
+        export WLAN_CHIP_ID=6835
+        export MTK_ANDROID_WMT=y
+        export MODULE_NAME=wlan_drv_gen4m_6835
+
+        obj-m += wlan_drv_gen4m_ext/
+    endif
+
 # Otherwise we were called directly from the command line;
 # invoke the kernel build system.
 else
