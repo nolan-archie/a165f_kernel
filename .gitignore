@@ -145,3 +145,8 @@ custom_defconfigs/version_defconfig
 kernel/prebuilts-master/
 kernel/prebuilts/
 prebuilts/
+out/
+dist/
+prebuilts_helio_g99/tools/BOOT_EDITOR/uiderrors
+prebuilts_helio_g99/tools/BOOT_EDITOR/*.img.*
+vendor/mediatek/kernel_modules/

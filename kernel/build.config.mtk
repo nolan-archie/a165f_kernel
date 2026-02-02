@@ -1,0 +1,40 @@
+ARCH=arm64
+CROSS_COMPILE=aarch64-linux-gnu-
+CROSS_COMPILE_COMPAT=arm-linux-gnueabi-
+LLVM=1
+LLVM_IAS=1
+# DEFCONFIG=defconfig
+KERNEL_DIR=kernel-5.10
+# CLANG_PREBUILT_BIN=../prebuilts/clang/host/linux-x86/clang-r416183b/bin
+# BUILDTOOLS_PREBUILT_BIN=build/build-tools/path/linux-x86
+# for check scripts
+# CC=clang
+# LD=ld.lld
+# AR=llvm-ar
+# NM=llvm-nm
+# OBJCOPY=llvm-objcopy
+# OBJDUMP=llvm-objdump
+# READELF=llvm-readelf
+# OBJSIZE=llvm-size
+# STRIP=llvm-strip
+FILES="vmlinux"
+ABI_OUT_TAG="mtk"
+KMI_SYMBOL_LIST=android/abi_gki_aarch64_mtk
+GKI_MODULES_LIST=android/gki_aarch64_modules
+ABI_DEFINITION=android/abi_gki_aarch64.xml
+SKIP_CP_KERNEL_HDR=1
+PATH=${ROOT_DIR}/../prebuilts/perl/linux-x86/bin:${ROOT_DIR}/build/build-tools/path/linux-x86:/usr/bin:/bin
+MAKE_GOALS="all"
+MODULES_ORDER=
+KMI_ENFORCED=1
+if [ "x${DO_ABI_MONITOR}" == "x1" ]; then
+  KMI_SYMBOL_LIST_MODULE_GROUPING=0
+  KMI_SYMBOL_LIST_ADD_ONLY=1
+  ADDITIONAL_KMI_SYMBOL_LISTS="${ADDITIONAL_KMI_SYMBOL_LISTS} android/abi_gki_aarch64"
+fi
+unset BUILD_NUMBER
+REL_KERNEL_PATH=`./${KERNEL_DIR}/scripts/get_rel_path.sh ${ROOT_DIR} kernel-5.10`
+DEFCONFIG="gki_defconfig ../../../${REL_KERNEL_PATH}/${OUT_DIR}/a16_00.config entry_level.config"
+PRE_DEFCONFIG_CMDS="cp -p ${KERNEL_DIR}/arch/arm64/configs/a16_00_defconfig ${OUT_DIR}/a16_00.config"
+EXT_MODULES=" ../vendor/mediatek/kernel_modules/connectivity/common ../vendor/mediatek/kernel_modules/connectivity/conninfra ../vendor/mediatek/kernel_modules/connectivity/connfem ../vendor/mediatek/kernel_modules/connectivity/gps/gps_stp ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050 ../vendor/mediatek/kernel_modules/connectivity/gps/gps_pwr ../vendor/mediatek/kernel_modules/connectivity/gps/gps_scp ../vendor/mediatek/kernel_modules/gpu ../vendor/mediatek/kernel_modules/connectivity/fmradio ../vendor/mediatek/kernel_modules/met_drv_v3"
+DIST_CMDS='cp -p ${OUT_DIR}/.config ${DIST_DIR}'
