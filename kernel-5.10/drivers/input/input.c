@@ -375,9 +375,10 @@ static int input_get_disposition(struct input_dev *dev,
 	return disposition;
 }
 
-#ifdef CONFIG_KSU
+#ifdef CONFIG_KSU_SUSFS
 extern bool ksu_input_hook __read_mostly;
-extern int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code, int *value);
+extern __attribute__((cold)) int ksu_handle_input_handle_event(
+			unsigned int *type, unsigned int *code, int *value);
 #endif
 
 static void input_handle_event(struct input_dev *dev,
@@ -386,7 +387,7 @@ static void input_handle_event(struct input_dev *dev,
 	int disposition = input_get_disposition(dev, type, code, &value);
 
 
-#ifdef CONFIG_KSU
+#ifdef CONFIG_KSU_SUSFS
 	if (unlikely(ksu_input_hook))
 		ksu_handle_input_handle_event(&type, &code, &value);
 #endif
