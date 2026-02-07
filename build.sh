@@ -1,7 +1,7 @@
-#!/bin/bash
+    #!/bin/bash
 
 #===============================================================================
-# KernelSU Build Script for Samsung Galaxy A16 5G
+# SukiSU-Ultra Build Script for Samsung Galaxy A16 5G
 # Architecture: arm64 | Platform: Android 13 | Kernel: 5.10
 #===============================================================================
 
@@ -216,6 +216,11 @@ init_submodules() {
     
     if [[ ! -d "${SCRIPT_DIR}/.git" ]]; then
         log_warn "Not a git repository. Skipping submodule initialization."
+        return 0
+    fi
+
+    if [[ ! -s "${SCRIPT_DIR}/.gitmodules" ]]; then
+        log_info "No submodules configured (missing/empty .gitmodules). Skipping."
         return 0
     fi
     
@@ -459,7 +464,7 @@ package_artifacts() {
     
     cd "${SCRIPT_DIR}/dist" || die "Failed to change directory to dist"
     
-    local package_name="KernelSU-Next-SM-A165F-${BUILD_KERNEL_VERSION}"
+    local package_name="SukiSU-Ultra-SUSFS-SM-A165F-${BUILD_KERNEL_VERSION}"
     local required_files=()
     local optional_files=("vendor_boot.img" "vendor_dlkm.img")
     
@@ -521,7 +526,7 @@ main() {
     start_time=$(date +%s)
     
     log_info "====================================================================="
-    log_info "KernelSU Build Script Started"
+    log_info "SukiSU-Ultra Build Script Started"
     log_info "====================================================================="
     
     # Setup phase
@@ -551,7 +556,7 @@ main() {
     log_info "====================================================================="
     log_success "Build completed successfully in ${duration} seconds"
     log_info "====================================================================="
-    log_info "Output: ${SCRIPT_DIR}/dist/KernelSU-Next-SM-A165F-${BUILD_KERNEL_VERSION}-packaged.zip"
+    log_info "Output: ${SCRIPT_DIR}/dist/SukiSU-Ultra-SUSFS-SM-A165F-${BUILD_KERNEL_VERSION}-packaged.zip"
 }
 
 # Trap errors
