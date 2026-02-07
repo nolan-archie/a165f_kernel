@@ -33,16 +33,16 @@ jobs:
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: KernelSU-Next-SM-A165F-${{ github.event.inputs.tag }}
-        path: dist/*.tar
+        name: SukiSU-Ultra-SUSFS-SM-A165F-${{ github.event.inputs.tag }}
+        path: dist/*.zip
 
     - name: Create release
       uses: ncipollo/release-action@v1
       with:
         tag: ${{ github.event.inputs.tag }}
-        name: "KernelSU-Next-SM-A165F-${{ github.event.inputs.tag }}"
+        name: "SukiSU-Ultra-SUSFS-SM-A165F-${{ github.event.inputs.tag }}"
         draft: false
         prerelease: false
         token: ${{ secrets.TOKEN }}          
-        artifacts: "dist/*.tar"
+        artifacts: "dist/*.zip"
         body: "Commit SHA: ${{ github.sha }}"
