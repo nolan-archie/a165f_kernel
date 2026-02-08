@@ -107,7 +107,7 @@ install_dependencies() {
             local debian_packages=(
                 "build-essential"
                 "rsync"
-                "python2"
+                "python3"
                 "git"
                 "tar"
                 "gzip"
@@ -119,6 +119,7 @@ install_dependencies() {
                 "bison"
                 "zip"
                 "unzip"
+                "libncurses-dev"
                 "libssl-dev"
                 "device-tree-compiler"
             )
@@ -132,7 +133,7 @@ install_dependencies() {
             
         dnf)
             log_info "Installing Fedora dependencies..."
-            if ! sudo dnf install -y gcc gcc-c++ make rsync python2 git tar gzip curl wget bc cpio flex bison zip unzip openssl-devel dtc; then
+            if ! sudo dnf install -y gcc gcc-c++ make rsync python3 git tar gzip curl wget bc cpio flex bison zip unzip openssl-devel dtc; then
                 die "Failed to install dependencies"
             fi
             ;;
@@ -340,7 +341,7 @@ generate_build_config() {
     cd "${SCRIPT_DIR}/kernel-5.10" || die "Failed to change directory to kernel-5.10"
     
     # Generate build.config with absolute path
-    if ! python2 scripts/gen_build_config.py \
+    if ! python3 scripts/gen_build_config.py \
         --kernel-defconfig a16_00_defconfig \
         --kernel-defconfig-overlays entry_level.config \
         -m user \

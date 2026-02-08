@@ -7,6 +7,9 @@ on:
         description: 'Release Tag'
         required: true    
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-22.04
@@ -43,6 +46,6 @@ jobs:
         name: "SukiSU-Ultra-SUSFS-SM-A165F-${{ github.event.inputs.tag }}"
         draft: false
         prerelease: false
-        token: ${{ secrets.TOKEN }}          
+        token: ${{ secrets.GITHUB_TOKEN }}
         artifacts: "dist/*.zip"
         body: "Commit SHA: ${{ github.sha }}"
