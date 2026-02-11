@@ -459,7 +459,7 @@ package_artifacts() {
     
     cd "${SCRIPT_DIR}/dist" || die "Failed to change directory to dist"
     
-    local package_name="KernelSU-Next-SM-A165F-${BUILD_KERNEL_VERSION}"
+    local package_name="SukiSu-Ultra-SM-A165F-${BUILD_KERNEL_VERSION}"
     local required_files=()
     local optional_files=("vendor_boot.img" "vendor_dlkm.img")
     
