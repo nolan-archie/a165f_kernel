@@ -2,10 +2,10 @@ name: Kernel Compilation
 
 on:
   workflow_dispatch:
-    inputs:      
+    inputs:
       tag:
         description: 'Release Tag'
-        required: true    
+        required: true
 
 permissions:
   contents: write
@@ -36,8 +36,8 @@ jobs:
     - name: Set up 20GB swap
       run: |
         export SWAP_FILE=$(swapon --show=NAME | tail -n 1)
-        sudo swapoff $SWAP_FILE
-        sudo rm $SWAP_FILE
+        sudo swapoff $SWAP_FILE || true
+        sudo rm -f $SWAP_FILE || true
         sudo fallocate -l 20G /swapfile
         sudo chmod 600 /swapfile
         sudo mkswap /swapfile
@@ -47,7 +47,7 @@ jobs:
 
     - name: Set up build environment
       run: |
-        sudo apt update -y  
+        sudo apt update -y
         sudo apt install -y \
           build-essential \
           bc \
@@ -69,7 +69,8 @@ jobs:
           python3 \
           rsync \
           device-tree-compiler \
-          cpio
+          cpio \
+          ccache
 
     - name: Configure system for compilation
       run: |
@@ -81,23 +82,36 @@ jobs:
       run: |
         echo "BUILD_KERNEL_VERSION=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
         echo "MAKEFLAGS=-j$(nproc)" >> $GITHUB_ENV
+        echo "CCACHE_DIR=${{ github.workspace }}/.ccache" >> $GITHUB_ENV
+        echo "CCACHE_MAXSIZE=5G" >> $GITHUB_ENV
+
+    - name: Cache ccache
+      uses: actions/cache@v4
+      with:
+        path: .ccache
+        key: ccache-${{ github.ref }}
+        restore-keys: |
+          ccache-
 
     - name: Compile Kernel
       run: |
+        START=$(date +%s)
         bash build.sh
+        END=$(date +%s)
+        echo "Build took $((END-START)) seconds"
 
     - name: Check build artifacts
       run: |
-        ls -lh dist/
-        du -sh dist/
+        ls -lh dist/ || echo "dist folder missing"
+        du -sh dist/ || true
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: SukiSU-Ultra-SUSFS-SM-A165F-${{ github.event.inputs.tag }}-${{ github.run_number }}
-        path: dist/*.zip
+        path: dist/*
         retention-days: 30
-        compression-level: 9
+        if-no-files-found: warn
 
     - name: Create release
       uses: ncipollo/release-action@v1
@@ -107,17 +121,19 @@ jobs:
         draft: false
         prerelease: false
         token: ${{ secrets.GITHUB_TOKEN }}
-        artifacts: "dist/*.zip"
+        artifacts: "dist/*"
         body: |
           ## SukiSU-Ultra Kernel Build
-          
+
           **Release:** ${{ github.event.inputs.tag }}
           **Commit:** ${{ github.sha }}
-          **Build Date:** ${{ github.event.repository.updated_at }}
-          
+          **Build:** ${{ github.run_number }}
+
           ### Installation
-          1. Extract the zip file
-          2. Flash boot.img via fastboot: `fastboot flash boot boot.img`
+          1. Extract the tar file
+          2. Flash boot.img:
+
+             fastboot flash boot boot.img
+
           3. Or flash via TWRP/custom recovery
-          4. Reboot and enjoy!
-        
+          4. Reboot and enjoy 
