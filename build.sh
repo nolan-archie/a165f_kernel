@@ -463,7 +463,6 @@ package_artifacts() {
     local required_files=()
     local optional_files=("vendor_boot.img" "vendor_dlkm.img")
     
-    # Check what files we actually have
     if [[ -f "boot.img" ]]; then
         required_files+=("boot.img")
     elif [[ -f "Image.gz" ]]; then
@@ -473,44 +472,32 @@ package_artifacts() {
         log_warn "boot.img not found, using Image instead"
         required_files+=("Image")
     else
-        die "No kernel image files found (boot.img, Image.gz, or Image)"
+        die "No kernel image files found"
     fi
     
-    # Build file list for tar
     local files_to_tar=("${required_files[@]}")
     for file in "${optional_files[@]}"; do
         if [[ -f "${file}" ]]; then
             files_to_tar+=("${file}")
-            log_info "Including ${file} in package"
-        else
-            log_warn "Optional file ${file} not found. Continuing without it."
+            log_info "Including ${file}"
         fi
     done
-    
-    # Create tar archive
+
+    #  UNCOMPRESSED TAR
     if ! tar -cvf "${package_name}.tar" "${files_to_tar[@]}"; then
         die "Failed to create tar archive"
     fi
-    
-    # Build file list for zip
-    local files_to_zip=("${package_name}.tar")
-    [[ -f "vendor_dlkm.img" ]] && files_to_zip+=("vendor_dlkm.img")
-    
-    # Create zip package
-    if ! zip -9 -r "${package_name}-packaged.zip" "${files_to_zip[@]}"; then
-        die "Failed to create zip package"
-    fi
-    
-    # Cleanup intermediate files
-    rm -f "${package_name}.tar"
-    for file in "${required_files[@]}" "${optional_files[@]}"; do
+
+    # Cleanup only source artifacts
+    for file in "${files_to_tar[@]}"; do
         [[ -f "${file}" ]] && rm -f "${file}"
     done
     
     cd "${SCRIPT_DIR}" || die "Failed to return to script directory"
     
-    log_success "Packaging complete: ${SCRIPT_DIR}/dist/${package_name}-packaged.zip"
+    log_success "Packaging complete: ${SCRIPT_DIR}/dist/${package_name}.tar"
 }
+
 
 #===============================================================================
 # Main Build Flow
@@ -545,11 +532,11 @@ main() {
     local end_time
     end_time=$(date +%s)
     local duration=$((end_time - start_time))
-    
-    log_info "====================================================================="
-    log_success "Build completed successfully in ${duration} seconds"
-    log_info "====================================================================="
-    log_info "Output: ${SCRIPT_DIR}/dist/KernelSU-Next-SM-A165F-${BUILD_KERNEL_VERSION}-packaged.zip"
+log_info "====================================================================="
+log_success "Build completed successfully in ${duration} seconds"
+log_info "====================================================================="
+log_info "Output: ${SCRIPT_DIR}/dist/SukiSu-Ultra-SM-A165F-${BUILD_KERNEL_VERSION}.tar"
+
 }
 
 # Trap errors
