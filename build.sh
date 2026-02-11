@@ -232,17 +232,16 @@ EOF
     export CROSS_COMPILE="aarch64-linux-gnu-"
     export CROSS_COMPILE_COMPAT="arm-linux-gnueabi-"
     
-    local abs_out_dir="${SCRIPT_DIR}/out/target/product/a16/obj/KERNEL_OBJ"
-    export OUT_DIR="${abs_out_dir}"
-    export DIST_DIR="${abs_out_dir}"
-    export BUILD_CONFIG="${abs_out_dir}/build.config"
-    export MERGE_CONFIG="${SCRIPT_DIR}/kernel-5.10/scripts/kconfig/merge_config.sh"
+    export OUT_DIR="../out/target/product/a16/obj/KERNEL_OBJ"
+    export DIST_DIR="../out/target/product/a16/obj/KERNEL_OBJ"
+    export BUILD_CONFIG="../out/target/product/a16/obj/KERNEL_OBJ/build.config"
+    export MERGE_CONFIG="../kernel-5.10/scripts/kconfig/merge_config.sh"
 
-    export GKI_KERNEL_BUILD_OPTIONS="SKIP_MRPROPER=1 KMI_SYMBOL_LIST_STRICT_MODE=0 ABI_DEFINITION= BUILD_BOOT_IMG=1 MKBOOTIMG_PATH=${SCRIPT_DIR}/mkbootimg/mkbootimg.py KERNEL_BINARY=Image.gz BOOT_IMAGE_HEADER_VERSION=4 SKIP_VENDOR_BOOT=1 AVB_SIGN_BOOT_IMG=1 AVB_BOOT_PARTITION_SIZE=67108864 AVB_BOOT_KEY=${SCRIPT_DIR}/mkbootimg/tests/data/testkey_rsa2048.pem AVB_BOOT_ALGORITHM=SHA256_RSA2048 AVB_BOOT_PARTITION_NAME=boot GKI_RAMDISK_PREBUILT_BINARY=${SCRIPT_DIR}/oem_prebuilt_images/gki-ramdisk.lz4 LTO=none"
+    export GKI_KERNEL_BUILD_OPTIONS="SKIP_MRPROPER=1 KMI_SYMBOL_LIST_STRICT_MODE=0 ABI_DEFINITION= BUILD_BOOT_IMG=1 MKBOOTIMG_PATH=../mkbootimg/mkbootimg.py KERNEL_BINARY=Image.gz BOOT_IMAGE_HEADER_VERSION=4 SKIP_VENDOR_BOOT=1 AVB_SIGN_BOOT_IMG=1 AVB_BOOT_PARTITION_SIZE=67108864 AVB_BOOT_KEY=../mkbootimg/tests/data/testkey_rsa2048.pem AVB_BOOT_ALGORITHM=SHA256_RSA2048 AVB_BOOT_PARTITION_NAME=boot GKI_RAMDISK_PREBUILT_BINARY=../oem_prebuilt_images/gki-ramdisk.lz4 LTO=none"
     
     export MKBOOTIMG_EXTRA_ARGS="--os_version 12.0.0 --os_patch_level 2025-05-00 --pagesize 4096"
     
-    export GKI_RAMDISK_PREBUILT_BINARY="${SCRIPT_DIR}/oem_prebuilt_images/gki-ramdisk.lz4"
+    export GKI_RAMDISK_PREBUILT_BINARY="../oem_prebuilt_images/gki-ramdisk.lz4"
     
     export MAKE_MENUCONFIG="${MAKE_MENUCONFIG:-0}"
     if [[ "${MAKE_MENUCONFIG}" == "1" ]]; then
@@ -251,6 +250,26 @@ EOF
     fi
     
     export WDIR="${SCRIPT_DIR}"
+    
+    log_info "Creating symlinks for build directories"
+    
+    local symlink_pairs=(
+        "${SCRIPT_DIR}/out:${SCRIPT_DIR}/kernel/out"
+        "${SCRIPT_DIR}/kernel-5.10:${SCRIPT_DIR}/kernel/kernel-5.10"
+        "${SCRIPT_DIR}/mkbootimg:${SCRIPT_DIR}/kernel/mkbootimg"
+        "${SCRIPT_DIR}/oem_prebuilt_images:${SCRIPT_DIR}/kernel/oem_prebuilt_images"
+        "${SCRIPT_DIR}/custom_defconfigs:${SCRIPT_DIR}/kernel/custom_defconfigs"
+        "${SCRIPT_DIR}/prebuilts_helio_g99:${SCRIPT_DIR}/kernel/prebuilts_helio_g99"
+    )
+    
+    for pair in "${symlink_pairs[@]}"; do
+        local src="${pair%%:*}"
+        local dst="${pair##*:}"
+        
+        if [[ -e "${src}" ]] && [[ ! -e "${dst}" ]]; then
+            ln -sf "${src}" "${dst}" && log_info "Linked: ${dst} -> ${src}"
+        fi
+    done
     
     log_success "Environment configured"
 }
@@ -298,25 +317,6 @@ generate_build_config() {
     log_info "Build config created at: ${abs_out_dir}/build.config"
     
     cd "${SCRIPT_DIR}" || die "Cannot return to script directory"
-    
-    local symlink_dirs=(
-        "custom_defconfigs"
-        "prebuilts_helio_g99"
-        "oem_prebuilt_images"
-    )
-    
-    for dir_name in "${symlink_dirs[@]}"; do
-        if [[ -d "${SCRIPT_DIR}/${dir_name}" ]] && [[ ! -e "/${dir_name}" ]]; then
-            log_info "Attempting symlink: /${dir_name}"
-            if sudo ln -sf "${SCRIPT_DIR}/${dir_name}" "/${dir_name}" 2>/dev/null; then
-                log_success "Symlink created: /${dir_name}"
-            else
-                log_warn "Symlink failed for /${dir_name}, continuing without it"
-            fi
-        elif [[ -e "/${dir_name}" ]]; then
-            log_info "Symlink exists: /${dir_name}"
-        fi
-    done
     
     log_success "Build config generated"
 }
