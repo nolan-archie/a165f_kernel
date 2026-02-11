@@ -116,6 +116,71 @@ jobs:
           **Build Date:** ${{ github.event.repository.updated_at }}
           
           ### Installation
+          1. Extract the zip file
+          2. Flash boot.img via fastboot: `fastboot flash boot boot.img`
+          3. Or flash via TWRP/custom recovery
+          4. Reboot and enjoy!
+          
+          ### Features
+          - KernelSU/SukiSU support
+          - SUSFS integration
+          - Custom kernel optimizations
+          - No vendor_boot/vendor_dlkm needed          make \
+          git \
+          zip \
+          unzip \
+          curl \
+          wget \
+          python3 \
+          rsync \
+          device-tree-compiler \
+          cpio
+
+    - name: Configure system for compilation
+      run: |
+        sudo sysctl vm.swappiness=100
+        sudo sysctl vm.vfs_cache_pressure=50
+        ulimit -n 65536
+
+    - name: Set environment variables
+      run: |
+        echo "BUILD_KERNEL_VERSION=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
+        echo "MAKEFLAGS=-j$(nproc)" >> $GITHUB_ENV
+
+    - name: Compile Kernel
+      run: |
+        bash build.sh
+
+    - name: Check build artifacts
+      run: |
+        ls -lh dist/
+        du -sh dist/
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: SukiSU-Ultra-SUSFS-SM-A165F-${{ github.event.inputs.tag }}
+        path: dist/*.zip
+        retention-days: 30
+        compression-level: 9
+
+    - name: Create release
+      uses: ncipollo/release-action@v1
+      with:
+        tag: ${{ github.event.inputs.tag }}
+        name: "SukiSU-Ultra-SUSFS-SM-A165F-${{ github.event.inputs.tag }}"
+        draft: false
+        prerelease: false
+        token: ${{ secrets.GITHUB_TOKEN }}
+        artifacts: "dist/*.zip"
+        body: |
+          ## SukiSU-Ultra Kernel Build
+          
+          **Release:** ${{ github.event.inputs.tag }}
+          **Commit:** ${{ github.sha }}
+          **Build Date:** ${{ github.event.repository.updated_at }}
+          
+          ### Installation
           1. Flash boot.img via fastboot or TWRP
           2. Flash vendor_boot.img (if included)
           3. Flash vendor_dlkm.img (if included)
