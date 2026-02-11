@@ -339,7 +339,6 @@ generate_build_config() {
     
     log_success "Build config generated"
 }
-}
 
 build_kernel() {
     log_info "Building kernel"
