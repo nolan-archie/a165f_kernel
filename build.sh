@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #===============================================================================
-# KernelSU Build Script for Samsung Galaxy A16 5G
-# Architecture: arm64 | Platform: Android 13 | Kernel: 5.10
+# KernelSU Build Script for Samsung Galaxy A16 4G
+# Architecture: arm64 | Platform: Android 12 | Kernel: 5.10
 #===============================================================================
 
 set -euo pipefail  # Exit on error, undefined variables, and pipe failures
@@ -540,8 +540,6 @@ main() {
     
     # Build phase
     build_kernel
-    build_vendor_boot
-    build_vendor_dlkm
     package_artifacts
     
     local end_time
