@@ -231,9 +231,11 @@ EOF
     export TARGET_BUILD_VARIANT=user
     export CROSS_COMPILE="aarch64-linux-gnu-"
     export CROSS_COMPILE_COMPAT="arm-linux-gnueabi-"
-    export OUT_DIR="${SCRIPT_DIR}/out/target/product/a16/obj/KERNEL_OBJ"
-    export DIST_DIR="${SCRIPT_DIR}/out/target/product/a16/obj/KERNEL_OBJ"
-    export BUILD_CONFIG="${SCRIPT_DIR}/out/target/product/a16/obj/KERNEL_OBJ/build.config"
+    
+    local abs_out_dir="${SCRIPT_DIR}/out/target/product/a16/obj/KERNEL_OBJ"
+    export OUT_DIR="${abs_out_dir}"
+    export DIST_DIR="${abs_out_dir}"
+    export BUILD_CONFIG="${abs_out_dir}/build.config"
     export MERGE_CONFIG="${SCRIPT_DIR}/kernel-5.10/scripts/kconfig/merge_config.sh"
 
     export GKI_KERNEL_BUILD_OPTIONS="SKIP_MRPROPER=1 KMI_SYMBOL_LIST_STRICT_MODE=0 ABI_DEFINITION= BUILD_BOOT_IMG=1 MKBOOTIMG_PATH=${SCRIPT_DIR}/mkbootimg/mkbootimg.py KERNEL_BINARY=Image.gz BOOT_IMAGE_HEADER_VERSION=4 SKIP_VENDOR_BOOT=1 AVB_SIGN_BOOT_IMG=1 AVB_BOOT_PARTITION_SIZE=67108864 AVB_BOOT_KEY=${SCRIPT_DIR}/mkbootimg/tests/data/testkey_rsa2048.pem AVB_BOOT_ALGORITHM=SHA256_RSA2048 AVB_BOOT_PARTITION_NAME=boot GKI_RAMDISK_PREBUILT_BINARY=${SCRIPT_DIR}/oem_prebuilt_images/gki-ramdisk.lz4 LTO=none"
@@ -273,9 +275,10 @@ verify_prerequisites() {
 generate_build_config() {
     log_info "Generating build config"
     
-    mkdir -p "${SCRIPT_DIR}/out/target/product/a16/obj/KERNEL_OBJ"
+    local abs_out_dir="${SCRIPT_DIR}/out/target/product/a16/obj/KERNEL_OBJ"
+    mkdir -p "${abs_out_dir}"
     
-    local config_dir="${SCRIPT_DIR}/out/target/product/a16/obj/KERNEL_OBJ"
+    local config_dir="${abs_out_dir}"
     rm -f "${config_dir}/build.config" \
           "${config_dir}/build.config.gki.aarch64" \
           "${config_dir}/build.config.mtk" 2>/dev/null || true
@@ -286,7 +289,13 @@ generate_build_config() {
         --kernel-defconfig a16_00_defconfig \
         --kernel-defconfig-overlays entry_level.config \
         -m user \
-        -o "${SCRIPT_DIR}/out/target/product/a16/obj/KERNEL_OBJ/build.config" || die "Build config generation failed"
+        -o "${abs_out_dir}/build.config" || die "Build config generation failed"
+    
+    if [[ ! -f "${abs_out_dir}/build.config" ]]; then
+        die "build.config was not created at ${abs_out_dir}/build.config"
+    fi
+    
+    log_info "Build config created at: ${abs_out_dir}/build.config"
     
     cd "${SCRIPT_DIR}" || die "Cannot return to script directory"
     
@@ -298,11 +307,11 @@ generate_build_config() {
     
     for dir_name in "${symlink_dirs[@]}"; do
         if [[ -d "${SCRIPT_DIR}/${dir_name}" ]] && [[ ! -e "/${dir_name}" ]]; then
-            log_info "Creating symlink: /${dir_name}"
-            if sudo ln -sf "${SCRIPT_DIR}/${dir_name}" "/${dir_name}"; then
+            log_info "Attempting symlink: /${dir_name}"
+            if sudo ln -sf "${SCRIPT_DIR}/${dir_name}" "/${dir_name}" 2>/dev/null; then
                 log_success "Symlink created: /${dir_name}"
             else
-                log_warn "Symlink creation failed: /${dir_name}"
+                log_warn "Symlink failed for /${dir_name}, continuing without it"
             fi
         elif [[ -e "/${dir_name}" ]]; then
             log_info "Symlink exists: /${dir_name}"
@@ -310,6 +319,7 @@ generate_build_config() {
     done
     
     log_success "Build config generated"
+}
 }
 
 build_kernel() {
