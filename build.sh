@@ -373,30 +373,22 @@ build_kernel() {
     
     cd "${SCRIPT_DIR}/kernel" || die "Failed to change directory to kernel"
     
+    local boot_img="${SCRIPT_DIR}/out/target/product/a16/obj/KERNEL_OBJ/boot.img"
+    local kernel_img_gz="${SCRIPT_DIR}/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10/arch/arm64/boot/Image.gz"
+    
+    # Remove stale outputs so a failed build cannot be mistaken for a fresh one.
+    rm -f "${boot_img}" "${kernel_img_gz}"
+    
     # Execute build - let it run naturally
     local build_result=0
     env ${GKI_KERNEL_BUILD_OPTIONS} ./build/build.sh || build_result=$?
     
-    # If build failed, check if we can recover
     if [[ ${build_result} -ne 0 ]]; then
-        log_warn "Build command returned error code ${build_result}, checking outputs..."
-        
-        # Check if the actual compilation succeeded even though the script failed
-        local boot_img="${SCRIPT_DIR}/out/target/product/a16/obj/KERNEL_OBJ/boot.img"
-        local kernel_img_gz="${SCRIPT_DIR}/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10/arch/arm64/boot/Image.gz"
-        
-        if [[ -f "${boot_img}" ]] || [[ -f "${kernel_img_gz}" ]]; then
-            log_success "Build artifacts found despite error - continuing..."
-        else
-            die "Kernel build failed - no usable artifacts found"
-        fi
+        die "Kernel build failed with error code ${build_result}"
     fi
     
     # Copy artifacts to dist
     mkdir -p "${SCRIPT_DIR}/dist"
-    
-    local boot_img="${SCRIPT_DIR}/out/target/product/a16/obj/KERNEL_OBJ/boot.img"
-    local kernel_img_gz="${SCRIPT_DIR}/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10/arch/arm64/boot/Image.gz"
     
     if [[ -f "${boot_img}" ]]; then
         cp "${boot_img}" "${SCRIPT_DIR}/dist/" && log_success "Copied boot.img"

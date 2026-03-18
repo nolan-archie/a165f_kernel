@@ -1,111 +1,138 @@
 menu "KernelSU"
 
 config KSU
-    tristate "KernelSU function support"
-    default y
-    help
-      Enable kernel-level root privileges on Android System.
-      To compile as a module, choose M here: the
-      module will be called kernelsu.
+	tristate "KernelSU function support"
+	default y
+	help
+	  Enable kernel-level root privileges on Android System.
+	  To compile as a module, choose M here: the
+	  module will be called kernelsu.
 
 config KSU_DEBUG
-    bool "KernelSU debug mode"
-    depends on KSU
-    default n
-    help
-      Enable KernelSU debug mode.
+	bool "KernelSU debug mode"
+	depends on KSU
+	default n
+	help
+	  Enable KernelSU debug mode.
+
+choice
+	prompt "KernelSU hooks"
+	default KSU_NONE_HOOK
+	help
+	  KernelSU core hook mode.
+
+config KSU_MANUAL_HOOK
+	bool "KernelSU manual hook mode"
+	depends on KSU && KSU != m
+	help
+	  Enable manual hook support.
+
+config KSU_SYSCALL_HOOK
+	bool "KernelSU syscall hook mode"
+	depends on KSU
+	depends on KPROBES && KRETPROBES && HAVE_SYSCALL_TRACEPOINTS
+	help
+	  Enable kprobe/kretprobe and tracepoint based hooks for KernelSU.
+
+config KSU_NONE_HOOK
+	bool "KernelSU none hook mode"
+	depends on KSU && KSU != m && KSU_SUSFS
+	help
+	  Use the inline SUSFS integration path.
+
+endchoice
 
 config KSU_MANUAL_SU
-    bool "Use manual su"
-    depends on KSU
-    default y
-    help
-      Use manual su and authorize the corresponding command line and application via prctl
-
-config KPM
-    bool "Enable SukiSU KPM"
-    depends on KSU && 64BIT
-    default n
-    help
-      Enabling this option will activate the KPM feature of SukiSU.
-      This option is suitable for scenarios where you need to force KPM to be enabled.
-      but it may affect system stability.
-    select KALLSYMS
-    select KALLSYMS_ALL
+	bool "Use manual su"
+	depends on KSU
+	default y
+	help
+	  Use manual su and authorize the corresponding command line and application via prctl
 
 menu "KernelSU - SUSFS"
 
 config KSU_SUSFS
-    bool "KernelSU addon - SUSFS"
-    depends on KSU
-    depends on THREAD_INFO_IN_TASK
-    default y
-    help
-      Patch and enable SUSFS to the kernel with KernelSU.
+	bool "KernelSU addon - SUSFS"
+	depends on KSU
+	depends on THREAD_INFO_IN_TASK
+	default n
+	help
+	  Patch and enable SUSFS support alongside KernelSU.
 
 config KSU_SUSFS_SUS_PATH
-    bool "Hide suspicious path (not recommended)"
-    depends on KSU_SUSFS
-    default y
-    help
-      Hide user-defined paths from various system calls.
+	bool "Enable suspicious path hiding"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Hide user-defined paths and their subpaths from various lookups.
 
 config KSU_SUSFS_SUS_MOUNT
-    bool "Hide suspicious mounts"
-    depends on KSU_SUSFS
-    default y
-    help
-      Hide user-defined mount paths from /proc/* mount interfaces.
+	bool "Enable suspicious mount hiding"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Hide SUSFS-managed mounts from non-su processes.
 
 config KSU_SUSFS_SUS_KSTAT
-    bool "Spoof suspicious kstat"
-    depends on KSU_SUSFS
-    default y
-    help
-      Spoof kstat for user-defined files/directories.
+	bool "Enable suspicious kstat spoofing"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Spoof stat metadata for selected paths.
 
 config KSU_SUSFS_SPOOF_UNAME
-    bool "Spoof uname"
-    depends on KSU_SUSFS
-    default y
-    help
-      Spoof the strings returned by uname() to user-defined strings.
+	bool "Enable uname spoofing"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Spoof uname output for all processes.
 
 config KSU_SUSFS_ENABLE_LOG
-    bool "Enable susfs kernel logging"
-    depends on KSU_SUSFS
-    default y
-    help
-      Enable susfs logging in kernel.
+	bool "Enable SUSFS kernel logging"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Print SUSFS logs to the kernel log buffer.
 
 config KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS
-    bool "Hide ksu/susfs symbols from /proc/kallsyms"
-    depends on KSU_SUSFS
-    default y
-    help
-      Automatically hide ksu and susfs symbols from /proc/kallsyms.
+	bool "Hide ksu and susfs symbols from /proc/kallsyms"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Filter KernelSU and SUSFS symbols from kallsyms output.
 
 config KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
-    bool "Spoof /proc/bootconfig (GKI) or /proc/cmdline (non-GKI)"
-    depends on KSU_SUSFS
-    default y
-    help
-      Spoof /proc/bootconfig or /proc/cmdline output with a user-defined file.
+	bool "Enable /proc cmdline or bootconfig spoofing"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Spoof /proc/cmdline or /proc/bootconfig with user-defined content.
 
 config KSU_SUSFS_OPEN_REDIRECT
-    bool "Redirect opened paths (experimental)"
-    depends on KSU_SUSFS
-    default y
-    help
-      Redirect a target path to another user-defined path when opening.
+	bool "Enable open redirect"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Redirect a selected path to a different backing path when opened.
 
 config KSU_SUSFS_SUS_MAP
-    bool "Hide suspicious mmap file mappings"
-    depends on KSU_SUSFS
-    default y
-    help
-      Hide some file-backed mmaps from proc map interfaces.
+	bool "Enable proc maps hiding"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Hide selected mmap-backed files from proc maps interfaces.
 
 endmenu
+
+config KPM
+	bool "Enable SukiSU KPM"
+	depends on KSU && 64BIT
+	default n
+	help
+	  Enabling this option will activate the KPM feature of SukiSU.
+	  This option is suitable for scenarios where you need to force KPM to be enabled.
+	  but it may affect system stability.
+	select KALLSYMS
+	select KALLSYMS_ALL
 
 endmenu
