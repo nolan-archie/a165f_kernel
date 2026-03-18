@@ -1,0 +1,4 @@
+[submodule "KernelSU_susfs_features"]
+	path = KernelSU_susfs_features
+	url = https://github.com/SukiSU-Ultra/SukiSU-Ultra.git
+	branch = susfs_features
