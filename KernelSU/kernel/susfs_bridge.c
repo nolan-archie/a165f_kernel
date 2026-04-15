@@ -1,19 +1,21 @@
 #include <linux/dcache.h>
-#include <linux/security.h>
 #include <linux/fs.h>
 #include <linux/sched.h>
+#include <linux/security.h>
 #include <linux/string.h>
 #include <linux/types.h>
 
-#include "ksud.h"
+#include "policy/app_profile.h"
+#include "runtime/ksud.h"
 #include "selinux/selinux.h"
 
 extern int security_context_to_sid(const char *context, size_t len, u32 *sid);
 
 #define SUSFS_PRIV_APP_CONTEXT "u:r:priv_app:s0:c512,c768"
 
-bool ksu_execveat_hook __read_mostly = false;
-bool ksu_input_hook __read_mostly = false;
+bool ksu_init_rc_hook __read_mostly = true;
+bool ksu_execveat_hook __read_mostly = true;
+bool ksu_input_hook __read_mostly = true;
 u32 susfs_ksu_sid __read_mostly = 0;
 u32 susfs_priv_app_sid __read_mostly = 0;
 
@@ -65,19 +67,35 @@ bool susfs_is_current_ksu_domain(void)
 	return is_ksu_domain();
 }
 
+void ksu_escape_to_root(void)
+{
+	int ret = escape_with_root_profile();
+
+	if (ret)
+		pr_warn("escape_with_root_profile failed: %d\n", ret);
+}
+
 int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv,
 			void *envp, int *flags)
 {
 	struct user_arg_ptr *argv_ptr = argv;
-	struct user_arg_ptr *envp_ptr = envp;
+	char path[32];
+
+	(void)fd;
+	(void)envp;
+	(void)flags;
+
+	if (!filename_ptr || !*filename_ptr || !(*filename_ptr)->name)
+		return 0;
 
 	ensure_susfs_sids();
-	return ksu_handle_execveat_ksud(fd, filename_ptr, argv_ptr, envp_ptr,
-					flags);
+	strscpy(path, (*filename_ptr)->name, sizeof(path));
+	ksu_handle_execveat_ksud(path, argv_ptr);
+	return 0;
 }
 
 int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
-				void *argv, void *envp, int *flags)
+				 void *argv, void *envp, int *flags)
 {
 	return ksu_handle_execveat(fd, filename_ptr, argv, envp, flags);
 }
@@ -102,6 +120,10 @@ void ksu_handle_vfs_fstat(int fd, loff_t *kstat_size_ptr)
 EXPORT_SYMBOL(ksu_handle_execveat);
 EXPORT_SYMBOL(ksu_handle_execveat_sucompat);
 EXPORT_SYMBOL(ksu_handle_vfs_fstat);
+EXPORT_SYMBOL(ksu_init_rc_hook);
+EXPORT_SYMBOL(ksu_execveat_hook);
+EXPORT_SYMBOL(ksu_input_hook);
+EXPORT_SYMBOL(ksu_escape_to_root);
 EXPORT_SYMBOL(susfs_is_current_ksu_domain);
 EXPORT_SYMBOL(susfs_ksu_sid);
 EXPORT_SYMBOL(susfs_priv_app_sid);

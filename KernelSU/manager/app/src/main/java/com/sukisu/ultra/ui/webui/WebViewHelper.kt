@@ -25,6 +25,17 @@ import com.sukisu.ultra.ui.util.createRootShell
 import com.sukisu.ultra.ui.viewmodel.SuperUserViewModel
 import java.io.File
 
+fun Activity.setTaskDescription(label: String) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+        @Suppress("DEPRECATION")
+        setTaskDescription(ActivityManager.TaskDescription(label))
+    } else {
+        val taskDescription = ActivityManager.TaskDescription.Builder()
+            .setLabel(label)
+            .build()
+        setTaskDescription(taskDescription)
+    }
+}
 
 @SuppressLint("SetJavaScriptEnabled")
 internal suspend fun prepareWebView(
@@ -61,15 +72,7 @@ internal suspend fun prepareWebView(
         webUIState.rootShell = shell
 
         withContext(Dispatchers.Main) {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                @Suppress("DEPRECATION")
-                activity.setTaskDescription(ActivityManager.TaskDescription("KernelSU - ${moduleInfo.name}"))
-            } else {
-                val taskDescription = ActivityManager.TaskDescription.Builder()
-                    .setLabel("KernelSU - ${moduleInfo.name}")
-                    .build()
-                activity.setTaskDescription(taskDescription)
-            }
+            activity.setTaskDescription(activity.getString(R.string.app_name) + " - ${moduleInfo.name}")
 
             val webView = WebView(activity)
             webView.setBackgroundColor(Color.TRANSPARENT)
@@ -108,7 +111,11 @@ internal suspend fun prepareWebView(
                             if (icon != null) {
                                 val stream = java.io.ByteArrayOutputStream()
                                 icon.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream)
-                                return WebResourceResponse("image/png", null, java.io.ByteArrayInputStream(stream.toByteArray()))
+                                return WebResourceResponse(
+                                    "image/png", null, 200, "OK",
+                                    mapOf("Access-Control-Allow-Origin" to "*"),
+                                    java.io.ByteArrayInputStream(stream.toByteArray())
+                                )
                             }
                         }
                     }

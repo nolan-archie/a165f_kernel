@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -17,7 +16,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import com.sukisu.ultra.R
 import com.sukisu.ultra.ui.component.dialog.rememberConfirmDialog
-import com.sukisu.ultra.ui.navigation3.Navigator
+import com.sukisu.ultra.ui.navigation3.LocalNavigator
 import com.sukisu.ultra.ui.navigation3.Route
 import com.sukisu.ultra.ui.screen.flash.FlashIt
 import com.sukisu.ultra.ui.screen.flash.UninstallType
@@ -28,16 +27,17 @@ import com.sukisu.ultra.ui.screen.flash.UninstallType.TEMPORARY
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.extra.SuperArrow
-import top.yukonga.miuix.kmp.extra.SuperDialog
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun UninstallDialogMiuix(
-    showDialog: MutableState<Boolean>,
-    navigator: Navigator,
+    show: Boolean,
+    onDismissRequest: () -> Unit
 ) {
     val context = LocalContext.current
+    val navigator = LocalNavigator.current
     val options = listOf(
         // TEMPORARY,
         PERMANENT,
@@ -46,8 +46,8 @@ fun UninstallDialogMiuix(
     val showTodo = {
         Toast.makeText(context, "TODO", Toast.LENGTH_SHORT).show()
     }
-    val showConfirmDialog = remember(showDialog.value) { mutableStateOf(false) }
-    val runType = remember(showDialog.value) { mutableStateOf<UninstallType?>(null) }
+    val showConfirmDialog = remember(show) { mutableStateOf(false) }
+    val runType = remember(show) { mutableStateOf<UninstallType?>(null) }
 
     val run = { type: UninstallType ->
         when (type) {
@@ -60,12 +60,10 @@ fun UninstallDialogMiuix(
         }
     }
 
-    SuperDialog(
-        show = showDialog,
+    OverlayDialog(
+        show = show,
+        onDismissRequest = onDismissRequest,
         insideMargin = DpSize(0.dp, 0.dp),
-        onDismissRequest = {
-            showDialog.value = false
-        },
         content = {
             Text(
                 modifier = Modifier
@@ -78,7 +76,7 @@ fun UninstallDialogMiuix(
                 color = MiuixTheme.colorScheme.onSurface
             )
             options.forEach { type ->
-                SuperArrow(
+                ArrowPreference(
                     onClick = {
                         showConfirmDialog.value = true
                         runType.value = type
@@ -97,9 +95,7 @@ fun UninstallDialogMiuix(
             }
             TextButton(
                 text = stringResource(id = android.R.string.cancel),
-                onClick = {
-                    showDialog.value = false
-                },
+                onClick = onDismissRequest,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 12.dp, bottom = 24.dp)
@@ -110,7 +106,7 @@ fun UninstallDialogMiuix(
     val confirmDialog = rememberConfirmDialog(
         onConfirm = {
             showConfirmDialog.value = false
-            showDialog.value = false
+            onDismissRequest()
             runType.value?.let { type ->
                 run(type)
             }

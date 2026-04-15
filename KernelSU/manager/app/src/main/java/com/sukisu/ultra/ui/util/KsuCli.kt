@@ -28,7 +28,6 @@ import com.sukisu.ultra.ksuApp
 import org.json.JSONArray
 import java.io.File
 
-
 /**
  * @author weishu
  * @date 2023/1/1.
@@ -126,7 +125,8 @@ suspend fun getFeaturePersistValue(feature: String): Long? = withContext(Dispatc
 fun install() {
     val start = SystemClock.elapsedRealtime()
     val magiskboot = File(ksuApp.applicationInfo.nativeLibraryDir, "libmagiskboot.so").absolutePath
-    val result = execKsud("install --magiskboot $magiskboot", true)
+    val libadbroot = File(ksuApp.applicationInfo.nativeLibraryDir, "libadbroot.so").absolutePath
+    val result = execKsud("install --magiskboot $magiskboot --libadbroot $libadbroot", true)
     Log.w(TAG, "install result: $result, cost: ${SystemClock.elapsedRealtime() - start}ms")
 }
 
@@ -255,7 +255,7 @@ fun uninstallPermanently(
     onStdout: (String) -> Unit, onStderr: (String) -> Unit
 ): FlashResult {
     val magiskboot = File(ksuApp.applicationInfo.nativeLibraryDir, "libmagiskboot.so")
-    val result = flashWithIO("${getKsuDaemonPath()} uninstall --magiskboot $magiskboot", onStdout, onStderr)
+    val result = flashWithIO("${getKsuDaemonPath()} uninstall --magiskboot $magiskboot --package-name ${BuildConfig.APPLICATION_ID}", onStdout, onStderr)
     return FlashResult(result)
 }
 
@@ -276,6 +276,8 @@ fun installBoot(
     lkm: LkmSelection,
     ota: Boolean,
     partition: String?,
+    allowShell: Boolean,
+    enableAdb: Boolean,
     onStdout: (String) -> Unit,
     onStderr: (String) -> Unit,
 ): FlashResult {
@@ -296,10 +298,18 @@ fun installBoot(
     var cmd = "boot-patch --magiskboot ${magiskboot.absolutePath}"
 
     cmd += if (bootFile == null) {
-        // no boot.img, use -f to force install
+        // no boot.img, use -f to flash
         " -f"
     } else {
         " -b ${bootFile.absolutePath}"
+    }
+
+    if (allowShell) {
+        cmd += " --allow-shell"
+    }
+
+    if (enableAdb) {
+        cmd += " --enable-adbd"
     }
 
     if (ota) {
@@ -330,9 +340,11 @@ fun installBoot(
     }
 
     // output dir
-    val downloadsDir =
-        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-    cmd += " -o $downloadsDir"
+    if (bootFile != null) {
+        val downloadsDir =
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        cmd += " -o $downloadsDir"
+    }
 
     partition?.let { part ->
         cmd += " --partition $part"
@@ -353,11 +365,11 @@ fun installBoot(
 }
 
 fun reboot(reason: String = "") {
-    val shell = getRootShell()
     if (reason == "soft_reboot") {
-        ShellUtils.fastCmd(shell, "setprop ctl.restart zygote")
+        execKsud("soft-reboot", true)
         return
     }
+    val shell = getRootShell()
     if (reason == "recovery") {
         // KEYCODE_POWER = 26, hide incorrect "Factory data reset" message
         ShellUtils.fastCmd(shell, "/system/bin/input keyevent 26")
@@ -477,24 +489,26 @@ fun deleteAppProfileTemplate(id: String): Boolean {
         .to(ArrayList(), null).exec().isSuccess
 }
 
-fun forceStopApp(packageName: String) {
+fun forceStopApp(packageName: String, userId: Int? = null) {
     val shell = getRootShell()
-    val result = shell.newJob().add("am force-stop $packageName").exec()
+    val userArg = userId?.let { " --user $it" } ?: ""
+    val result = shell.newJob().add("am force-stop$userArg $packageName").exec()
     Log.i(TAG, "force stop $packageName result: $result")
 }
 
-fun launchApp(packageName: String) {
+fun launchApp(packageName: String, userId: Int? = null) {
     val shell = getRootShell()
+    val userArg = userId?.let { " --user $it" } ?: ""
     val result =
         shell.newJob()
-            .add("cmd package resolve-activity --brief $packageName | tail -n 1 | xargs cmd activity start-activity -n")
+            .add("cmd package resolve-activity --brief$userArg $packageName | tail -n 1 | xargs cmd activity start-activity$userArg -n")
             .exec()
     Log.i(TAG, "launch $packageName result: $result")
 }
 
-fun restartApp(packageName: String) {
-    forceStopApp(packageName)
-    launchApp(packageName)
+fun restartApp(packageName: String, userId: Int? = null) {
+    forceStopApp(packageName, userId)
+    launchApp(packageName, userId)
 }
 
 // KPM控制
@@ -647,14 +661,6 @@ fun applyUmountConfigToKernel(): Boolean {
     val cmd = "${getKsuDaemonPath()} umount apply"
     val result = ShellUtils.fastCmdResult(shell, cmd)
     Log.i(TAG, "apply umount config to kernel result: $result")
-    return result
-}
-
-fun retrieveSulogLogs(): Boolean {
-    val shell = getRootShell()
-    val cmd = "${getKsuDaemonPath()} sulog-dump"
-    val result = ShellUtils.fastCmdResult(shell, cmd)
-    Log.i(TAG, "save umount config result: $result")
     return result
 }
 

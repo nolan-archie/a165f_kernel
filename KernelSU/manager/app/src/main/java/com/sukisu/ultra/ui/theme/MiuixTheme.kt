@@ -3,6 +3,7 @@ package com.sukisu.ultra.ui.theme
 import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -10,6 +11,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.materialkolor.dynamiccolor.ColorSpec
 import com.sukisu.ultra.ui.webui.MonetColorsProvider
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
+import top.yukonga.miuix.kmp.theme.LocalContentColor
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.ThemeColorSpec
 import top.yukonga.miuix.kmp.theme.ThemeController
@@ -55,6 +57,7 @@ fun MiuixKernelSUTheme(
 
     MiuixTheme(
         controller = controller,
+        smoothRounding = appSettings.enableSmoothCorner,
         content = {
             LaunchedEffect(darkTheme) {
                 val window = (context as? Activity)?.window ?: return@LaunchedEffect
@@ -64,7 +67,11 @@ fun MiuixKernelSUTheme(
                 }
             }
             MonetColorsProvider.UpdateCss()
-            content()
+            CompositionLocalProvider(
+                LocalContentColor provides MiuixTheme.colorScheme.onBackground,
+            ) {
+                content()
+            }
         }
     )
 }

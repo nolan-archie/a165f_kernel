@@ -1,6 +1,5 @@
 package com.sukisu.ultra.ui.screen.umountmanager
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,13 +20,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.sukisu.ultra.R
-import com.sukisu.ultra.ui.component.dialog.ConfirmResult
-import com.sukisu.ultra.ui.component.dialog.rememberConfirmDialog
-import com.sukisu.ultra.ui.navigation3.LocalNavigator
-import com.sukisu.ultra.ui.util.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
@@ -40,83 +32,53 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TopAppBar
-import top.yukonga.miuix.kmp.extra.SuperDialog
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.Refresh
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 @Composable
-fun UmountManagerMiuix() {
-    val navigator = LocalNavigator.current
+fun UmountManagerMiuix(
+    state: UmountManagerUiState,
+    actions: UmountManagerActions,
+) {
     val scrollBehavior = MiuixScrollBehavior()
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val confirmDialog = rememberConfirmDialog()
-
-    var pathList by remember { mutableStateOf<List<UmountPathEntry>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(false) }
-    var showAddDialog by remember { mutableStateOf(false) }
-
-    val confirmActionText = stringResource(R.string.confirm_action)
-    val umountPathRemovedText = stringResource(R.string.umount_path_removed)
-    val confirmClearCustomPathsText = stringResource(R.string.confirm_clear_custom_paths)
-    val customPathsClearedText = stringResource(R.string.custom_paths_cleared)
-    val operationFailedText = stringResource(R.string.operation_failed)
-    val configAppliedText = stringResource(R.string.config_applied)
-    val umountPathAddedText = stringResource(R.string.umount_path_added)
-
-    fun loadPaths() {
-        scope.launch(Dispatchers.IO) {
-            isLoading = true
-            val result = listUmountPaths()
-            val entries = parseUmountPaths(result)
-            withContext(Dispatchers.Main) {
-                pathList = entries
-                isLoading = false
-            }
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        loadPaths()
-    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = stringResource(R.string.umount_path_manager),
                 navigationIcon = {
-                    IconButton(onClick = { navigator.pop() }) {
+                    IconButton(onClick = actions.onBack) {
                         val layoutDirection = LocalLayoutDirection.current
                         Icon(
                             modifier = Modifier.graphicsLayer {
                                 if (layoutDirection == LayoutDirection.Rtl) scaleX = -1f
                             },
                             imageVector = MiuixIcons.Back,
-                            contentDescription = null
+                            contentDescription = null,
+                            tint = colorScheme.onBackground
                         )
                     }
                 },
                 actions = {
-                    IconButton(onClick = { loadPaths() }) {
+                    IconButton(onClick = actions.onRefresh) {
                         Icon(
                             imageVector = MiuixIcons.Refresh,
-                            contentDescription = null
+                            contentDescription = null,
+                            tint = colorScheme.onBackground
                         )
                     }
                 },
-                color = Color.Transparent,
                 scrollBehavior = scrollBehavior
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddDialog = true }
-            ) {
+            FloatingActionButton(onClick = actions.onAddClick) {
                 Icon(
                     imageVector = Icons.Rounded.Add,
                     contentDescription = null,
@@ -124,11 +86,11 @@ fun UmountManagerMiuix() {
                 )
             }
         }
-    ) { paddingValues ->
+    ) { innerPadding ->
         Column(
             modifier = Modifier
-                .padding(paddingValues)
-                .fillMaxHeight()
+                .fillMaxSize()
+                .padding(innerPadding)
                 .scrollEndHaptic()
                 .overScrollVertical()
                 .nestedScroll(scrollBehavior.nestedScrollConnection)
@@ -136,10 +98,10 @@ fun UmountManagerMiuix() {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(SPACING_LARGE)
+                    .padding(16.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(SPACING_LARGE),
+                    modifier = Modifier.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
@@ -147,14 +109,15 @@ fun UmountManagerMiuix() {
                         contentDescription = null,
                         tint = colorScheme.primary
                     )
-                    Spacer(modifier = Modifier.width(SPACING_MEDIUM))
+                    Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = stringResource(R.string.umount_path_restart_notice)
+                        text = stringResource(R.string.umount_path_restart_notice),
+                        color = colorScheme.onSurface
                     )
                 }
             }
 
-            if (isLoading) {
+            if (state.isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -164,102 +127,38 @@ fun UmountManagerMiuix() {
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = SPACING_LARGE, vertical = SPACING_MEDIUM),
-                    verticalArrangement = Arrangement.spacedBy(SPACING_MEDIUM)
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(pathList, key = { it.path }) { entry ->
-                        UmountPathCard(
+                    items(state.pathList, key = { it.path }) { entry ->
+                        UmountPathCardMiuix(
                             entry = entry,
                             onDelete = {
-                                scope.launch(Dispatchers.IO) {
-                                    val success = removeUmountPath(entry.path)
-                                    withContext(Dispatchers.Main) {
-                                        if (success) {
-                                            Toast.makeText(
-                                                context,
-                                                umountPathRemovedText,
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                            loadPaths()
-                                        } else {
-                                            Toast.makeText(
-                                                context,
-                                                operationFailedText,
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        }
-                                    }
-                                }
+                                actions.onDeletePath(entry)
                             }
                         )
                     }
 
                     item {
-                        Spacer(modifier = Modifier.height(SPACING_LARGE))
+                        Spacer(modifier = Modifier.height(16.dp))
                     }
 
                     item {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = SPACING_LARGE),
-                            horizontalArrangement = Arrangement.spacedBy(SPACING_MEDIUM)
+                                .padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Button(
-                                onClick = {
-                                    scope.launch {
-                                        if (confirmDialog.awaitConfirm(
-                                                title = confirmActionText,
-                                                content = confirmClearCustomPathsText
-                                            ) == ConfirmResult.Confirmed) {
-                                            withContext(Dispatchers.IO) {
-                                                val success = clearCustomUmountPaths()
-                                                withContext(Dispatchers.Main) {
-                                                    if (success) {
-                                                        Toast.makeText(
-                                                            context,
-                                                            customPathsClearedText,
-                                                            Toast.LENGTH_SHORT
-                                                        ).show()
-                                                        loadPaths()
-                                                    } else {
-                                                        Toast.makeText(
-                                                            context,
-                                                            operationFailedText,
-                                                            Toast.LENGTH_SHORT
-                                                        ).show()
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                },
+                                onClick = actions.onClearCustomPaths,
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Text(text = stringResource(R.string.clear_custom_paths))
                             }
 
                             Button(
-                                onClick = {
-                                    scope.launch(Dispatchers.IO) {
-                                        val success = applyUmountConfigToKernel()
-                                        withContext(Dispatchers.Main) {
-                                            if (success) {
-                                                Toast.makeText(
-                                                    context,
-                                                    configAppliedText,
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
-                                            } else {
-                                                Toast.makeText(
-                                                    context,
-                                                    operationFailedText,
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
-                                            }
-                                        }
-                                    }
-                                },
+                                onClick = actions.onApplyConfig,
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Text(text = stringResource(R.string.apply_config))
@@ -270,49 +169,21 @@ fun UmountManagerMiuix() {
             }
         }
 
-        if (showAddDialog) {
-            AddUmountPathDialog(
-                onDismiss = { showAddDialog = false },
-                onConfirm = { path, flags ->
-                    showAddDialog = false
-
-                    scope.launch(Dispatchers.IO) {
-                        val success = addUmountPath(path, flags)
-                        withContext(Dispatchers.Main) {
-                            if (success) {
-                                saveUmountConfig()
-                                Toast.makeText(
-                                    context,
-                                    umountPathAddedText,
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                                loadPaths()
-                            } else {
-                                Toast.makeText(
-                                    context,
-                                    operationFailedText,
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        }
-                    }
-                }
+        if (state.showAddDialog) {
+            AddUmountPathDialogMiuix(
+                onDismiss = actions.onDismissAddDialog,
+                onConfirm = actions.onAddPath
             )
         }
     }
 }
 
 @Composable
-fun UmountPathCard(
+private fun UmountPathCardMiuix(
     entry: UmountPathEntry,
     onDelete: () -> Unit
 ) {
-    val confirmDialog = rememberConfirmDialog()
-    val scope = rememberCoroutineScope()
     val context = LocalContext.current
-
-    val confirmDeleteText = stringResource(R.string.confirm_delete)
-    val confirmDeleteUmountPathText = stringResource(R.string.confirm_delete_umount_path, entry.path)
 
     Card(
         modifier = Modifier.fillMaxWidth()
@@ -320,7 +191,7 @@ fun UmountPathCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(SPACING_LARGE),
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
@@ -330,13 +201,14 @@ fun UmountPathCard(
                 modifier = Modifier.size(24.dp)
             )
 
-            Spacer(modifier = Modifier.width(SPACING_LARGE))
+            Spacer(modifier = Modifier.width(16.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = entry.path
+                    text = entry.path,
+                    color = colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(SPACING_SMALL))
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = buildString {
                         append(stringResource(R.string.flags))
@@ -347,18 +219,7 @@ fun UmountPathCard(
                 )
             }
 
-            IconButton(
-                onClick = {
-                    scope.launch {
-                        if (confirmDialog.awaitConfirm(
-                                title = confirmDeleteText,
-                                content = confirmDeleteUmountPathText
-                            ) == ConfirmResult.Confirmed) {
-                            onDelete()
-                        }
-                    }
-                }
-            ) {
+            IconButton(onClick = onDelete) {
                 Icon(
                     imageVector = MiuixIcons.Delete,
                     contentDescription = null,
@@ -370,7 +231,7 @@ fun UmountPathCard(
 }
 
 @Composable
-fun AddUmountPathDialog(
+private fun AddUmountPathDialogMiuix(
     onDismiss: () -> Unit,
     onConfirm: (String, Int) -> Unit
 ) {
@@ -378,65 +239,67 @@ fun AddUmountPathDialog(
     var flags by rememberSaveable { mutableStateOf("0") }
     val showDialog = remember { mutableStateOf(true) }
 
-    SuperDialog(
-        show = showDialog,
+    OverlayDialog(
+        show = showDialog.value,
         title = stringResource(R.string.add_umount_path),
         onDismissRequest = {
             showDialog.value = false
             onDismiss()
+        },
+        content = {
+            Column {
+                TextField(
+                    value = path,
+                    onValueChange = { path = it },
+                    label = stringResource(R.string.mount_path),
+                    modifier = Modifier.fillMaxWidth(),
+                    useLabelAsPlaceholder = true
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                TextField(
+                    value = flags,
+                    onValueChange = { flags = it },
+                    label = stringResource(R.string.umount_flags),
+                    modifier = Modifier.fillMaxWidth(),
+                    useLabelAsPlaceholder = true
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = stringResource(R.string.umount_flags_hint),
+                    color = colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier.padding(start = 12.dp)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    TextButton(
+                        text = stringResource(android.R.string.cancel),
+                        onClick = {
+                            showDialog.value = false
+                            onDismiss()
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(
+                        text = stringResource(android.R.string.ok),
+                        onClick = {
+                            val flagsInt = flags.toIntOrNull() ?: 0
+                            showDialog.value = false
+                            onConfirm(path, flagsInt)
+                        },
+                        enabled = path.isNotBlank(),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
         }
-    ) {
-        TextField(
-            value = path,
-            onValueChange = { path = it },
-            label = stringResource(R.string.mount_path),
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        Spacer(modifier = Modifier.height(SPACING_MEDIUM))
-
-        TextField(
-            value = flags,
-            onValueChange = { flags = it },
-            label = stringResource(R.string.umount_flags),
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        Spacer(modifier = Modifier.height(SPACING_SMALL))
-
-        Text(
-            text = stringResource(R.string.umount_flags_hint),
-            color = colorScheme.onSurfaceVariantSummary,
-            modifier = Modifier.padding(start = SPACING_MEDIUM)
-        )
-
-        Spacer(modifier = Modifier.height(SPACING_MEDIUM))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            TextButton(
-                text = stringResource(android.R.string.cancel),
-                onClick = {
-                    showDialog.value = false
-                    onDismiss()
-                },
-                modifier = Modifier.weight(1f)
-            )
-            Spacer(Modifier.width(20.dp))
-            TextButton(
-                text = stringResource(android.R.string.ok),
-                onClick = {
-                    val flagsInt = flags.toIntOrNull() ?: 0
-                    showDialog.value = false
-                    onConfirm(path, flagsInt)
-                },
-                modifier = Modifier.weight(1f),
-                enabled = path.isNotBlank()
-            )
-        }
-    }
+    )
 }

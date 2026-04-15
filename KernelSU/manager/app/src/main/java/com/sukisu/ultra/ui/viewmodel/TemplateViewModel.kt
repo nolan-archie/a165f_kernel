@@ -13,6 +13,7 @@ import com.sukisu.ultra.data.repository.TemplateRepository
 import com.sukisu.ultra.data.repository.TemplateRepositoryImpl
 import com.sukisu.ultra.profile.Capabilities
 import com.sukisu.ultra.profile.Groups
+import com.sukisu.ultra.ui.screen.template.TemplateUiState
 import com.sukisu.ultra.ui.util.getAppProfileTemplate
 import org.json.JSONArray
 import org.json.JSONObject
@@ -100,6 +101,6 @@ fun generateTemplates() {
 
     templateJson.put("groups", JSONArray().apply { put(Groups.INET.name) })
     templateJson.put("capabilities", JSONArray().apply { put(Capabilities.CAP_NET_RAW.name) })
-    templateJson.put("context", "u:r:su:s0")
+    templateJson.put("context", "u:r:ksu:s0")
     Log.i(TAG, "$templateJson")
 }

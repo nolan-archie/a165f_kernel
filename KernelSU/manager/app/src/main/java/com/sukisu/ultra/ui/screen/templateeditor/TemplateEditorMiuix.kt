@@ -1,6 +1,6 @@
 package com.sukisu.ultra.ui.screen.templateeditor
 
-import android.widget.Toast
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -18,34 +18,23 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.dropUnlessResumed
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
 import com.sukisu.ultra.R
 import com.sukisu.ultra.ui.component.miuix.EditText
 import com.sukisu.ultra.ui.component.profile.RootProfileConfig
-import com.sukisu.ultra.ui.navigation3.LocalNavigator
 import com.sukisu.ultra.ui.theme.LocalEnableBlur
-import com.sukisu.ultra.ui.util.deleteAppProfileTemplate
-import com.sukisu.ultra.ui.viewmodel.TemplateViewModel
+import com.sukisu.ultra.ui.util.BlurredBar
+import com.sukisu.ultra.ui.util.rememberBlurBackdrop
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -53,6 +42,8 @@ import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Delete
@@ -67,186 +58,96 @@ import top.yukonga.miuix.kmp.utils.scrollEndHaptic
  */
 @Composable
 fun TemplateEditorScreenMiuix(
-    initialTemplate: TemplateViewModel.TemplateInfo,
-    readOnly: Boolean = true,
+    state: TemplateEditorUiState,
+    actions: TemplateEditorActions,
 ) {
-    val navigator = LocalNavigator.current
-    val isCreation = initialTemplate.id.isBlank()
-    val autoSave = !isCreation
-
-    var template by rememberSaveable {
-        mutableStateOf(initialTemplate)
-    }
-
     val scrollBehavior = MiuixScrollBehavior()
     val enableBlur = LocalEnableBlur.current
-    val hazeState = remember { HazeState() }
-    val hazeStyle = if (enableBlur) {
-        HazeStyle(
-            backgroundColor = colorScheme.surface,
-            tint = HazeTint(colorScheme.surface.copy(0.8f))
-        )
-    } else {
-        HazeStyle.Unspecified
-    }
+    val backdrop = rememberBlurBackdrop(enableBlur)
+    val blurActive = backdrop != null
+    val barColor = if (blurActive) Color.Transparent else colorScheme.surface
 
     Scaffold(
         topBar = {
-            val saveTemplateFailed = stringResource(id = R.string.app_profile_template_save_failed)
-            val idConflictError = stringResource(id = R.string.app_profile_template_id_exist)
-            val idInvalidError = stringResource(id = R.string.app_profile_template_id_invalid)
-            val context = LocalContext.current
-
             TopBar(
-                title = if (isCreation) {
+                title = if (state.isCreation) {
                     stringResource(R.string.app_profile_template_create)
-                } else if (readOnly) {
+                } else if (state.readOnly) {
                     stringResource(R.string.app_profile_template_view)
                 } else {
                     stringResource(R.string.app_profile_template_edit)
                 },
-                readOnly = readOnly,
-                isCreation = isCreation,
-                onBack = dropUnlessResumed {
-                    if (readOnly) navigator.pop() else navigator.setResult("template_edit", true)
-                },
-                onDelete = {
-                    if (deleteAppProfileTemplate(template.id)) navigator.setResult("template_edit", true)
-                },
-                onSave = {
-                    when (idCheck(template.id)) {
-                        0 -> Unit
-
-                        1 -> {
-                            Toast.makeText(context, idConflictError, Toast.LENGTH_SHORT).show()
-                            return@TopBar
-                        }
-
-                        2 -> {
-                            Toast.makeText(context, idInvalidError, Toast.LENGTH_SHORT).show()
-                            return@TopBar
-                        }
-                    }
-                    if (saveTemplate(template, isCreation)) {
-                        navigator.setResult("template_edit", true)
-                    } else {
-                        Toast.makeText(context, saveTemplateFailed, Toast.LENGTH_SHORT).show()
-                    }
-                },
+                readOnly = state.readOnly,
+                isCreation = state.isCreation,
+                onBack = actions.onBack,
+                onDelete = actions.onDelete,
+                onSave = actions.onSave,
                 scrollBehavior = scrollBehavior,
-                hazeState = hazeState,
-                hazeStyle = hazeStyle,
-                enableBlur = enableBlur,
+                backdrop = backdrop,
+                barColor = barColor,
             )
         },
         popupHost = { },
         contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal)
     ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxHeight()
-                .scrollEndHaptic()
-                .overScrollVertical()
-                .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .let { if (enableBlur) it.hazeSource(state = hazeState) else it },
-            contentPadding = innerPadding,
-            overscrollEffect = null
-        ) {
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                ) {
-                    var errorHint by rememberSaveable { mutableStateOf(false) }
+        Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .scrollEndHaptic()
+                    .overScrollVertical()
+                    .nestedScroll(scrollBehavior.nestedScrollConnection),
+                contentPadding = innerPadding,
+                overscrollEffect = null
+            ) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                    ) {
+                        TextEdit(
+                            label = stringResource(id = R.string.app_profile_template_name),
+                            text = state.template.name,
+                            enabled = !state.readOnly,
+                            onValueChange = actions.onNameChange,
+                        )
 
-                    TextEdit(
-                        label = stringResource(id = R.string.app_profile_template_name),
-                        text = template.name,
-                        enabled = !readOnly
-                    ) { value ->
-                        template.copy(name = value).run {
-                            if (autoSave) {
-                                if (!saveTemplate(this)) {
-                                    // failed
-                                    return@run
-                                }
-                            }
-                            template = this
-                        }
-                    }
+                        TextEdit(
+                            label = stringResource(id = R.string.app_profile_template_id),
+                            text = state.template.id,
+                            isError = state.idErrorHint.isNotEmpty(),
+                            enabled = !state.readOnly,
+                            onValueChange = actions.onIdChange,
+                        )
+                        TextEdit(
+                            label = stringResource(R.string.module_author),
+                            text = state.template.author,
+                            enabled = !state.readOnly,
+                            onValueChange = actions.onAuthorChange,
+                        )
 
-                    TextEdit(
-                        label = stringResource(id = R.string.app_profile_template_id),
-                        text = template.id,
-                        isError = errorHint,
-                        enabled = !readOnly
-                    ) { value ->
-                        template = template.copy(id = value)
-                    }
-                    TextEdit(
-                        label = stringResource(R.string.module_author),
-                        text = template.author,
-                        enabled = !readOnly
-                    ) { value ->
-                        template.copy(author = value).run {
-                            if (autoSave) {
-                                if (!saveTemplate(this)) {
-                                    // failed
-                                    return@run
-                                }
-                            }
-                            template = this
-                        }
-                    }
+                        TextEdit(
+                            label = stringResource(id = R.string.app_profile_template_description),
+                            text = state.template.description,
+                            enabled = !state.readOnly,
+                            onValueChange = actions.onDescriptionChange,
+                        )
 
-                    TextEdit(
-                        label = stringResource(id = R.string.app_profile_template_description),
-                        text = template.description,
-                        enabled = !readOnly
-                    ) { value ->
-                        template.copy(description = value).run {
-                            if (autoSave) {
-                                if (!saveTemplate(this)) {
-                                    // failed
-                                    return@run
-                                }
-                            }
-                            template = this
-                        }
+                        RootProfileConfig(
+                            fixedName = true,
+                            enabled = !state.readOnly,
+                            profile = toNativeProfile(state.template),
+                            onProfileChange = actions.onProfileChange,
+                        )
                     }
-
-                    RootProfileConfig(
-                        fixedName = true,
-                        enabled = !readOnly,
-                        profile = toNativeProfile(template),
-                        onProfileChange = {
-                            template.copy(
-                                uid = it.uid,
-                                gid = it.gid,
-                                groups = it.groups,
-                                capabilities = it.capabilities,
-                                context = it.context,
-                                namespace = it.namespace,
-                                rules = it.rules.split("\n")
-                            ).run {
-                                if (autoSave) {
-                                    if (!saveTemplate(this)) {
-                                        // failed
-                                        return@run
-                                    }
-                                }
-                                template = this
-                            }
-                        }
+                    Spacer(
+                        Modifier.height(
+                            WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
+                                    WindowInsets.captionBar.asPaddingValues().calculateBottomPadding()
+                        )
                     )
                 }
-                Spacer(
-                    Modifier.height(
-                        WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
-                                WindowInsets.captionBar.asPaddingValues().calculateBottomPadding()
-                    )
-                )
             }
         }
     }
@@ -262,69 +163,58 @@ private fun TopBar(
     onDelete: () -> Unit = {},
     onSave: () -> Unit = {},
     scrollBehavior: ScrollBehavior,
-    hazeState: HazeState,
-    hazeStyle: HazeStyle,
-    enableBlur: Boolean
+    backdrop: LayerBackdrop?,
+    barColor: Color,
 ) {
-    TopAppBar(
-        modifier = if (enableBlur) {
-            Modifier.hazeEffect(hazeState) {
-                style = hazeStyle
-                blurRadius = 30.dp
-                noiseFactor = 0f
-            }
-        } else {
-            Modifier
-        },
-        color = if (enableBlur) Color.Transparent else colorScheme.surface,
-        title = title,
-        navigationIcon = {
-            IconButton(
-                modifier = Modifier.padding(start = 16.dp),
-                onClick = onBack
-            ) {
-                val layoutDirection = LocalLayoutDirection.current
-                Icon(
-                    modifier = Modifier.graphicsLayer {
-                        if (layoutDirection == LayoutDirection.Rtl) scaleX = -1f
-                    },
-                    imageVector = MiuixIcons.Back,
-                    contentDescription = null,
-                    tint = colorScheme.onSurface
-                )
-            }
-        },
-        actions = {
-            when {
-                !readOnly && !isCreation -> {
-                    IconButton(
-                        modifier = Modifier.padding(end = 16.dp),
-                        onClick = onDelete
-                    ) {
-                        Icon(
-                            imageVector = MiuixIcons.Delete,
-                            contentDescription = stringResource(id = R.string.app_profile_template_delete),
-                            tint = colorScheme.onBackground
-                        )
-                    }
+    BlurredBar(backdrop) {
+        TopAppBar(
+            color = barColor,
+            title = title,
+            navigationIcon = {
+                IconButton(
+                    onClick = onBack
+                ) {
+                    val layoutDirection = LocalLayoutDirection.current
+                    Icon(
+                        modifier = Modifier.graphicsLayer {
+                            if (layoutDirection == LayoutDirection.Rtl) scaleX = -1f
+                        },
+                        imageVector = MiuixIcons.Back,
+                        contentDescription = null,
+                        tint = colorScheme.onSurface
+                    )
                 }
+            },
+            actions = {
+                when {
+                    !readOnly && !isCreation -> {
+                        IconButton(
+                            onClick = onDelete
+                        ) {
+                            Icon(
+                                imageVector = MiuixIcons.Delete,
+                                contentDescription = stringResource(id = R.string.app_profile_template_delete),
+                                tint = colorScheme.onBackground
+                            )
+                        }
+                    }
 
-                isCreation -> {
-                    IconButton(
-                        modifier = Modifier.padding(end = 16.dp),
-                        onClick = onSave
-                    ) {
-                        Icon(
-                            imageVector = MiuixIcons.Ok,
-                            contentDescription = stringResource(id = R.string.app_profile_template_save),
-                            tint = colorScheme.onBackground
-                        )
+                    isCreation -> {
+                        IconButton(
+                            onClick = onSave
+                        ) {
+                            Icon(
+                                imageVector = MiuixIcons.Ok,
+                                contentDescription = stringResource(id = R.string.app_profile_template_save),
+                                tint = colorScheme.onBackground
+                            )
+                        }
                     }
                 }
-            }
-        },
-        scrollBehavior = scrollBehavior
-    )
+            },
+            scrollBehavior = scrollBehavior
+        )
+    }
 }
 
 @Composable
@@ -335,7 +225,7 @@ private fun TextEdit(
     enabled: Boolean = true,
     onValueChange: (String) -> Unit = {}
 ) {
-    val editText = remember { mutableStateOf(text) }
+    val editText = remember(text) { mutableStateOf(text) }
     EditText(
         title = label.uppercase(),
         textValue = editText,

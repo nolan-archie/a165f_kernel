@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.core.content.edit
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
+import com.topjohnwu.superuser.ShellUtils
 import com.sukisu.ultra.Natives
 import com.sukisu.ultra.ksuApp
 import com.sukisu.ultra.magica.BootCompletedReceiver
@@ -62,7 +63,7 @@ class SettingsRepositoryImpl : SettingsRepository {
         set(value) = prefs.edit { putBoolean("enable_predictive_back", value) }
 
     override var enableBlur: Boolean
-        get() = prefs.getBoolean("enable_blur", true)
+        get() = prefs.getBoolean("enable_blur", false)
         set(value) = prefs.edit { putBoolean("enable_blur", value) }
 
     override var enableFloatingBottomBar: Boolean
@@ -80,6 +81,10 @@ class SettingsRepositoryImpl : SettingsRepository {
     override var enableWebDebugging: Boolean
         get() = prefs.getBoolean("enable_web_debugging", false)
         set(value) = prefs.edit { putBoolean("enable_web_debugging", value) }
+
+    override var enableSmoothCorner: Boolean
+        get() = prefs.getBoolean("enable_smooth_corner", true)
+        set(value) = prefs.edit { putBoolean("enable_smooth_corner", value) }
 
     override var autoJailbreak: Boolean
         get() = prefs.getBoolean("auto_jailbreak", false)
@@ -115,6 +120,24 @@ class SettingsRepositoryImpl : SettingsRepository {
     override fun isKernelUmountEnabled(): Boolean = Natives.isKernelUmountEnabled()
 
     override fun setKernelUmountEnabled(enabled: Boolean): Boolean = Natives.setKernelUmountEnabled(enabled)
+
+    override suspend fun getSulogStatus(): String = getFeatureStatus("sulog")
+
+    override suspend fun getSulogPersistValue(): Long? = getFeaturePersistValue("sulog")
+
+    override fun setSulogEnabled(enabled: Boolean): Boolean = execKsud("feature set sulog ${if (enabled) 1 else 0}", true)
+
+    override suspend fun getAdbRootStatus(): String = getFeatureStatus("adb_root")
+
+    override suspend fun getAdbRootPersistValue(): Long? = getFeaturePersistValue("adb_root")
+
+    override fun setAdbRootEnabled(enabled: Boolean): Boolean =
+        if (execKsud("feature set adb_root ${if (enabled) 1 else 0}", true)) {
+            ShellUtils.fastCmd("setprop ctl.restart adbd")
+            true
+        } else {
+            false
+        }
 
     override fun isDefaultUmountModules(): Boolean = Natives.isDefaultUmountModules()
 

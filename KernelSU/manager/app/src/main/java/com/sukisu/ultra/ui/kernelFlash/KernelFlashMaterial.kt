@@ -1,13 +1,17 @@
 package com.sukisu.ultra.ui.kernelFlash
 
-import android.content.Intent
-import android.net.Uri
-import android.os.Environment
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -15,156 +19,58 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sukisu.ultra.R
 import com.sukisu.ultra.ui.component.KeyEventBlocker
-import com.sukisu.ultra.ui.kernelFlash.state.*
-import com.sukisu.ultra.ui.navigation3.LocalNavigator
-import com.sukisu.ultra.ui.util.reboot
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.*
+import com.sukisu.ultra.ui.kernelFlash.state.FlashState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun KernelFlashMaterial(
-    kernelUri: Uri,
-    selectedSlot: String? = null,
-    kpmPatchEnabled: Boolean = false,
-    kpmUndoPatch: Boolean = false
+    state: FlashState,
+    actions: KernelFlashActions,
+    logText: String,
+    kpmPatchEnabled: Boolean,
+    kpmUndoPatch: Boolean
 ) {
-    val navigator = LocalNavigator.current
-    val context = LocalContext.current
     val scrollState = rememberScrollState()
-    val scope = rememberCoroutineScope()
-    var logText by rememberSaveable { mutableStateOf("") }
-    var showFloatAction by rememberSaveable { mutableStateOf(false) }
-    val logContent = rememberSaveable { StringBuilder() }
-    val horizonKernelState = remember {
-        if (KernelFlashStateHolder.currentState != null &&
-            KernelFlashStateHolder.currentUri == kernelUri &&
-            KernelFlashStateHolder.currentSlot == selectedSlot &&
-            KernelFlashStateHolder.currentKpmPatchEnabled == kpmPatchEnabled &&
-            KernelFlashStateHolder.currentKpmUndoPatch == kpmUndoPatch) {
-            KernelFlashStateHolder.currentState!!
-        } else {
-            HorizonKernelState().also {
-                KernelFlashStateHolder.currentState = it
-                KernelFlashStateHolder.currentUri = kernelUri
-                KernelFlashStateHolder.currentSlot = selectedSlot
-                KernelFlashStateHolder.currentKpmPatchEnabled = kpmPatchEnabled
-                KernelFlashStateHolder.currentKpmUndoPatch = kpmUndoPatch
-                KernelFlashStateHolder.isFlashing = false
-            }
-        }
-    }
-
-    val flashState by horizonKernelState.state.collectAsState()
-    val activity = LocalActivity.current
-
-    val onFlashComplete = {
-        showFloatAction = true
-        KernelFlashStateHolder.isFlashing = false
-    }
-
-    val flashComplete = stringResource(R.string.horizon_flash_complete)
-
-    LaunchedEffect(flashState.isCompleted, flashState.error) {
-        if (flashState.isCompleted && flashState.error.isEmpty()) {
-            val intent = activity?.intent
-            val isFromExternalIntent = intent?.action?.let { action ->
-                action == Intent.ACTION_VIEW ||
-                action == Intent.ACTION_SEND ||
-                action == Intent.ACTION_SEND_MULTIPLE
-            } ?: false
-
-            if (isFromExternalIntent) {
-                delay(1500)
-                KernelFlashStateHolder.clear()
-                activity.finish()
-            }
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        if (!KernelFlashStateHolder.isFlashing && !flashState.isCompleted && flashState.error.isEmpty()) {
-            withContext(Dispatchers.IO) {
-                KernelFlashStateHolder.isFlashing = true
-                val worker = HorizonKernelWorker(
-                    context = context,
-                    state = horizonKernelState,
-                    slot = selectedSlot,
-                    kpmPatchEnabled = kpmPatchEnabled,
-                    kpmUndoPatch = kpmUndoPatch
-                )
-                worker.uri = kernelUri
-                worker.setOnFlashCompleteListener(onFlashComplete)
-                worker.start()
-
-                while (flashState.error.isEmpty() && !flashState.isCompleted) {
-                    if (flashState.logs.isNotEmpty()) {
-                        logText = flashState.logs.joinToString("\n")
-                        logContent.clear()
-                        logContent.append(logText)
-                    }
-                    delay(100)
-                }
-
-                if (flashState.error.isNotEmpty()) {
-                    logText += "\n${flashState.error}\n"
-                    logContent.append("\n${flashState.error}\n")
-                    KernelFlashStateHolder.isFlashing = false
-                }
-            }
-        } else {
-            logText = flashState.logs.joinToString("\n")
-            if (flashState.error.isNotEmpty()) {
-                logText += "\n${flashState.error}\n"
-            } else if (flashState.isCompleted) {
-                logText += "\n$flashComplete\n\n\n"
-                showFloatAction = true
-            }
-        }
-    }
-
-    val onBack: () -> Unit = {
-        if (!flashState.isFlashing || flashState.isCompleted || flashState.error.isNotEmpty()) {
-            if (flashState.isCompleted || flashState.error.isNotEmpty()) {
-                KernelFlashStateHolder.clear()
-            }
-            navigator.pop()
-        }
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            if (flashState.isCompleted || flashState.error.isNotEmpty()) {
-                KernelFlashStateHolder.clear()
-            }
-        }
-    }
 
     BackHandler {
-        onBack()
+        actions.onBack()
     }
 
     KeyEventBlocker {
         it.key == Key.VolumeDown || it.key == Key.VolumeUp
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            if (state.isCompleted || state.error.isNotEmpty()) {
+                KernelFlashStateHolder.clear()
+            }
+        }
     }
 
     Scaffold(
@@ -174,15 +80,15 @@ fun KernelFlashMaterial(
                     Text(
                         text = stringResource(
                             when {
-                                flashState.error.isNotEmpty() -> R.string.flash_failed
-                                flashState.isCompleted -> R.string.flash_success
+                                state.error.isNotEmpty() -> R.string.flash_failed
+                                state.isCompleted -> R.string.flash_success
                                 else -> R.string.kernel_flashing
                             }
                         )
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = actions.onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = null
@@ -191,17 +97,7 @@ fun KernelFlashMaterial(
                 },
                 actions = {
                     IconButton(
-                        onClick = {
-                            scope.launch {
-                                val format = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss", Locale.getDefault())
-                                val date = format.format(Date())
-                                val file = File(
-                                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                                    "KernelSU_kernel_flash_log_${date}.log"
-                                )
-                                file.writeText(logContent.toString())
-                            }
-                        }
+                        onClick = { actions.onSaveLog(logText) }
                     ) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
@@ -215,15 +111,9 @@ fun KernelFlashMaterial(
             )
         },
         floatingActionButton = {
-            if (showFloatAction) {
+            if (state.isCompleted) {
                 FloatingActionButton(
-                    onClick = {
-                        scope.launch {
-                            withContext(Dispatchers.IO) {
-                                reboot()
-                            }
-                        }
-                    },
+                    onClick = actions.onReboot,
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     modifier = Modifier.padding(bottom = 20.dp, end = 20.dp)
                 ) {
@@ -241,7 +131,7 @@ fun KernelFlashMaterial(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            FlashProgressIndicatorMaterial(flashState, kpmPatchEnabled, kpmUndoPatch)
+            FlashProgressIndicatorMaterial(state, kpmPatchEnabled, kpmUndoPatch)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -265,8 +155,8 @@ fun KernelFlashMaterial(
 @Composable
 private fun FlashProgressIndicatorMaterial(
     flashState: FlashState,
-    kpmPatchEnabled: Boolean = false,
-    kpmUndoPatch: Boolean = false
+    kpmPatchEnabled: Boolean,
+    kpmUndoPatch: Boolean
 ) {
     val statusColor = when {
         flashState.error.isNotEmpty() -> MaterialTheme.colorScheme.error

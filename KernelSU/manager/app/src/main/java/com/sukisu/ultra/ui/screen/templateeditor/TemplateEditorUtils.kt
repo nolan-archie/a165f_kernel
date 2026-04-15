@@ -1,11 +1,11 @@
 package com.sukisu.ultra.ui.screen.templateeditor
 
 import com.sukisu.ultra.Natives
+import com.sukisu.ultra.data.model.TemplateInfo
 import com.sukisu.ultra.ui.util.getAppProfileTemplate
 import com.sukisu.ultra.ui.util.setAppProfileTemplate
-import com.sukisu.ultra.ui.viewmodel.TemplateViewModel
 
-fun toNativeProfile(templateInfo: TemplateViewModel.TemplateInfo): Natives.Profile {
+fun toNativeProfile(templateInfo: TemplateInfo): Natives.Profile {
     return Natives.Profile().copy(
         rootTemplate = templateInfo.id,
         uid = templateInfo.uid,
@@ -18,7 +18,7 @@ fun toNativeProfile(templateInfo: TemplateViewModel.TemplateInfo): Natives.Profi
     )
 }
 
-fun isTemplateValid(template: TemplateViewModel.TemplateInfo): Boolean {
+fun isTemplateValid(template: TemplateInfo): Boolean {
     if (template.id.isBlank()) {
         return false
     }
@@ -32,7 +32,7 @@ fun idCheck(value: String): Int {
     return if (value.isEmpty()) 0 else if (isTemplateExist(value)) 1 else if (!isValidTemplateId(value)) 2 else 0
 }
 
-fun saveTemplate(template: TemplateViewModel.TemplateInfo, isCreation: Boolean = false): Boolean {
+fun saveTemplate(template: TemplateInfo, isCreation: Boolean = false): Boolean {
     if (!isTemplateValid(template)) {
         return false
     }

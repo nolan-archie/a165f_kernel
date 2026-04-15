@@ -2,11 +2,11 @@
 <resources>
     <string name="home">ホーム</string>
     <string name="home_not_installed">未インストール</string>
-    <string name="home_click_to_install">タップでインストール</string>
+    <string name="home_click_to_install">タップしてインストール</string>
     <string name="home_working">動作中</string>
     <string name="home_working_version">バージョン: %d</string>
     <string name="home_unsupported">非対応</string>
-    <string name="home_unsupported_reason">現在､ KernelSU は GKI カーネルにのみ対応しています</string>
+    <string name="home_unsupported_reason">KernelSU は現在 GKI カーネルのみをサポートしています。ただし、GKI デバイス向けにイメージにパッチを適用することは可能です。</string>
     <string name="home_kernel">カーネル</string>
     <string name="home_manager_version">アプリのバージョン</string>
     <string name="home_fingerprint">Fingerprint</string>
@@ -72,7 +72,7 @@
     <string name="profile_capabilities">ケーパビリティ</string>
     <string name="module_downloading">モジュールをダウンロード中: %s</string>
     <string name="profile_umount_modules_summary">このオプションを有効にすると、KernelSU はこのアプリのモジュールによって変更されたファイルを復元できるようになります。</string>
-    <string name="settings_umount_modules_default">既定でモジュールのマウントを解除</string>
+    <string name="settings_umount_modules_default">デフォルトでモジュールをアンマウントする</string>
     <string name="settings_umount_modules_default_summary">アプリプロファイルの「モジュールのアンマウント」の共通のデフォルト値です。 有効にすると、プロファイルセットを持たないアプリのシステムに対するすべてのモジュールの変更が削除されます。</string>
     <string name="require_kernel_version">現在の KernelSU バージョン %1$d はマネージャーが適切に機能するには低すぎます。 バージョン %2$d 以降にアップグレードしてください！</string>
     <string name="module_changelog">変更履歴</string>
@@ -103,11 +103,9 @@
     <string name="enable_web_debugging_summary">WebUI のデバッグに使用できます。必要な場合にのみ有効にしてください。</string>
     <string name="select_file_tip">%1$s パーティション イメージが推奨されます</string>
     <string name="select_kmi">KMI を選択してください</string>
-    <string name="install_next">次に</string>
+    <string name="install_next">次へ</string>
     <string name="install_inactive_slot">非アクティブなスロットにインストール (OTA 後)</string>
-    <string name="install_inactive_slot_warning">再起動後、デバイスは**強制的に**、現在非アクティブなスロットから起動します。
-\nこのオプションは、OTA が完了した後にのみ使用してください。
-\n続く？</string>
+    <string name="install_inactive_slot_warning">再起動後、デバイスは**強制的に**、現在非アクティブなスロットから起動します。\nこのオプションは、OTA が完了した後にのみ使用してください。\n続行しますか？</string>
     <string name="direct_install">直接インストール (推奨)</string>
     <string name="select_file">ファイルを選択してください</string>
     <string name="settings_uninstall_permanent">完全にアンインストールする</string>
@@ -130,19 +128,19 @@
     <string name="module_install_prompt_with_name">次のモジュールがインストールされます: %1$s</string>
     <string name="confirm">確認</string>
     <string name="settings_module_check_update">モジュールの更新を確認する</string>
-    <string name="install_upload_lkm_file">ローカルLKMファイルを使用する</string>
-    <string name="install_only_support_ko_file">.koファイルのみサポートされています</string>
-    <string name="settings_sucompat">古典 su 命令</string>
-    <string name="settings_sucompat_summary">/system/bin/su 経由での 根源権限（特権）を 許可します（新規 手順/工程 のみ）</string>
-    <string name="settings_kernel_umount">module の umount</string>
-    <string name="settings_kernel_umount_summary">App Profile に基づき、kernel 側で module を umount します （あぷり ぷろふぁいる に もとづき、かーねる がわで もじゅーる を あんまうんと します）</string>
-    <string name="processing">処理…</string>
+    <string name="install_upload_lkm_file">ローカル LKM ファイルを使用する</string>
+    <string name="install_only_support_ko_file">.ko ファイルのみサポートされています</string>
+    <string name="settings_sucompat">従来の SU コマンド</string>
+    <string name="settings_sucompat_summary">新規プロセスで /system/bin/su 経由での root アクセスを許可します。</string>
+    <string name="settings_kernel_umount">モジュールのアンマウント (カーネルレベル)</string>
+    <string name="settings_kernel_umount_summary">アプリプロファイルに基づいて、カーネルからモジュールをアンマウントします。</string>
+    <string name="processing">処理中…</string>
     <string name="refresh_pulling">下に引いて更新</string>
-    <string name="refresh_release">リリースしてリフレッシュ</string>
-    <string name="refresh_refresh">爽やか…</string>
+    <string name="refresh_release">リリースして更新</string>
+    <string name="refresh_refresh">更新中…</string>
     <string name="refresh_complete">更新に成功しました</string>
-    <string name="module_repos">レポ</string>
-    <string name="module_repos_sort_name">名前で並べ替え</string>
+    <string name="module_repos">リポジトリ</string>
+    <string name="module_repos_sort_name">名前（A→Z）</string>
     <string name="module_repos_source_code">ソースコード</string>
     <string name="metamodule_uninstall_confirm">モジュール %s をアンインストールしてもよろしいですか? この操作はすべてのモジュールに影響し、メタモジュールによって提供される特定の機能 (マウントなど) は動作しなくなります。</string>
     <string name="app_profile_affects_following_apps">以下のアプリに影響します</string>
@@ -181,12 +179,10 @@
     <string name="module_shortcut_title">ショートカットを作成</string>
     <string name="module_shortcut_name_label">ショートカット名</string>
     <string name="module_shortcut_icon_pick">カスタムアイコンを選択</string>
-    <string name="module_shortcut_add">ショートカットを追加</string>
     <string name="module_shortcut_not_supported">ランチャーはホーム画面ショートカットをサポートしていません。</string>
     <string name="module_shortcut_created">ホーム画面にショートカットを作成しました。</string>
     <string name="module_shortcut_updated">ショートカットが更新されました。</string>
     <string name="module_shortcut_delete">ショートカットを削除</string>
-    <string name="module_shortcut_type_title">タイプを選択</string>
     <string name="module_shortcut_permission_tip_xiaomi">Xiaomi の設定で、このアプリに対して「ホーム画面ショートカット」権限を有効にしてください。</string>
     <string name="module_shortcut_permission_tip_oppo">OPPO の設定で、このアプリに対して「ホーム画面ショートカット」権限を有効にしてください。</string>
     <string name="module_shortcut_permission_tip_default">ショートカットの作成に失敗した場合は、システム設定でこのアプリに対してホーム画面ショートカットの権限を有効にしてください。</string>
@@ -195,4 +191,11 @@
     <string name="select_file_tip_nogki">パッチを適用する GKI デバイスのイメージファイルを選択してください</string>
     <string name="current_kmi">このデバイスの KMI バージョン: %s</string>
     <string name="current_device_kmi">このデバイスの KMI</string>
+    <string name="color_deep_purple">ディープパープル</string>
+    <string name="color_indigo">インディゴ</string>
+    <string name="color_cyan">シアン</string>
+    <string name="color_yellow">イエロー</string>
+    <string name="color_amber">アンバー</string>
+    <string name="color_blue_grey">ブルーグレー</string>
+    <string name="color_sakura">桜</string>
 </resources>

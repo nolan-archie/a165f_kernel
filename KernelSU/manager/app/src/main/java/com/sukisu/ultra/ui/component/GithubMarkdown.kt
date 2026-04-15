@@ -1,6 +1,7 @@
 package com.sukisu.ultra.ui.component
 
 import android.annotation.SuppressLint
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.Color
 import android.util.Log
@@ -18,8 +19,6 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -30,7 +29,6 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.net.toUri
 import androidx.webkit.WebViewAssetLoader
 import com.sukisu.ultra.ksuApp
 import com.sukisu.ultra.ui.LocalUiMode
@@ -50,20 +48,21 @@ import java.io.ByteArrayInputStream
 import java.nio.charset.StandardCharsets
 import kotlin.math.abs
 
-@SuppressLint("ClickableViewAccessibility", "JavascriptInterface", "SetJavaScriptEnabled")
+private val SEMICOLON_SPLIT = ";\\s*".toRegex()
+private val EQUALS_SPLIT = "=\\s*".toRegex()
+
+@SuppressLint("JavascriptInterface", "SetJavaScriptEnabled", "ClickableViewAccessibility")
 @Composable
 fun GithubMarkdown(
     content: String,
-    isLoading: MutableState<Boolean> = mutableStateOf(true),
+    onLoadingChange: (Boolean) -> Unit = {},
     containerColor: androidx.compose.ui.graphics.Color? = null,
 ) {
-    isLoading.value = true
-
     val density = LocalDensity.current
     val systemDensity = LocalResources.current.displayMetrics.density
     val fontScale = density.fontScale
     val pageScale = density.density / systemDensity
-    val newtTextZoom = (90 * pageScale * fontScale).toInt()
+    val newTextZoom = (90 * pageScale * fontScale).toInt()
 
     val scrollInterface = remember { MarkdownScrollInterface() }
     val isDark = isInDarkTheme()
@@ -120,10 +119,14 @@ fun GithubMarkdown(
                         allowContentAccess = false
                         allowFileAccess = false
                         cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
-                        textZoom = newtTextZoom
+                        textZoom = newTextZoom
                         setSupportZoom(false)
                         setGeolocationEnabled(false)
                     }
+                    layoutParams = FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.WRAP_CONTENT
+                    )
                     addJavascriptInterface(scrollInterface, "AndroidScroll")
                     webViewClient = object : WebViewClient() {
                         private val assetLoader = WebViewAssetLoader.Builder()
@@ -200,15 +203,18 @@ fun GithubMarkdown(
                         override fun shouldOverrideUrlLoading(
                             view: WebView, request: WebResourceRequest
                         ): Boolean {
-                            val url = request.url.toString()
-                            val intent = Intent(Intent.ACTION_VIEW, url.toUri())
-                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            context.startActivity(intent)
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, request.url)
+                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                context.startActivity(intent)
+                            } catch (_: ActivityNotFoundException) {
+                                Log.w("GithubMarkdown", "No activity to handle: ${request.url}")
+                            }
                             return true
                         }
 
                         override fun onPageCommitVisible(view: WebView?, url: String?) {
-                            isLoading.value = false
+                            onLoadingChange(false)
                         }
 
                         override fun shouldInterceptRequest(
@@ -228,15 +234,16 @@ fun GithubMarkdown(
                             return try {
                                 val reply: Response = call.execute()
                                 val header = reply.header("content-type", "text/plain; charset=utf-8")
-                                val contentTypes = header?.split(";\\s*".toRegex()) ?: emptyList()
+                                val contentTypes = header?.split(SEMICOLON_SPLIT) ?: emptyList()
                                 val mimeType = contentTypes.firstOrNull() ?: "image/*"
-                                val charset = contentTypes.getOrNull(1)?.split("=\\s*".toRegex())?.getOrNull(1) ?: "utf-8"
-                                val body = reply.body
-                                WebResourceResponse(mimeType, charset, body.byteStream())
+                                val charset = contentTypes.getOrNull(1)?.split(EQUALS_SPLIT)?.getOrNull(1) ?: "utf-8"
+                                val bytes = reply.body.bytes()
+                                WebResourceResponse(mimeType, charset, ByteArrayInputStream(bytes))
                             } catch (e: IOException) {
+                                Log.e("GithubMarkdown", "Resource load failed", e)
                                 WebResourceResponse(
                                     "text/html", "utf-8",
-                                    ByteArrayInputStream(Log.getStackTraceString(e).toByteArray(StandardCharsets.UTF_8))
+                                    ByteArrayInputStream(ByteArray(0))
                                 )
                             }
                         }
@@ -246,6 +253,7 @@ fun GithubMarkdown(
                         private var initialDownX = 0f
                         private var initialDownY = 0f
 
+                        @SuppressLint("ClickableViewAccessibility")
                         override fun onTouch(v: View, event: MotionEvent): Boolean {
                             when (event.action) {
                                 MotionEvent.ACTION_DOWN -> {
@@ -294,6 +302,15 @@ fun GithubMarkdown(
             }
             frameLayout.addView(webView)
             frameLayout
+        },
+        update = { frameLayout ->
+            val webView = frameLayout.getChildAt(0) as? WebView ?: return@AndroidView
+            webView.settings.textZoom = newTextZoom
+            onLoadingChange(true)
+            webView.loadDataWithBaseURL(
+                "https://appassets.androidplatform.net", html,
+                "text/html", StandardCharsets.UTF_8.name(), null
+            )
         },
         onRelease = { frameLayout ->
             val webView = frameLayout.getChildAt(0) as? WebView

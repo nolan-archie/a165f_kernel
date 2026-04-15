@@ -1,15 +1,13 @@
 package com.sukisu.ultra.magica;
 
-import static android.content.Context.BIND_AUTO_CREATE;
 import static com.sukisu.ultra.magica.AppZygotePreload.TAG;
 
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.ServiceConnection;
-import android.os.IBinder;
 import android.util.Log;
+
+import com.sukisu.ultra.ui.util.KsuCliKt;
 
 public class BootCompletedReceiver extends BroadcastReceiver {
 
@@ -24,6 +22,7 @@ public class BootCompletedReceiver extends BroadcastReceiver {
                 && !"com.sukisu.ultra.magica.LAUNCH".equals(action)) {
             return;
         }
+        if (KsuCliKt.rootAvailable()) return;
         try {
             context.startService(new Intent(context, MagicaService.class));
             Log.i(TAG, "MagicaService started from boot action: " + action);

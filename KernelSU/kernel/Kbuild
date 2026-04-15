@@ -1,132 +1,151 @@
-kernelsu-objs := ksu.o
-kernelsu-objs += allowlist.o
-kernelsu-objs += app_profile.o
-kernelsu-objs += apk_sign.o
-kernelsu-objs += sucompat.o
-kernelsu-objs += syscall_hook_manager.o
-kernelsu-objs += throne_tracker.o
-kernelsu-objs += pkg_observer.o
-kernelsu-objs += setuid_hook.o
-kernelsu-objs += kernel_umount.o
-kernelsu-objs += supercalls.o
-kernelsu-objs += su_mount_ns.o
-kernelsu-objs += feature.o
-kernelsu-objs += ksud.o
-kernelsu-objs += seccomp_cache.o
-kernelsu-objs += file_wrapper.o
-kernelsu-objs += util.o
-kernelsu-objs += tiny_sulog.o
+kernelsu-objs := core/init.o
 
-ifeq ($(CONFIG_KSU_MANUAL_SU), y)
-ccflags-y += -DCONFIG_KSU_MANUAL_SU
-kernelsu-objs += manual_su.o
+kernelsu-objs += feature/kernel_umount.o
+kernelsu-objs += feature/sulog.o
+kernelsu-objs += feature/sucompat.o
+
+kernelsu-objs += hook/lsm_hook.o
+kernelsu-objs += hook/setuid_hook.o
+kernelsu-objs += hook/syscall_event_bridge.o
+kernelsu-objs += hook/syscall_hook_manager.o
+kernelsu-objs += hook/tp_marker.o
+ifeq ($(CONFIG_ARM64),y)
+kernelsu-objs += hook/arm64/patch_memory.o
+kernelsu-objs += hook/arm64/syscall_hook.o
+else ifeq ($(CONFIG_X86_64),y)
+kernelsu-objs += hook/x86_64/patch_memory.o
+kernelsu-objs += hook/x86_64/syscall_hook.o
 endif
 
-kernelsu-objs += selinux/selinux.o
-kernelsu-objs += selinux/sepolicy.o
-kernelsu-objs += selinux/rules.o
-ccflags-y += -I$(srctree)/security/selinux -I$(srctree)/security/selinux/include
-ccflags-y += -I$(objtree)/security/selinux -include $(srctree)/include/uapi/asm-generic/errno.h
+kernelsu-objs += infra/file_wrapper.o
+kernelsu-objs += infra/event_queue.o
+kernelsu-objs += infra/seccomp_cache.o
+kernelsu-objs += infra/su_mount_ns.o
+kernelsu-objs += infra/symbol_resolver.o
 
-obj-$(CONFIG_KSU) += kernelsu.o
+ifneq ($(CONFIG_KSU_DISABLE_MANAGER),y)
+kernelsu-objs += manager/apk_sign.o
+kernelsu-objs += manager/pkg_observer.o
+kernelsu-objs += manager/throne_tracker.o
+endif
+
+kernelsu-objs += policy/allowlist.o
+kernelsu-objs += policy/app_profile.o
+kernelsu-objs += policy/feature.o
+
+kernelsu-objs += runtime/boot_event.o
+kernelsu-objs += runtime/ksud_integration.o
+
+kernelsu-objs += selinux/selinux.o
+kernelsu-objs += selinux/rules.o
+kernelsu-objs += selinux/sepolicy.o
+
+kernelsu-objs += sulog/event.o
+kernelsu-objs += sulog/fd.o
+
+kernelsu-objs += supercall/dispatch.o
+kernelsu-objs += supercall/perm.o
+kernelsu-objs += supercall/supercall.o
+
+kernelsu-objs += feature/adb_root.o
+
+ifeq ($(CONFIG_KSU_SUSFS),y)
+kernelsu-objs += susfs_bridge.o
+endif
+
+ifdef KBUILD_EXTMOD
+ifeq ($(CONFIG_KSU_DISABLE_MANAGER),y)
+ccflags-y += -DCONFIG_KSU_DISABLE_MANAGER=1
+endif
+ifeq ($(CONFIG_KSU_DISABLE_POLICY),y)
+ccflags-y += -DCONFIG_KSU_DISABLE_POLICY=1
+endif
+ifeq ($(CONFIG_KSU_DEBUG),y)
+ccflags-y += -DCONFIG_KSU_DEBUG=1
+endif
+endif
 
 obj-$(CONFIG_KPM) += kpm/
 
-REPO_OWNER := SukiSU-Ultra
-REPO_NAME := SukiSU-Ultra
-REPO_BRANCH := main
-KSU_VERSION_API := 4.1.2
+ifeq ($(CONFIG_KSU_MANUAL_SU), y)
+ccflags-y += -DCONFIG_KSU_MANUAL_SU
+kernelsu-objs += other/manual_su.o
+endif
 
-GIT_BIN := /usr/bin/env PATH="$$PATH":/usr/bin:/usr/local/bin git
+ccflags-y += -I$(srctree)/security/selinux -I$(srctree)/security/selinux/include
+ccflags-y += -I$(objtree)/security/selinux -include $(srctree)/include/uapi/asm-generic/errno.h
+
+ifeq ($(filter /%,$(src)),)
+KSU_KERNEL_DIR := $(srctree)/$(src)
+else
+KSU_KERNEL_DIR := $(src)
+endif
+
+ccflags-y += -I$(KSU_KERNEL_DIR) -I$(KSU_KERNEL_DIR)/include
+
+obj-$(CONFIG_KSU) += kernelsu.o
+
+MDIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+
+REPO_OWNER  := SukiSU-Ultra
+REPO_NAME   := SukiSU-Ultra
+REPO_BRANCH := main
+
+VERSION_BASE    := 40000
+VERSION_OFFSET  := 2815
+
+GIT_BIN  := /usr/bin/env PATH="$$PATH":/usr/bin:/usr/local/bin git
 CURL_BIN := /usr/bin/env PATH="$$PATH":/usr/bin:/usr/local/bin curl
 
-KDIR := $(KDIR)
-MDIR := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
+KSU_SRC := $(if $(filter $(srctree),$(src)),$(src),$(srctree)/$(src))
+KSU_SRC := $(if $(wildcard $(KSU_SRC)/../.git),$(KSU_SRC),$(MDIR))
 
-KSU_GITHUB_VERSION := $(shell $(CURL_BIN) -s "https://api.github.com/repos/$(REPO_OWNER)/$(REPO_NAME)/releases/latest" | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
-KSU_GITHUB_VERSION_COMMIT := $(shell $(CURL_BIN) -sI "https://api.github.com/repos/$(REPO_OWNER)/$(REPO_NAME)/commits?sha=$(REPO_BRANCH)&per_page=1" | grep -i "link:" | sed -n 's/.*page=\([0-9]*\)>; rel="last".*/\1/p')
+git_short_sha    = $(shell cd $(KSU_SRC) && $(GIT_BIN) rev-parse --short=8 HEAD 2>/dev/null)
+git_branch       = $(shell cd $(KSU_SRC) && $(GIT_BIN) rev-parse --abbrev-ref HEAD 2>/dev/null)
+git_commit_count = $(shell cd $(KSU_SRC) && $(GIT_BIN) rev-list --count $(REPO_BRANCH) 2>/dev/null)
+git_latest_tag   = $(shell cd $(KSU_SRC) && $(GIT_BIN) describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
 
-ifeq ($(findstring $(srctree),$(src)),$(srctree))
-  KSU_SRC := $(src)
-else
-  KSU_SRC := $(srctree)/$(src)
-endif
+$(shell cd $(KSU_SRC) 2>/dev/null && [ -f ../.git/shallow ] && $(GIT_BIN) fetch --unshallow 2>/dev/null)
 
-ifneq ($(shell test -e $(KSU_SRC)/../.git && echo "in-tree"),in-tree)
-  KSU_SRC := $(MDIR)
-endif
-
-LOCAL_GIT_EXISTS := $(shell test -e $(KSU_SRC)/../.git && echo 1 || echo 0)
-
-define get_ksu_version_full
-v$1-$(shell cd $(KSU_SRC); $(GIT_BIN) rev-parse --short=8 HEAD)@$(shell cd $(KSU_SRC); $(GIT_BIN) rev-parse --abbrev-ref HEAD)
-endef
-
-ifeq ($(KSU_GITHUB_VERSION_COMMIT),)
-  ifeq ($(LOCAL_GIT_EXISTS),1)
-    $(shell cd $(KSU_SRC); [ -f ../.git/shallow ] && $(GIT_BIN) fetch --unshallow)
-    KSU_LOCAL_VERSION := $(shell cd $(KSU_SRC); $(GIT_BIN) rev-list --count $(REPO_BRANCH))
-    KSU_VERSION := $(shell expr 40000 + $(KSU_LOCAL_VERSION) - 2815)
-    $(info -- $(REPO_NAME) version (local .git): $(KSU_VERSION))
-  else
-    KSU_VERSION := 13000
-    $(warning -- Could not fetch version online or via local .git! Using fallback version: $(KSU_VERSION))
-  endif
-else
-  KSU_VERSION := $(shell expr 40000 + $(KSU_GITHUB_VERSION_COMMIT) - 2815)
-  $(info -- $(REPO_NAME) version (GitHub): $(KSU_VERSION))
-endif
-
-ifeq ($(KSU_GITHUB_VERSION),)
-  ifeq ($(LOCAL_GIT_EXISTS),1)
-    $(shell cd $(KSU_SRC); [ -f ../.git/shallow ] && $(GIT_BIN) fetch --unshallow)
-    KSU_VERSION_FULL := $(call get_ksu_version_full,$(KSU_VERSION_API))
-    $(info -- $(REPO_NAME) version (local .git): $(KSU_VERSION_FULL))
-    $(info -- $(REPO_NAME) Formatted version (local .git): $(KSU_VERSION))
-  else
-    KSU_VERSION_FULL := v$(KSU_VERSION_API)-$(REPO_NAME)-unknown@unknown
-    $(warning -- $(REPO_NAME) version: $(KSU_VERSION_FULL))
-  endif
-else
-  $(shell cd $(KSU_SRC); [ -f ../.git/shallow ] && $(GIT_BIN) fetch --unshallow)
-  KSU_VERSION_FULL := $(call get_ksu_version_full,$(KSU_GITHUB_VERSION))
-  $(info -- $(REPO_NAME) version (Github): $(KSU_VERSION_FULL))
-endif
+GITHUB_API_BASE  := https://api.github.com/repos/$(REPO_OWNER)/$(REPO_NAME)
+KSU_GITHUB_VER   := $(shell $(CURL_BIN) -s "$(GITHUB_API_BASE)/releases/latest" 2>/dev/null | grep '"tag_name":' | sed -E 's/.*"v?([^"]+)".*/\1/')
+GITHUB_COMMITS   := $(shell $(CURL_BIN) -sI "$(GITHUB_API_BASE)/commits?sha=$(REPO_BRANCH)&per_page=1" 2>/dev/null | grep -i "link:" | sed -n 's/.*page=\([0-9]*\)>; rel="last".*/\1/p')
+LOCAL_COUNT     := $(if $(GITHUB_COMMITS),$(GITHUB_COMMITS),$(git_commit_count))
+KSU_VERSION     := $(if $(LOCAL_COUNT),$(shell expr $(VERSION_BASE) + $(LOCAL_COUNT) - $(VERSION_OFFSET)),13000)
+VERSION_TAG     := $(or $(KSU_GITHUB_VER),$(git_latest_tag),4.1.2)
+KSU_VERSION_FULL := $(if $(call git_short_sha),v$(VERSION_TAG)-$(call git_short_sha)@$(call git_branch),v$(VERSION_TAG)-$(REPO_NAME)-unknown@unknown)
+$(info -- $(REPO_NAME) version: $(KSU_VERSION) [$(KSU_VERSION_FULL)])
 
 ccflags-y += -DKSU_VERSION=$(KSU_VERSION)
 ccflags-y += -DKSU_VERSION_FULL=\"$(KSU_VERSION_FULL)\"
 
-ifeq ($(CONFIG_KSU_MANUAL_HOOK), y)
-$(info -- KernelSU: CONFIG_KSU_MANUAL_HOOK)
-ccflags-y += -DCONFIG_KSU_MANUAL_HOOK
+ifndef KSU_EXPECTED_SIZE
+KSU_EXPECTED_SIZE := 0x35c
 endif
 
-ifeq ($(CONFIG_KSU_SYSCALL_HOOK), y)
-$(info -- KernelSU: CONFIG_KSU_SYSCALL_HOOK)
-ccflags-y += -DCONFIG_KSU_SYSCALL_HOOK
-endif
-
-ifeq ($(CONFIG_KSU_NONE_HOOK), y)
-ifeq ($(CONFIG_KSU_SUSFS), y)
-$(info -- KernelSU: SUSFS_INLINE_HOOK)
-ccflags-y += -DCONFIG_KSU_SUSFS
-endif
-endif
-
-# Custom Signs
-ifdef KSU_EXPECTED_SIZE
-ccflags-y += -DEXPECTED_SIZE=$(KSU_EXPECTED_SIZE)
-$(info -- Custom KernelSU Manager signature size: $(KSU_EXPECTED_SIZE))
-endif
-
-ifdef KSU_EXPECTED_HASH
-ccflags-y += -DEXPECTED_HASH=\"$(KSU_EXPECTED_HASH)\"
-$(info -- Custom KernelSU Manager signature hash: $(KSU_EXPECTED_HASH))
+ifndef KSU_EXPECTED_HASH
+KSU_EXPECTED_HASH := 947ae944f3de4ed4c21a7e4f7953ecf351bfa2b36239da37a34111ad29993eef
 endif
 
 ifdef KSU_MANAGER_PACKAGE
 ccflags-y += -DKSU_MANAGER_PACKAGE=\"$(KSU_MANAGER_PACKAGE)\"
-$(info -- SukiSU Manager package name: $(KSU_MANAGER_PACKAGE))
+$(info -- KernelSU Manager package name: $(KSU_MANAGER_PACKAGE))
+endif
+
+$(info -- KernelSU Manager signature size: $(KSU_EXPECTED_SIZE))
+$(info -- KernelSU Manager signature hash: $(KSU_EXPECTED_HASH))
+
+ccflags-y += -DEXPECTED_SIZE=$(KSU_EXPECTED_SIZE)
+ccflags-y += -DEXPECTED_HASH=\"$(KSU_EXPECTED_HASH)\"
+
+ifdef KSU_EXPECTED_SIZE2
+ifndef KSU_EXPECTED_HASH2
+$(error KSU_EXPECTED_HASH2 must be set when KSU_EXPECTED_SIZE2 is set)
+endif
+ccflags-y += -DEXPECTED_SIZE2=$(KSU_EXPECTED_SIZE2)
+ccflags-y += -DEXPECTED_HASH2=\"$(KSU_EXPECTED_HASH2)\"
+$(info -- KernelSU Manager signature size2: $(KSU_EXPECTED_SIZE2))
+$(info -- KernelSU Manager signature hash2: $(KSU_EXPECTED_HASH2))
 endif
 
 KERNEL_VERSION := $(VERSION).$(PATCHLEVEL)
@@ -149,68 +168,17 @@ else
 $(info -- KPM is disabled)
 endif
 
-ifeq ($(shell grep -q "current_sid(void)" $(srctree)/security/selinux/include/objsec.h; echo $$?),0)
-ccflags-y += -DKSU_COMPAT_HAS_CURRENT_SID
-endif
-
-ifeq ($(shell grep -q "struct selinux_state " $(srctree)/security/selinux/include/security.h; echo $$?),0)
-ccflags-y += -DKSU_COMPAT_USE_SELINUX_STATE
-endif
+KSU_NEW_DCACHE_FLUSH := $(shell grep -q __flush_dcache_area $(srctree)/arch/arm64/include/asm/cacheflush.h ; echo $$?)
+$(info -- KSU_NEW_DCACHE_FLUSH: $(KSU_NEW_DCACHE_FLUSH))
 
 # Check new vfs_getattr()
 ifeq ($(shell grep -A1 "^int vfs_getattr" $(srctree)/fs/stat.c | grep -q "query_flags" ; echo $$?),0)
 ccflags-y += -DKSU_HAS_NEW_VFS_GETATTR
 endif
 
-ifeq ($(shell grep -q "strncpy_from_user_nofault" $(srctree)/include/linux/uaccess.h; echo $$?),0)
-ccflags-y += -DKSU_OPTIONAL_STRNCPY
-endif
-
-ifeq ($(shell grep -q "ssize_t kernel_read" $(srctree)/fs/read_write.c; echo $$?),0)
-ccflags-y += -DKSU_OPTIONAL_KERNEL_READ
-endif
-
-ifeq ($(shell grep "ssize_t kernel_write" $(srctree)/fs/read_write.c | grep -q "const void" ; echo $$?),0)
-ccflags-y += -DKSU_OPTIONAL_KERNEL_WRITE
-endif
-
-ifeq ($(shell grep -q "int\s\+path_umount" $(srctree)/fs/namespace.c; echo $$?),0)
-ccflags-y += -DKSU_HAS_PATH_UMOUNT
-endif
-
-ifeq ($(shell grep -q "int\s\+path_mount" $(srctree)/fs/namespace.c; echo $$?),0)
-ccflags-y += -DKSU_HAS_PATH_MOUNT
-endif
-
-ifeq ($(shell grep -q "inode_security_struct\s\+\*selinux_inode" $(srctree)/security/selinux/include/objsec.h; echo $$?),0)
-ccflags-y += -DKSU_OPTIONAL_SELINUX_INODE
-endif
-
-ifeq ($(shell grep -q "task_security_struct\s\+\*selinux_cred" $(srctree)/security/selinux/include/objsec.h; echo $$?),0)
-ccflags-y += -DKSU_OPTIONAL_SELINUX_CRED
-endif
-
-ifeq ($(shell grep -q "atomic_t\s\+filter_count" $(srctree)/include/linux/seccomp.h; echo $$?),0)
-ccflags-y += -DKSU_OPTIONAL_SECCOMP_FILTER_CNT
-endif
-
-ifneq ($(shell grep -wq "put_seccomp_filter" $(srctree)/kernel/seccomp.c $(srctree)/include/linux/seccomp.h; echo $$?),0)
-ifeq ($(shell grep -wq "seccomp_filter_release" $(srctree)/kernel/seccomp.c $(srctree)/include/linux/seccomp.h; echo $$?),0)
-ccflags-y += -DKSU_OPTIONAL_SECCOMP_FILTER_RELEASE
-endif
-endif
-
-ifeq ($(shell grep -q "security_inode_init_security_anon" $(srctree)/include/linux/security.h; echo $$?),0)
-ccflags-y += -DKSU_COMPAT_HAS_INIT_SEC_ANON
-endif
-
 # Function proc_ops check
 ifeq ($(shell grep -q "struct proc_ops " $(srctree)/include/linux/proc_fs.h; echo $$?),0)
 ccflags-y += -DKSU_COMPAT_HAS_PROC_OPS
-endif
-
-ifeq ($(shell grep -q "int ns_get_path" $(srctree)/include/linux/proc_ns.h; echo $$?),0)
-ccflags-y += -DKSU_TYPE_INT_NS_GET_PATH
 endif
 
 ifdef KSU_EXPECTED_SIZE2
@@ -223,13 +191,9 @@ $(info -- KernelSU Manager signature size2: $(KSU_EXPECTED_SIZE2))
 $(info -- KernelSU Manager signature hash2: $(KSU_EXPECTED_HASH2))
 endif
 
-ifeq ($(shell test -e $(srctree)/fs/susfs.c; echo $$?),0)
-$(eval SUSFS_VERSION=$(shell cat $(srctree)/include/linux/susfs.h | grep -E '^#define SUSFS_VERSION' | cut -d' ' -f3 | sed 's/"//g'))
-$(info )
-$(info -- SUSFS_VERSION: $(SUSFS_VERSION))
-else
-$(info -- You have not integrated susfs in your kernel yet.)
-endif
+ccflags-y += -DKSU_NEW_DCACHE_FLUSH=$(KSU_NEW_DCACHE_FLUSH)
 
 ccflags-y += -Wno-strict-prototypes -Wno-int-conversion -Wno-gcc-compat -Wno-missing-prototypes
-ccflags-y += -Wno-declaration-after-statement -Wno-unused-function -Wno-unused-variable
+ccflags-y += -Wno-declaration-after-statement -Wno-unused-function
+
+# Keep a new line here!! Because someone may append config

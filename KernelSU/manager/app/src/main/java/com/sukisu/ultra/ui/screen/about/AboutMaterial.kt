@@ -35,42 +35,28 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.FixedScale
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.dropUnlessResumed
-import com.sukisu.ultra.BuildConfig
 import com.sukisu.ultra.R
 import com.sukisu.ultra.ui.component.material.SegmentedColumn
 import com.sukisu.ultra.ui.component.material.SegmentedListItem
-import com.sukisu.ultra.ui.navigation3.LocalNavigator
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun AboutScreenMaterial() {
-    val navigator = LocalNavigator.current
-    val uriHandler = LocalUriHandler.current
+fun AboutScreenMaterial(
+    state: AboutUiState,
+    actions: AboutScreenActions,
+) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
-
-    val htmlString = stringResource(
-        id = R.string.about_source_code,
-        "<b><a href=\"https://github.com/ShirkNeko/SukiSU-Ultra\">GitHub</a></b>",
-        "<b><a href=\"https://t.me/SukiKSU\">Telegram</a></b>",
-        "<b>怡子曰曰</b>",
-        "<b>明风 OuO</b>",
-        "<b><a href=\"https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.txt\">CC BY-NC-SA 4.0</a></b>"
-    )
-    val result = extractLinks(htmlString)
 
     Scaffold(
         topBar = {
             LargeFlexibleTopAppBar(
-                title = { Text(stringResource(R.string.about)) },
+                title = { Text(state.title) },
                 navigationIcon = {
                     IconButton(
-                        onClick = dropUnlessResumed { navigator.pop() }
+                        onClick = actions.onBack
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -115,12 +101,12 @@ fun AboutScreenMaterial() {
                     }
                     Text(
                         modifier = Modifier.padding(top = 12.dp),
-                        text = stringResource(id = R.string.app_name),
+                        text = state.appName,
                         fontWeight = FontWeight.Medium,
                         fontSize = MaterialTheme.typography.headlineMedium.fontSize
                     )
                     Text(
-                        text = BuildConfig.VERSION_NAME,
+                        text = state.versionName,
                         fontSize = MaterialTheme.typography.bodyMedium.fontSize
                     )
                 }
@@ -128,10 +114,10 @@ fun AboutScreenMaterial() {
             item {
                 SegmentedColumn(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    content = result.map { linkInfo ->
+                    content = state.links.map { linkInfo ->
                         {
                             SegmentedListItem(
-                                onClick = { uriHandler.openUri(linkInfo.url) },
+                                onClick = { actions.onOpenLink(linkInfo.url) },
                                 headlineContent = { Text(linkInfo.fullText) }
                             )
                         }

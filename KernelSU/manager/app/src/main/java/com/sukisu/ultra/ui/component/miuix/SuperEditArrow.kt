@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,8 +22,8 @@ import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.extra.SuperArrow
-import top.yukonga.miuix.kmp.extra.SuperDialog
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.preference.ArrowPreference
 
 @Composable
 fun SuperEditArrow(
@@ -41,7 +40,7 @@ fun SuperEditArrow(
     val showDialog = remember { mutableStateOf(false) }
     val dialogTextFieldValue = remember { mutableIntStateOf(defaultValue) }
 
-    SuperArrow(
+    ArrowPreference(
         title = title,
         titleColor = titleColor,
         summary = dialogTextFieldValue.intValue.toString(),
@@ -57,72 +56,76 @@ fun SuperEditArrow(
     )
 
     EditDialog(
-        title,
-        showDialog,
+        title = title,
+        show = showDialog.value,
+        onDismissRequest = { showDialog.value = false },
         dialogTextFieldValue = dialogTextFieldValue.intValue,
-    ) {
-        dialogTextFieldValue.intValue = it
-        onValueChange?.invoke(dialogTextFieldValue.intValue)
-    }
+        onValueChange = {
+            dialogTextFieldValue.intValue = it
+            onValueChange?.invoke(dialogTextFieldValue.intValue)
+        }
+    )
 
 }
 
 @Composable
 private fun EditDialog(
     title: String,
-    showDialog: MutableState<Boolean>,
+    show: Boolean,
+    onDismissRequest: () -> Unit,
     dialogTextFieldValue: Int,
     onValueChange: (Int) -> Unit,
 ) {
     val inputTextFieldValue = remember { mutableIntStateOf(dialogTextFieldValue) }
     val filter = remember(key1 = inputTextFieldValue.intValue) { FilterNumber(dialogTextFieldValue) }
 
-    SuperDialog(
+    OverlayDialog(
+        show = show,
         title = title,
-        show = showDialog,
         onDismissRequest = {
-            showDialog.value = false
+            onDismissRequest()
             filter.setInputValue(dialogTextFieldValue.toString())
-        }
-    ) {
-        TextField(
-            modifier = Modifier.padding(bottom = 16.dp),
-            value = filter.getInputValue(),
-            maxLines = 1,
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Number,
-            ),
-            onValueChange = filter.onValueChange()
-        )
-        Row(
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            TextButton(
-                text = stringResource(android.R.string.cancel),
-                onClick = {
-                    showDialog.value = false
-                    filter.setInputValue(dialogTextFieldValue.toString())
-                },
-                modifier = Modifier.weight(1f)
+        },
+        content = {
+            TextField(
+                modifier = Modifier.padding(bottom = 16.dp),
+                value = filter.getInputValue(),
+                maxLines = 1,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number,
+                ),
+                onValueChange = filter.onValueChange()
             )
-            Spacer(Modifier.width(20.dp))
-            TextButton(
-                text = stringResource(R.string.confirm),
-                onClick = {
-                    showDialog.value = false
-                    with(filter.getInputValue().text) {
-                        if (isEmpty()) {
-                            onValueChange(0)
-                            filter.setInputValue("0")
-                        } else {
-                            onValueChange(this@with.toInt())
-                        }
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                TextButton(
+                    text = stringResource(android.R.string.cancel),
+                    onClick = {
+                        onDismissRequest()
+                        filter.setInputValue(dialogTextFieldValue.toString())
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(Modifier.width(20.dp))
+                TextButton(
+                    text = stringResource(R.string.confirm),
+                    onClick = {
+                        onDismissRequest()
+                        with(filter.getInputValue().text) {
+                            if (isEmpty()) {
+                                onValueChange(0)
+                                filter.setInputValue("0")
+                            } else {
+                                onValueChange(this@with.toInt())
+                            }
 
-                    }
-                },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.textButtonColorsPrimary()
-            )
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.textButtonColorsPrimary()
+                )
+            }
         }
-    }
+    )
 }

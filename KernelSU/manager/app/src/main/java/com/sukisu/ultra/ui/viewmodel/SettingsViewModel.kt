@@ -1,5 +1,6 @@
 package com.sukisu.ultra.ui.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
@@ -8,8 +9,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.sukisu.ultra.Natives
 import com.sukisu.ultra.data.repository.SettingsRepository
 import com.sukisu.ultra.data.repository.SettingsRepositoryImpl
+import com.sukisu.ultra.ui.screen.settings.SettingsUiState
 import com.sukisu.ultra.ui.theme.ColorMode
 
 class SettingsViewModel(
@@ -37,6 +40,7 @@ class SettingsViewModel(
             val enableFloatingBottomBarBlur = repo.enableFloatingBottomBarBlur
             val pageScale = repo.pageScale
             val enableWebDebugging = repo.enableWebDebugging
+            val enableSmoothCorner = repo.enableSmoothCorner
             val colorStyle = repo.colorStyle
             val colorSpec = repo.colorSpec
             val isLkmMode = repo.isLkmMode()
@@ -50,9 +54,14 @@ class SettingsViewModel(
 
             val kernelUmountStatus = repo.getKernelUmountStatus()
             val isKernelUmountEnabled = repo.isKernelUmountEnabled()
+            val sulogStatus = repo.getSulogStatus()
+            val isSulogEnabled = repo.getSulogPersistValue() == 1L
+            val adbRootStatus = repo.getAdbRootStatus()
+            val isAdbRootEnabled = repo.getAdbRootPersistValue() == 1L
             val isDefaultUmountModules = repo.isDefaultUmountModules()
             val uiMode = repo.uiMode
             val autoJailbreak = repo.autoJailbreak
+            val isLateLoadMode = Natives.isLateLoadMode
 
             _uiState.update {
                 it.copy(
@@ -69,16 +78,22 @@ class SettingsViewModel(
                     enableFloatingBottomBarBlur = enableFloatingBottomBarBlur,
                     pageScale = pageScale,
                     enableWebDebugging = enableWebDebugging,
+                    enableSmoothCorner = enableSmoothCorner,
                     colorStyle = colorStyle,
                     colorSpec = colorSpec,
                     suCompatStatus = suCompatStatus,
                     suCompatMode = suCompatMode,
                     isSuEnabled = isSuEnabled,
+                    adbRootStatus = adbRootStatus,
+                    isAdbRootEnabled = isAdbRootEnabled,
                     kernelUmountStatus = kernelUmountStatus,
                     isKernelUmountEnabled = isKernelUmountEnabled,
+                    sulogStatus = sulogStatus,
+                    isSulogEnabled = isSulogEnabled,
                     isDefaultUmountModules = isDefaultUmountModules,
                     isLkmMode = isLkmMode,
-                    autoJailbreak = autoJailbreak
+                    autoJailbreak = autoJailbreak,
+                    isLateLoadMode = isLateLoadMode,
                 )
             }
         }
@@ -123,9 +138,10 @@ class SettingsViewModel(
         repo.checkModuleUpdate = enabled
         _uiState.update { it.copy(checkModuleUpdate = enabled) }
     }
-    fun setAlternativeIcon(enabled: Boolean) {
+    fun setAlternativeIcon(context: Context, enabled: Boolean) {
         repo.alternativeIcon = enabled
         _uiState.update { it.copy(alternativeIcon = enabled) }
+        com.sukisu.ultra.ui.util.toggleLauncherIcon(context, enabled)
     }
 
     fun setThemeMode(mode: Int) {
@@ -202,6 +218,11 @@ class SettingsViewModel(
         _uiState.update { it.copy(enableWebDebugging = enabled) }
     }
 
+    fun setEnableSmoothCorner(enabled: Boolean) {
+        repo.enableSmoothCorner = enabled
+        _uiState.update { it.copy(enableSmoothCorner = enabled) }
+    }
+
     fun setSuCompatMode(mode: Int) {
         viewModelScope.launch(Dispatchers.IO) {
             when (mode) {
@@ -242,6 +263,24 @@ class SettingsViewModel(
     fun setAutoJailbreak(enabled: Boolean) {
         repo.autoJailbreak = enabled
         _uiState.update { it.copy(autoJailbreak = enabled) }
+    }
+
+    fun setSulogEnabled(enabled: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            if (repo.setSulogEnabled(enabled)) {
+                repo.execKsudFeatureSave()
+                _uiState.update { it.copy(isSulogEnabled = enabled) }
+            }
+        }
+    }
+
+    fun setAdbRootEnabled(enabled: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            if (repo.setAdbRootEnabled(enabled)) {
+                repo.execKsudFeatureSave()
+                _uiState.update { it.copy(isAdbRootEnabled = enabled) }
+            }
+        }
     }
 
     fun setDefaultUmountModules(enabled: Boolean) {

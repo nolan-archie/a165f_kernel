@@ -3,6 +3,7 @@ package com.sukisu.ultra.ui.webui
 import android.annotation.SuppressLint
 import android.content.SharedPreferences
 import android.os.Bundle
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -37,6 +38,7 @@ class WebUIActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         window.isNavigationBarContrastEnforced = false
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
 
         super.onCreate(savedInstanceState)
 
@@ -85,7 +87,7 @@ private fun MainContent(activity: ComponentActivity, onFinish: () -> Unit) {
     }
 
     DisposableEffect(Unit) {
-        onDispose { webUIState.dispose() }
+        onDispose { webUIState.dispose(activity) }
     }
 
     when (val event = webUIState.uiEvent) {

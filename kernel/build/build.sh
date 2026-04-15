@@ -763,6 +763,26 @@ if [ "${SKIP_DEFCONFIG}" != "1" ] ; then
      echo "========================================================"
      echo " Merging custom defconfig with .config"
      (cd ${OUT_DIR} && ${MERGE_CONFIG} -m .config ${WDIR}/custom_defconfigs/custom_defconfig ${WDIR}/custom_defconfigs/droidspaces_defconfig ${WDIR}/custom_defconfigs/version_defconfig)
+     # Force the inline SUSFS KernelSU choice after fragment merge. merge_config
+     # does not reliably preserve this choice/menu combination on this tree.
+     if [ -f "${WDIR}/custom_defconfigs/custom_defconfig" ] &&
+        grep -q "^CONFIG_KSU_NONE_HOOK=y" "${WDIR}/custom_defconfigs/custom_defconfig" &&
+        grep -q "^CONFIG_KSU_SUSFS=y" "${WDIR}/custom_defconfigs/custom_defconfig"; then
+       ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
+         -e KSU_SUSFS \
+         -d KSU_SUSFS_SUS_PATH \
+         -e KSU_SUSFS_SUS_MOUNT \
+         -e KSU_SUSFS_SUS_KSTAT \
+         -e KSU_SUSFS_SUS_MAP \
+         -e KSU_SUSFS_SPOOF_UNAME \
+         -e KSU_SUSFS_ENABLE_LOG \
+         -e KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS \
+         -e KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG \
+         -e KSU_SUSFS_OPEN_REDIRECT \
+         -e KSU_NONE_HOOK \
+         -d KSU_MANUAL_HOOK \
+         -d KSU_SYSCALL_HOOK
+     fi
      (cd ${OUT_DIR} && make O=${OUT_DIR} ${TOOL_ARGS} olddefconfig)
   
 fi

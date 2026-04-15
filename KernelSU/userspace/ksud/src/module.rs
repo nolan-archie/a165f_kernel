@@ -218,9 +218,9 @@ pub fn exec_script<T: AsRef<Path>>(path: T, wait: bool, timeout: Duration) -> Re
     let mut command = &mut Command::new(assets::BUSYBOX_PATH);
     #[cfg(unix)]
     {
-        command = command.process_group(0);
         command = unsafe {
             command.pre_exec(|| {
+                detach_process_group(true);
                 // ignore the error?
                 switch_cgroups();
                 Ok(())
@@ -445,13 +445,7 @@ pub fn load_system_prop() -> Result<()> {
         }
         info!("load {} system.prop", module.display());
 
-        // resetprop -n --file system.prop
-        Command::new(assets::RESETPROP_PATH)
-            .arg("-n")
-            .arg("--file")
-            .arg(&system_prop)
-            .status()
-            .with_context(|| format!("Failed to exec {}", system_prop.display()))?;
+        crate::resetprop::load_system_prop_file(&system_prop)?;
 
         Ok(())
     })?;

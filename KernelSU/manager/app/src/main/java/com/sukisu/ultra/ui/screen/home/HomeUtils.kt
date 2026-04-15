@@ -8,7 +8,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.pm.PackageInfoCompat
 import com.sukisu.ultra.Natives
-import com.sukisu.ultra.ui.util.getSELinuxStatus
 import com.sukisu.ultra.ui.util.getSuSFSStatus
 import com.sukisu.ultra.ui.util.getSuSFSVersion
 
@@ -20,23 +19,12 @@ data class ManagerVersion(
 data class SystemInfo(
     val kernelVersion: String,
     val managerVersion: String,
+    val kernelFullVersion: String,
     val fingerprint: String,
-    val selinuxStatus: String
+    val selinuxStatus: String,
+    val seccompStatus: Int
 )
 
-@Composable
-fun rememberSystemInfo(): SystemInfo {
-    val context = LocalContext.current
-    val uname = Os.uname()
-    val managerVersion = getManagerVersion(context)
-
-    return SystemInfo(
-        kernelVersion = uname.release,
-        managerVersion = "${managerVersion.versionName} (${managerVersion.versionCode})",
-        fingerprint = Build.FINGERPRINT,
-        selinuxStatus = getSELinuxStatus()
-    )
-}
 
 fun getManagerVersion(context: Context): ManagerVersion {
     val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)!!
@@ -86,5 +74,24 @@ fun rememberSusfsInfo(
         }.getOrElse {
             SusfsInfoState(status = SusfsStatus.Error)
         }
+    }
+}
+
+@Composable
+fun rememberHookTypeLabel(
+    manualHookText: String,
+    inlineHookText: String,
+    tracepointHookText: String,
+    unknownHookText: String,
+): String {
+    return remember(manualHookText, inlineHookText, tracepointHookText, unknownHookText) {
+        val rawType = Natives.getHookType()
+        val localized = when (rawType) {
+            "Manual" -> manualHookText
+            "Inline" -> inlineHookText
+            "Tracepoint" -> tracepointHookText
+            else -> rawType
+        }
+        localized.ifBlank { unknownHookText }
     }
 }

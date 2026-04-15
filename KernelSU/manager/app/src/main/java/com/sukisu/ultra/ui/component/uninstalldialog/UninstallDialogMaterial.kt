@@ -5,7 +5,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -14,7 +13,7 @@ import com.sukisu.ultra.R
 import com.sukisu.ultra.ui.component.dialog.rememberConfirmDialog
 import com.sukisu.ultra.ui.component.material.SegmentedColumn
 import com.sukisu.ultra.ui.component.material.SegmentedListItem
-import com.sukisu.ultra.ui.navigation3.Navigator
+import com.sukisu.ultra.ui.navigation3.LocalNavigator
 import com.sukisu.ultra.ui.navigation3.Route
 import com.sukisu.ultra.ui.screen.flash.FlashIt
 import com.sukisu.ultra.ui.screen.flash.UninstallType
@@ -23,9 +22,10 @@ import com.sukisu.ultra.ui.screen.flash.UninstallType.RESTORE_STOCK_IMAGE
 
 @Composable
 fun UninstallDialogMaterial(
-    showDialog: MutableState<Boolean>,
-    navigator: Navigator
+    show: Boolean,
+    onDismissRequest: () -> Unit
 ) {
+    val navigator = LocalNavigator.current
     val options = listOf(
         // TEMPORARY,
         PERMANENT,
@@ -42,9 +42,9 @@ fun UninstallDialogMaterial(
         }
     }
 
-    if (showDialog.value) {
+    if (show) {
         AlertDialog(
-            onDismissRequest = { showDialog.value = false },
+            onDismissRequest = onDismissRequest,
             title = { Text(stringResource(R.string.settings_uninstall)) },
             text = {
                 SegmentedColumn(
@@ -70,7 +70,7 @@ fun UninstallDialogMaterial(
                 )
             },
             confirmButton = {
-                TextButton(onClick = { showDialog.value = false }) {
+                TextButton(onClick = onDismissRequest) {
                     Text(stringResource(android.R.string.cancel))
                 }
             }
@@ -80,7 +80,7 @@ fun UninstallDialogMaterial(
     val confirmDialog = rememberConfirmDialog(
         onConfirm = {
             showConfirmDialog.value = false
-            showDialog.value = false
+            onDismissRequest()
             runType.value?.let { type ->
                 run(type)
             }

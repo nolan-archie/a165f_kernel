@@ -28,8 +28,8 @@ import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.extra.SuperArrow
-import top.yukonga.miuix.kmp.extra.SuperDialog
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme
 
@@ -68,8 +68,8 @@ fun SlotSelectionDialogMiuix(
         }
     }
 
-    SuperDialog(
-        show = showDialog,
+    OverlayDialog(
+        show = showDialog.value,
         insideMargin = DpSize(0.dp, 0.dp),
         onDismissRequest = {
             showDialog.value = false
@@ -147,7 +147,7 @@ fun SlotSelectionDialogMiuix(
                 )
 
                 slotOptions.forEach { option ->
-                    SuperArrow(
+                    ArrowPreference(
                         title = option.titleText,
                         startAction = {
                             Icon(

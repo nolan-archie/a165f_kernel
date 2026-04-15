@@ -1,7 +1,9 @@
 package com.sukisu.ultra.ui.screen.about
 
 import android.util.Log
+import androidx.compose.runtime.Immutable
 
+@Immutable
 data class LinkInfo(
     val fullText: String,
     val url: String

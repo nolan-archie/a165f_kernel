@@ -1,14 +1,13 @@
 package com.sukisu.ultra.ui.viewmodel
 
 import android.util.Log
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sukisu.ultra.data.repository.KpmRepository
 import com.sukisu.ultra.data.repository.KpmRepositoryImpl
 import com.sukisu.ultra.ui.component.SearchStatus
+import com.sukisu.ultra.ui.screen.kpm.InputDialogState
+import com.sukisu.ultra.ui.screen.kpm.KpmUiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 class KpmViewModel(
     private val repo: KpmRepository = KpmRepositoryImpl()
@@ -28,15 +28,18 @@ class KpmViewModel(
     private val _uiState = MutableStateFlow(KpmUiState())
     val uiState: StateFlow<KpmUiState> = _uiState.asStateFlow()
 
-    private var _showInputDialog = false
-    private var _selectedModuleId: String? = null
-    private var _inputArgs = ""
-    var currentModuleDetail by mutableStateOf("")
-        private set
+    private var tempFile: File? = null
 
-    val showInputDialog: Boolean get() = _showInputDialog
-    val selectedModuleId: String? get() = _selectedModuleId
-    val inputArgs: String get() = _inputArgs
+    fun setTempFileForInstall(file: File) {
+        tempFile = file
+    }
+
+    fun clearTempFile() {
+        tempFile?.delete()
+        tempFile = null
+    }
+
+    fun getTempFile(): File? = tempFile
 
     fun fetchModuleList() {
         viewModelScope.launch {
@@ -63,46 +66,59 @@ class KpmViewModel(
         }
     }
 
-    fun loadModuleDetail(moduleId: String) {
-        viewModelScope.launch {
-            repo.getModuleInfo(moduleId)
-                .onSuccess { detail ->
-                    currentModuleDetail = detail
-                    Log.d(TAG, "Module detail loaded: $currentModuleDetail")
-                }
-                .onFailure { e ->
-                    Log.e(TAG, "Failed to load module detail", e)
-                    currentModuleDetail = "Error: ${e.message}"
-                }
+    fun showInstallDialog(moduleName: String) {
+        _uiState.update {
+            it.copy(
+                showInstallModeDialog = true,
+                tempModuleName = moduleName
+            )
+        }
+    }
+
+    fun dismissInstallDialog() {
+        _uiState.update {
+            it.copy(
+                showInstallModeDialog = false,
+                tempModuleName = null
+            )
         }
     }
 
     fun showInputDialog(moduleId: String) {
-        _selectedModuleId = moduleId
-        _showInputDialog = true
+        _uiState.update {
+            it.copy(
+                inputDialogState = InputDialogState(
+                    visible = true,
+                    moduleId = moduleId,
+                    args = it.moduleList.find { m -> m.id == moduleId }?.args ?: ""
+                )
+            )
+        }
     }
 
     fun hideInputDialog() {
-        _showInputDialog = false
-        _selectedModuleId = null
-        _inputArgs = ""
+        _uiState.update {
+            it.copy(inputDialogState = InputDialogState())
+        }
     }
 
     fun updateInputArgs(args: String) {
-        _inputArgs = args
+        _uiState.update {
+            it.copy(inputDialogState = it.inputDialogState.copy(args = args))
+        }
     }
 
     suspend fun executeControl(): Int {
-        val moduleId = _selectedModuleId ?: return -1
+        val moduleId = _uiState.value.inputDialogState.moduleId ?: return -1
+        val args = _uiState.value.inputDialogState.args
 
-        return repo.controlModule(moduleId, _inputArgs)
+        return repo.controlModule(moduleId, args)
             .onSuccess { _ ->
                 hideInputDialog()
             }
             .onFailure { e ->
                 Log.e(TAG, "Failed to control module", e)
                 hideInputDialog()
-                1
             }
             .getOrElse { -1 }
     }

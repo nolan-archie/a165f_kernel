@@ -1,8 +1,6 @@
 package com.sukisu.ultra.ui.screen.template
 
 import android.annotation.SuppressLint
-import android.content.ClipData
-import android.widget.Toast
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
@@ -41,12 +39,10 @@ import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,33 +53,20 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.ClipEntry
-import androidx.compose.ui.platform.LocalClipboard
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.compose.dropUnlessResumed
-import androidx.lifecycle.viewmodel.compose.viewModel
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import com.sukisu.ultra.R
+import com.sukisu.ultra.data.model.TemplateInfo
+import com.sukisu.ultra.ui.component.ListPopupDefaults
 import com.sukisu.ultra.ui.component.miuix.DropdownItem
-import com.sukisu.ultra.ui.navigation3.LocalNavigator
-import com.sukisu.ultra.ui.navigation3.Navigator
-import com.sukisu.ultra.ui.navigation3.Route
 import com.sukisu.ultra.ui.theme.LocalEnableBlur
-import com.sukisu.ultra.ui.util.isNetworkAvailable
-import com.sukisu.ultra.ui.viewmodel.TemplateViewModel
+import com.sukisu.ultra.ui.util.BlurredBar
+import com.sukisu.ultra.ui.util.rememberBlurBackdrop
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.FloatingActionButton
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
@@ -91,7 +74,6 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.ListPopupColumn
-import top.yukonga.miuix.kmp.basic.ListPopupDefaults
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.PullToRefresh
@@ -101,10 +83,12 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberPullToRefreshState
-import top.yukonga.miuix.kmp.extra.SuperListPopup
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Copy
+import top.yukonga.miuix.kmp.overlay.OverlayListPopup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
@@ -117,28 +101,11 @@ import top.yukonga.miuix.kmp.utils.scrollEndHaptic
  */
 @SuppressLint("LocalContextGetResourceValueCall")
 @Composable
-fun AppProfileTemplateScreenMiuix() {
-    val navigator = LocalNavigator.current
-    val viewModel = viewModel<TemplateViewModel>()
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val scope = rememberCoroutineScope()
+fun AppProfileTemplateScreenMiuix(
+    state: TemplateUiState,
+    actions: TemplateActions,
+) {
     val scrollBehavior = MiuixScrollBehavior()
-
-    LaunchedEffect(Unit) {
-        if (uiState.templateList.isEmpty()) {
-            scope.launch { viewModel.fetchTemplates() }
-        }
-    }
-
-    val requestKey = "template_edit"
-    LaunchedEffect(Unit) {
-        navigator.observeResult<Boolean>(requestKey).collect { success ->
-            if (success) {
-                navigator.clearResult(requestKey)
-                scope.launch { viewModel.fetchTemplates() }
-            }
-        }
-    }
 
     val listState = rememberLazyListState()
     var fabVisible by remember { mutableStateOf(true) }
@@ -170,76 +137,30 @@ fun AppProfileTemplateScreenMiuix() {
         animationSpec = tween(durationMillis = 350)
     )
     val enableBlur = LocalEnableBlur.current
-    val hazeState = remember { HazeState() }
-    val hazeStyle = if (enableBlur) {
-        HazeStyle(
-            backgroundColor = colorScheme.surface,
-            tint = HazeTint(colorScheme.surface.copy(0.8f))
-        )
-    } else {
-        HazeStyle.Unspecified
-    }
-
-    val importEmptyText = stringResource(R.string.app_profile_template_import_empty)
-    val importSuccessText = stringResource(R.string.app_profile_template_import_success)
-    val exportEmptyText = stringResource(R.string.app_profile_template_export_empty)
+    val backdrop = rememberBlurBackdrop(enableBlur)
+    val blurActive = backdrop != null
+    val barColor = if (blurActive) Color.Transparent else colorScheme.surface
 
     Scaffold(
         topBar = {
-            val clipboard = LocalClipboard.current
-            val context = LocalContext.current
-            val showToast = fun(msg: String) {
-                scope.launch(Dispatchers.Main) {
-                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                }
-            }
             TopBar(
-                onBack = dropUnlessResumed { navigator.pop() },
-                onImport = {
-                    scope.launch {
-                        clipboard.getClipEntry()?.clipData?.getItemAt(0)?.text?.toString()?.let {
-                            if (it.isEmpty()) {
-                                showToast(importEmptyText)
-                                return@let
-                            }
-                            viewModel.importTemplates(
-                                it,
-                                {
-                                    showToast(importSuccessText)
-                                    viewModel.fetchTemplates(false)
-                                },
-                                showToast
-                            )
-                        }
-                    }
-                },
-                onExport = {
-                    scope.launch {
-                        viewModel.exportTemplates(
-                            {
-                                showToast(exportEmptyText)
-                            },
-                            {
-                                clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("template", it)))
-                            }
-                        )
-                    }
-                },
+                onBack = actions.onBack,
+                onImport = actions.onImport,
+                onExport = actions.onExport,
                 scrollBehavior = scrollBehavior,
-                hazeState = hazeState,
-                hazeStyle = hazeStyle,
-                enableBlur = enableBlur,
+                backdrop = backdrop,
+                barColor = barColor,
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 containerColor = colorScheme.primary,
                 shadowElevation = 0.dp,
-                onClick = {
-                    navigator.navigateForResult(Route.TemplateEditor(TemplateViewModel.TemplateInfo(), false), requestKey)
-                },
+                onClick = actions.onCreateTemplate,
                 modifier = Modifier
-                    .offset(y = offsetHeight)
+                    .offset {
+                        IntOffset(x = 0, y = offsetHeight.roundToPx())
+                    }
                     .padding(
                         bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
                                 WindowInsets.captionBar.asPaddingValues().calculateBottomPadding() + 20.dp,
@@ -259,9 +180,7 @@ fun AppProfileTemplateScreenMiuix() {
         popupHost = { },
         contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal)
     ) { innerPadding ->
-        val context = LocalContext.current
-        val offline = !isNetworkAvailable(context)
-        if (uiState.templateList.isEmpty() && !uiState.isRefreshing) {
+        if (state.templateList.isEmpty() && !state.isRefreshing) {
             val layoutDirection = LocalLayoutDirection.current
             Box(
                 modifier = Modifier
@@ -273,7 +192,7 @@ fun AppProfileTemplateScreenMiuix() {
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                if (offline) {
+                if (state.offline) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(text = stringResource(R.string.network_offline), color = colorScheme.onSurfaceVariantSummary, fontSize = 16.sp)
                         Spacer(Modifier.height(12.dp))
@@ -282,9 +201,7 @@ fun AppProfileTemplateScreenMiuix() {
                                 .padding(horizontal = 24.dp)
                                 .fillMaxWidth(),
                             text = stringResource(R.string.network_retry),
-                            onClick = {
-                                scope.launch { viewModel.fetchTemplates() }
-                            },
+                            onClick = { actions.onRefresh(false) },
                         )
                     }
                 } else {
@@ -301,9 +218,9 @@ fun AppProfileTemplateScreenMiuix() {
         )
         val layoutDirection = LocalLayoutDirection.current
         PullToRefresh(
-            isRefreshing = uiState.isRefreshing,
+            isRefreshing = state.isRefreshing,
             pullToRefreshState = pullToRefreshState,
-            onRefresh = { scope.launch { viewModel.fetchTemplates(true) } },
+            onRefresh = { actions.onRefresh(true) },
             refreshTexts = refreshTexts,
             contentPadding = PaddingValues(
                 top = innerPadding.calculateTopPadding() + 12.dp,
@@ -311,31 +228,35 @@ fun AppProfileTemplateScreenMiuix() {
                 end = innerPadding.calculateEndPadding(layoutDirection)
             ),
         ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .scrollEndHaptic()
-                    .overScrollVertical()
-                    .nestedScroll(nestedScrollConnection)
-                    .nestedScroll(scrollBehavior.nestedScrollConnection)
-                    .let { if (enableBlur) it.hazeSource(state = hazeState) else it }
-                    .padding(horizontal = 12.dp),
-                contentPadding = innerPadding,
-                overscrollEffect = null
-            ) {
-                item {
-                    Spacer(Modifier.height(12.dp))
-                }
-                items(uiState.templateList, key = { it.id }) { app ->
-                    TemplateItem(navigator, app)
-                }
-                item {
-                    Spacer(
-                        Modifier.height(
-                            WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
-                                    WindowInsets.captionBar.asPaddingValues().calculateBottomPadding()
+            Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .scrollEndHaptic()
+                        .overScrollVertical()
+                        .nestedScroll(nestedScrollConnection)
+                        .nestedScroll(scrollBehavior.nestedScrollConnection)
+                        .padding(horizontal = 12.dp),
+                    contentPadding = innerPadding,
+                    overscrollEffect = null
+                ) {
+                    item {
+                        Spacer(Modifier.height(12.dp))
+                    }
+                    items(state.templateList, key = { it.id }) { app ->
+                        TemplateItem(
+                            template = app,
+                            onClick = { actions.onOpenTemplate(app) },
                         )
-                    )
+                    }
+                    item {
+                        Spacer(
+                            Modifier.height(
+                                WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
+                                        WindowInsets.captionBar.asPaddingValues().calculateBottomPadding()
+                            )
+                        )
+                    }
                 }
             }
         }
@@ -344,14 +265,12 @@ fun AppProfileTemplateScreenMiuix() {
 
 @Composable
 private fun TemplateItem(
-    navigator: Navigator,
-    template: TemplateViewModel.TemplateInfo
+    template: TemplateInfo,
+    onClick: () -> Unit,
 ) {
     Card(
         modifier = Modifier.padding(bottom = 12.dp),
-        onClick = {
-            navigator.navigateForResult(Route.TemplateEditor(template, !template.local), "template_edit")
-        },
+        onClick = onClick,
         showIndication = true,
         pressFeedbackType = PressFeedbackType.Sink
     ) {
@@ -454,82 +373,73 @@ private fun TopBar(
     onImport: () -> Unit = {},
     onExport: () -> Unit = {},
     scrollBehavior: ScrollBehavior,
-    hazeState: HazeState,
-    hazeStyle: HazeStyle,
-    enableBlur: Boolean
+    backdrop: LayerBackdrop?,
+    barColor: Color,
 ) {
-    TopAppBar(
-        modifier = if (enableBlur) {
-            Modifier.hazeEffect(hazeState) {
-                style = hazeStyle
-                blurRadius = 30.dp
-                noiseFactor = 0f
-            }
-        } else {
-            Modifier
-        },
-        color = if (enableBlur) Color.Transparent else colorScheme.surface,
-        title = stringResource(R.string.settings_profile_template),
-        navigationIcon = {
-            IconButton(
-                modifier = Modifier.padding(start = 16.dp),
-                onClick = onBack
-            ) {
-                val layoutDirection = LocalLayoutDirection.current
-                Icon(
-                    modifier = Modifier.graphicsLayer {
-                        if (layoutDirection == LayoutDirection.Rtl) scaleX = -1f
-                    },
-                    imageVector = MiuixIcons.Back,
-                    contentDescription = null,
-                    tint = colorScheme.onBackground
-                )
-            }
-        },
-        actions = {
-            val showTopPopup = remember { mutableStateOf(false) }
-            SuperListPopup(
-                show = showTopPopup,
-                popupPositionProvider = ListPopupDefaults.ContextMenuPositionProvider,
-                alignment = PopupPositionProvider.Align.TopEnd,
-                onDismissRequest = {
-                    showTopPopup.value = false
-                }
-            ) {
-                ListPopupColumn {
-                    val items = listOf(
-                        stringResource(id = R.string.app_profile_import_from_clipboard),
-                        stringResource(id = R.string.app_profile_export_to_clipboard)
+    BlurredBar(backdrop) {
+        TopAppBar(
+            color = barColor,
+            title = stringResource(R.string.settings_profile_template),
+            navigationIcon = {
+                IconButton(
+                    onClick = onBack
+                ) {
+                    val layoutDirection = LocalLayoutDirection.current
+                    Icon(
+                        modifier = Modifier.graphicsLayer {
+                            if (layoutDirection == LayoutDirection.Rtl) scaleX = -1f
+                        },
+                        imageVector = MiuixIcons.Back,
+                        contentDescription = null,
+                        tint = colorScheme.onBackground
                     )
-                    items.forEachIndexed { index, text ->
-                        DropdownItem(
-                            text = text,
-                            optionSize = items.size,
-                            index = index,
-                            onSelectedIndexChange = { selectedIndex ->
-                                if (selectedIndex == 0) {
-                                    onImport()
-                                } else {
-                                    onExport()
-                                }
-                                showTopPopup.value = false
-                            }
-                        )
-                    }
                 }
-            }
-            IconButton(
-                modifier = Modifier.padding(end = 16.dp),
-                onClick = { showTopPopup.value = true },
-                holdDownState = showTopPopup.value
-            ) {
-                Icon(
-                    imageVector = MiuixIcons.Copy,
-                    contentDescription = stringResource(id = R.string.app_profile_import_export),
-                    tint = colorScheme.onBackground
+            },
+            actions = {
+                val showTopPopup = remember { mutableStateOf(false) }
+                OverlayListPopup(
+                    show = showTopPopup.value,
+                    popupPositionProvider = ListPopupDefaults.MenuPositionProvider,
+                    alignment = PopupPositionProvider.Align.TopEnd,
+                    onDismissRequest = {
+                        showTopPopup.value = false
+                    },
+                    content = {
+                        ListPopupColumn {
+                            val items = listOf(
+                                stringResource(id = R.string.app_profile_import_from_clipboard),
+                                stringResource(id = R.string.app_profile_export_to_clipboard)
+                            )
+                            items.forEachIndexed { index, text ->
+                                DropdownItem(
+                                    text = text,
+                                    optionSize = items.size,
+                                    index = index,
+                                    onSelectedIndexChange = { selectedIndex ->
+                                        if (selectedIndex == 0) {
+                                            onImport()
+                                        } else {
+                                            onExport()
+                                        }
+                                        showTopPopup.value = false
+                                    }
+                                )
+                            }
+                        }
+                    }
                 )
-            }
-        },
-        scrollBehavior = scrollBehavior
-    )
+                IconButton(
+                    onClick = { showTopPopup.value = true },
+                    holdDownState = showTopPopup.value
+                ) {
+                    Icon(
+                        imageVector = MiuixIcons.Copy,
+                        contentDescription = stringResource(id = R.string.app_profile_import_export),
+                        tint = colorScheme.onBackground
+                    )
+                }
+            },
+            scrollBehavior = scrollBehavior
+        )
+    }
 }

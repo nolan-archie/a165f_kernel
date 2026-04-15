@@ -2,7 +2,6 @@ package com.sukisu.ultra.ui.screen.colorpalette
 
 import android.annotation.SuppressLint
 import android.os.Build
-import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
@@ -42,12 +41,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.MenuOpen
 import androidx.compose.material.icons.filled.Brightness1
 import androidx.compose.material.icons.filled.Brightness3
 import androidx.compose.material.icons.filled.Brightness4
 import androidx.compose.material.icons.filled.Brightness7
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.rounded.Adb
 import androidx.compose.material.icons.rounded.AspectRatio
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.DesignServices
@@ -70,7 +69,6 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
@@ -80,52 +78,40 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.dropUnlessResumed
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import com.materialkolor.rememberDynamicColorScheme
-import com.sukisu.ultra.KernelSUApplication.Companion.setEnableOnBackInvokedCallback
 import com.sukisu.ultra.R
 import com.sukisu.ultra.ui.component.material.SegmentedColumn
 import com.sukisu.ultra.ui.component.material.SegmentedDropdownItem
 import com.sukisu.ultra.ui.component.material.SegmentedSwitchItem
-import com.sukisu.ultra.ui.navigation3.LocalNavigator
-import com.sukisu.ultra.ui.screen.home.TonalCard
+import com.sukisu.ultra.ui.component.material.TonalCard
 import com.sukisu.ultra.ui.theme.ColorMode
 import com.sukisu.ultra.ui.theme.keyColorOptions
-import com.sukisu.ultra.ui.viewmodel.SettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun ColorPaletteScreenMaterial() {
-    val navigator = LocalNavigator.current
-    val context = LocalContext.current
-    val activity = LocalActivity.current
-    val viewModel = viewModel<SettingsViewModel>()
-    val uiState by viewModel.uiState.collectAsState()
+fun ColorPaletteScreenMaterial(
+    state: ColorPaletteUiState,
+    actions: ColorPaletteScreenActions,
+) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
-
-    val currentColorMode = ColorMode.fromValue(uiState.themeMode)
+    val uiState = state.uiState
+    val currentColorMode = state.currentColorMode
     val currentKeyColor = uiState.keyColor
-    val colorStyle = try {
-        PaletteStyle.valueOf(uiState.colorStyle)
-    } catch (_: Exception) {
-        PaletteStyle.TonalSpot
-    }
-    val colorSpec = try {
-        ColorSpec.SpecVersion.valueOf(uiState.colorSpec)
-    } catch (_: Exception) {
-        ColorSpec.SpecVersion.Default
-    }
+    val colorStyle = state.currentPaletteStyle
+    val colorSpec = state.currentColorSpec
+    val haptic = LocalHapticFeedback.current
 
     LaunchedEffect(Unit) {
         scrollBehavior.state.heightOffset = scrollBehavior.state.heightOffsetLimit
@@ -136,9 +122,7 @@ fun ColorPaletteScreenMaterial() {
             LargeFlexibleTopAppBar(
                 navigationIcon = {
                     IconButton(
-                        onClick = dropUnlessResumed {
-                            navigator.pop()
-                        }
+                        onClick = actions.onBack
                     ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) }
                 },
                 title = { Text(stringResource(R.string.settings_theme)) },
@@ -185,7 +169,7 @@ fun ColorPaletteScreenMaterial() {
                         paletteStyle = colorStyle,
                         colorSpec = colorSpec,
                         onClick = {
-                            viewModel.setKeyColor(0)
+                            actions.onSetKeyColor(0)
                         }
                     )
                 }
@@ -198,7 +182,7 @@ fun ColorPaletteScreenMaterial() {
                         paletteStyle = colorStyle,
                         colorSpec = colorSpec,
                         onClick = {
-                            viewModel.setKeyColor(color)
+                            actions.onSetKeyColor(color)
                         }
                     )
                 }
@@ -227,7 +211,8 @@ fun ColorPaletteScreenMaterial() {
                                 checked = currentColorMode in modes,
                                 onCheckedChange = {
                                     if (it) {
-                                        viewModel.setColorMode(modes.first())
+                                        haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                                        actions.onSetColorMode(modes.first())
                                     }
                                 },
                                 modifier = Modifier
@@ -265,7 +250,7 @@ fun ColorPaletteScreenMaterial() {
                                 items = styles.map { it.name },
                                 selectedIndex = styles.indexOf(colorStyle),
                                 onItemSelected = { index ->
-                                    viewModel.setColorStyle(styles[index].name)
+                                    actions.onSetColorStyle(styles[index].name)
                                 }
                             )
                         },
@@ -277,7 +262,7 @@ fun ColorPaletteScreenMaterial() {
                                 items = specs.map { it.name },
                                 selectedIndex = specs.indexOf(colorSpec).coerceAtLeast(0),
                                 onItemSelected = { index ->
-                                    viewModel.setColorSpec(specs[index].name)
+                                    actions.onSetColorSpec(specs[index].name)
                                 }
                             )
                         }
@@ -290,15 +275,11 @@ fun ColorPaletteScreenMaterial() {
                         content = listOf(
                             {
                                 SegmentedSwitchItem(
-                                    icon = Icons.Rounded.Adb,
+                                    icon = Icons.AutoMirrored.Rounded.MenuOpen,
                                     title = stringResource(id = R.string.settings_enable_predictive_back),
                                     summary = stringResource(id = R.string.settings_enable_predictive_back_summary),
                                     checked = uiState.enablePredictiveBack,
-                                    onCheckedChange = {
-                                        viewModel.setEnablePredictiveBack(it)
-                                        setEnableOnBackInvokedCallback(context.applicationInfo, it)
-                                        activity?.recreate()
-                                    }
+                                    onCheckedChange = actions.onSetEnablePredictiveBack
                                 )
                             }
                         )
@@ -306,8 +287,6 @@ fun ColorPaletteScreenMaterial() {
                 }
 
                 TonalCard(modifier = Modifier.padding(top = 4.dp)) {
-                    val settingsViewModel = viewModel<SettingsViewModel>()
-                    val uiState by settingsViewModel.uiState.collectAsState()
                     var sliderValue by remember(uiState.pageScale) { mutableFloatStateOf(uiState.pageScale) }
 
                     Column(
@@ -348,7 +327,7 @@ fun ColorPaletteScreenMaterial() {
                         Slider(
                             value = sliderValue,
                             onValueChange = { sliderValue = it },
-                            onValueChangeFinished = { settingsViewModel.setPageScale(sliderValue) },
+                            onValueChangeFinished = { actions.onSetPageScale(sliderValue) },
                             valueRange = 0.8f..1.1f,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -398,6 +377,7 @@ private fun ThemePreviewCard(
             style = paletteStyle,
             specVersion = colorSpec,
         )
+
     }
 
     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
@@ -510,6 +490,7 @@ private fun ColorButtonMaterial(
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     val colorScheme = if (color == Color.Unspecified) {
         val baseScheme = if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         rememberDynamicColorScheme(
@@ -534,7 +515,10 @@ private fun ColorButtonMaterial(
     }
 
     Surface(
-        onClick = onClick,
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+            onClick()
+        },
         shape = RoundedCornerShape(20.dp),
         color = colorScheme.surfaceContainer,
         modifier = Modifier.size(72.dp)

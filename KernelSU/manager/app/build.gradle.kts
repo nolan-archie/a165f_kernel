@@ -9,6 +9,7 @@ plugins {
 }
 
 val androidCompileSdkVersion: Int by rootProject.extra
+val androidCompileSdkVersionMinor: Int by rootProject.extra
 val androidCompileNdkVersion: String by rootProject.extra
 val androidBuildToolsVersion: String by rootProject.extra
 val androidMinSdkVersion: Int by rootProject.extra
@@ -33,16 +34,8 @@ val baseCFlags = listOf(
 val baseCppFlags = baseCFlags + "-fno-rtti"
 
 android {
-
-    /**signingConfigs {
-        create("Debug") {
-            storeFile = file("D:\\other\\AndroidTool\\android_key\\keystore\\release-key.keystore")
-            storePassword = ""
-            keyAlias = ""
-            keyPassword = ""
-        }
-    }**/
     namespace = "com.sukisu.ultra"
+    val isPrBuild = project.findProperty("IS_PR_BUILD")?.toString()?.toBoolean() ?: false
 
     buildTypes {
         debug {
@@ -56,6 +49,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             vcsInfo.include = false
+            if (isPrBuild) applicationIdSuffix = ".dev"
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             externalNativeBuild {
                 cmake {
@@ -79,9 +73,6 @@ android {
                 }
             }
         }
-        /**debug {
-            signingConfig = signingConfigs.named("Debug").get() as ApkSigningConfig
-        }**/
     }
 
     buildFeatures {
@@ -114,10 +105,14 @@ android {
     androidResources {
         generateLocaleConfig = true
     }
-
-    compileSdk = androidCompileSdkVersion
-    ndkVersion = androidCompileNdkVersion
+    compileSdk {
+        version =
+            release(androidCompileSdkVersion) {
+                minorApiLevel = androidCompileSdkVersionMinor
+            }
+    }
     buildToolsVersion = androidBuildToolsVersion
+    ndkVersion = androidCompileNdkVersion
 
     defaultConfig {
         minSdk = androidMinSdkVersion
@@ -125,7 +120,6 @@ android {
         versionCode = managerVersionCode
         versionName = managerVersionName
 
-        val isPrBuild = project.findProperty("IS_PR_BUILD")?.toString()?.toBoolean() ?: false
         buildConfigField("boolean", "IS_PR_BUILD", isPrBuild.toString())
 
         externalNativeBuild {
@@ -137,7 +131,7 @@ android {
         }
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
         }
     }
 
@@ -165,7 +159,6 @@ base {
 }
 
 dependencies {
-    implementation(libs.gson)
     implementation(libs.androidx.activity.compose)
 
     implementation(platform(libs.androidx.compose.bom))
@@ -202,16 +195,19 @@ dependencies {
 
     implementation(libs.hiddenapibypass)
 
-    implementation(libs.miuix)
+    implementation(libs.miuix.ui)
     implementation(libs.miuix.icons)
     implementation(libs.miuix.navigation3.ui)
+    implementation(libs.miuix.preference)
+    implementation(libs.miuix.blur)
+    implementation(libs.miuix.shapes)
 
     implementation(platform(libs.okhttp.bom))
     implementation(libs.okhttp)
 
     implementation(libs.backdrop)
-    implementation(libs.capsule)
-    implementation(libs.haze)
 
     implementation(libs.material.kolor)
+
+    implementation(libs.appiconloader)
 }

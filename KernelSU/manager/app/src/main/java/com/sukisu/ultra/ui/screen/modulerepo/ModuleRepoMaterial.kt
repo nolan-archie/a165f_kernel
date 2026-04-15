@@ -8,7 +8,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,6 +42,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ChromeReaderMode
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.InstallMobile
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Button
@@ -69,7 +69,6 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -78,23 +77,21 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalLocale
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.core.content.edit
-import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import com.sukisu.ultra.R
 import com.sukisu.ultra.data.model.RepoModule
 import com.sukisu.ultra.ui.component.GithubMarkdown
@@ -103,70 +100,36 @@ import com.sukisu.ultra.ui.component.dialog.rememberConfirmDialog
 import com.sukisu.ultra.ui.component.material.SearchAppBar
 import com.sukisu.ultra.ui.component.material.SegmentedColumn
 import com.sukisu.ultra.ui.component.material.SegmentedListItem
+import com.sukisu.ultra.ui.component.material.TonalCard
 import com.sukisu.ultra.ui.component.statustag.StatusTag
-import com.sukisu.ultra.ui.navigation3.LocalNavigator
-import com.sukisu.ultra.ui.navigation3.Route
-import com.sukisu.ultra.ui.screen.flash.FlashIt
-import com.sukisu.ultra.ui.screen.home.TonalCard
 import com.sukisu.ultra.ui.util.download
-import com.sukisu.ultra.ui.util.isNetworkAvailable
-import com.sukisu.ultra.ui.util.module.fetchModuleDetail
-import com.sukisu.ultra.ui.viewmodel.ModuleRepoViewModel
-import com.sukisu.ultra.ui.viewmodel.ModuleViewModel
+import com.sukisu.ultra.ui.util.rememberContentReady
 import java.text.Collator
 
 @SuppressLint("LocalContextGetResourceValueCall")
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun ModuleRepoScreenMaterial() {
-    val navigator = LocalNavigator.current
-    val viewModel = viewModel<ModuleRepoViewModel>()
-    val uiState by viewModel.uiState.collectAsState()
-    val installedVm = viewModel<ModuleViewModel>()
-    val installedUiState by installedVm.uiState.collectAsState()
-    val context = LocalContext.current
-    val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
-    val repoSortByNameState = remember { mutableStateOf(prefs.getBoolean("module_repo_sort_name", false)) }
+fun ModuleRepoScreenMaterial(
+    state: ModuleRepoUiState,
+    actions: ModuleRepoActions,
+) {
+    val haptic = LocalHapticFeedback.current
     val listState = rememberLazyListState()
     val searchListState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
-
-    val offline = !isNetworkAvailable(context)
-
-    LaunchedEffect(Unit) {
-        if (uiState.modules.isEmpty()) {
-            viewModel.refresh()
-        }
-        if (installedUiState.moduleList.isEmpty()) {
-            installedVm.fetchModuleList()
-        }
-    }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
-    val openRepoDetail: (RepoModule) -> Unit = { module ->
-        val args = RepoModuleArg(
-            moduleId = module.moduleId,
-            moduleName = module.moduleName,
-            authors = module.authors,
-            authorsList = module.authorList.map { AuthorArg(it.name, it.link) },
-            latestRelease = module.latestRelease,
-            latestReleaseTime = module.latestReleaseTime,
-            releases = emptyList()
-        )
-        navigator.push(Route.ModuleRepoDetail(args))
-    }
 
     Scaffold(
         topBar = {
             SearchAppBar(
                 title = { Text(text = stringResource(R.string.module_repos)) },
-                searchText = uiState.searchStatus.searchText,
-                onSearchTextChange = { scope.launch { viewModel.updateSearchText(it) } },
-                onClearClick = { scope.launch { viewModel.updateSearchText("") } },
+                searchText = state.searchStatus.searchText,
+                onSearchTextChange = actions.onSearchTextChange,
+                onClearClick = actions.onClearSearch,
                 scrollBehavior = scrollBehavior,
                 navigationIcon = {
                     IconButton(
-                        onClick = { navigator.pop() },
+                        onClick = actions.onBack,
                         content = { Icon(Icons.AutoMirrored.Outlined.ArrowBack, null) }
                     )
                 },
@@ -186,27 +149,25 @@ fun ModuleRepoScreenMaterial() {
                         }) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.module_repos_sort_name)) },
-                                trailingIcon = { Checkbox(repoSortByNameState.value, null) },
+                                trailingIcon = { Checkbox(state.sortByName, null) },
                                 onClick = {
-                                    repoSortByNameState.value = !repoSortByNameState.value
-                                    prefs.edit {
-                                        putBoolean("module_repo_sort_name", repoSortByNameState.value)
-                                    }
+                                    haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                                    actions.onToggleSortByName()
                                 }
                             )
                         }
                     }
                 },
-                searchContent = { closeSearch ->
-                    LaunchedEffect(uiState.searchStatus.searchText) {
+                searchContent = { _, closeSearch ->
+                    LaunchedEffect(state.searchStatus.searchText) {
                         searchListState.scrollToItem(0)
                     }
-                    val sortByName = repoSortByNameState.value
+                    val sortByName = state.sortByName
                     val collator = Collator.getInstance(LocalLocale.current.platformLocale)
                     val searchModules = if (!sortByName) {
-                        uiState.searchResults
+                        state.searchResults
                     } else {
-                        uiState.searchResults.sortedWith(compareBy(collator) { it.moduleName })
+                        state.searchResults.sortedWith(compareBy(collator) { it.moduleName })
                     }
                     RepoModuleList(
                         modules = searchModules,
@@ -214,7 +175,7 @@ fun ModuleRepoScreenMaterial() {
                         modifier = Modifier.fillMaxSize(),
                         onModuleClick = {
                             closeSearch()
-                            openRepoDetail(it)
+                            actions.onOpenRepoDetail(it)
                         }
                     )
                 }
@@ -222,21 +183,23 @@ fun ModuleRepoScreenMaterial() {
         },
         contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal)
     ) { innerPadding ->
-        val isLoading = uiState.modules.isEmpty()
+        val isLoading = state.modules.isEmpty()
+        val hadDataOnEntry = remember { state.modules.isNotEmpty() }
+        val contentReady = hadDataOnEntry || rememberContentReady()
 
-        if (isLoading) {
+        if (!contentReady || isLoading) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
                 contentAlignment = Alignment.Center
             ) {
-                if (offline) {
+                if (state.offline) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(text = stringResource(R.string.network_offline), color = MaterialTheme.colorScheme.outline)
                         Spacer(Modifier.height(12.dp))
                         Button(
-                            onClick = { viewModel.refresh() },
+                            onClick = actions.onRefresh,
                         ) {
                             Text(stringResource(R.string.network_retry))
                         }
@@ -245,12 +208,12 @@ fun ModuleRepoScreenMaterial() {
                     LoadingIndicator()
                 }
             }
-        } else {
-            val displayModules = run {
-                val base = uiState.modules
-                val sortByName = repoSortByNameState.value
-                val collator = Collator.getInstance(LocalLocale.current.platformLocale)
-                if (!sortByName) base else base.sortedWith(compareBy(collator) { it.moduleName })
+        }
+        if (!isLoading && contentReady) {
+            val platformLocale = LocalLocale.current.platformLocale
+            val displayModules = remember(state.modules, state.sortByName) {
+                val collator = Collator.getInstance(platformLocale)
+                if (!state.sortByName) state.modules else state.modules.sortedWith(compareBy(collator) { it.moduleName })
             }
             RepoModuleList(
                 modules = displayModules,
@@ -259,7 +222,7 @@ fun ModuleRepoScreenMaterial() {
                     .fillMaxSize()
                     .nestedScroll(scrollBehavior.nestedScrollConnection)
                     .padding(innerPadding),
-                onModuleClick = openRepoDetail
+                onModuleClick = actions.onOpenRepoDetail
             )
         }
     }
@@ -270,10 +233,9 @@ private fun RepoModuleList(
     modules: List<RepoModule>,
     listState: LazyListState,
     modifier: Modifier = Modifier,
+    bottomPadding: Dp = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
     onModuleClick: (RepoModule) -> Unit,
 ) {
-    val navBars = WindowInsets.navigationBars.asPaddingValues()
-
     LazyColumn(
         modifier = modifier,
         state = listState,
@@ -282,18 +244,20 @@ private fun RepoModuleList(
             start = 16.dp,
             top = 8.dp,
             end = 16.dp,
-            bottom = 16.dp + navBars.calculateBottomPadding()
+            bottom = 16.dp + bottomPadding
         ),
     ) {
         items(modules, key = { it.moduleId }, contentType = { "module" }) { module ->
             val latestReleaseTime = remember(module.latestReleaseTime) { module.latestReleaseTime }
             val moduleAuthor = stringResource(id = R.string.module_author)
 
-            TonalCard(modifier = Modifier.fillMaxWidth()) {
+            TonalCard(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { onModuleClick(module) }
+            ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onModuleClick(module) }
                         .padding(22.dp, 18.dp, 22.dp, 12.dp)
                 ) {
                     if (module.moduleName.isNotEmpty()) {
@@ -379,24 +343,15 @@ private fun RepoModuleList(
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ModuleRepoDetailScreenMaterial(
-    module: RepoModuleArg
+    state: ModuleRepoDetailUiState,
+    actions: ModuleRepoDetailActions,
 ) {
-    val navigator = LocalNavigator.current
+    val module = state.module
     val context = LocalContext.current
-    val uriHandler = LocalUriHandler.current
     val scope = rememberCoroutineScope()
     val confirmTitle = stringResource(R.string.module_install)
     var pendingDownload by remember { mutableStateOf<(() -> Unit)?>(null) }
     val confirmDialog = rememberConfirmDialog(onConfirm = { pendingDownload?.invoke() })
-    val onInstallModule: (Uri) -> Unit = { uri ->
-        navigator.push(Route.Flash(FlashIt.FlashModules(listOf(uri))))
-    }
-
-    var readmeHtml by remember(module.moduleId) { mutableStateOf<String?>(null) }
-    var readmeLoaded by remember(module.moduleId) { mutableStateOf(false) }
-    var detailReleases by remember(module.moduleId) { mutableStateOf<List<ReleaseArg>>(emptyList()) }
-    var webUrl by remember(module.moduleId) { mutableStateOf("https://modules.kernelsu.org/module/${module.moduleId}") }
-    var sourceUrl by remember(module.moduleId) { mutableStateOf("https://github.com/KernelSU-Modules-Repo/${module.moduleId}") }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
@@ -409,7 +364,7 @@ fun ModuleRepoDetailScreenMaterial(
             LargeFlexibleTopAppBar(
                 title = { Text(text = module.moduleName) },
                 navigationIcon = {
-                    IconButton(onClick = { navigator.pop() }) {
+                    IconButton(onClick = actions.onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = null,
@@ -417,8 +372,8 @@ fun ModuleRepoDetailScreenMaterial(
                     }
                 },
                 actions = {
-                    if (webUrl.isNotEmpty()) {
-                        IconButton(onClick = { uriHandler.openUri(webUrl) }) {
+                    if (state.webUrl.isNotEmpty()) {
+                        IconButton(onClick = actions.onOpenWebUrl) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Outlined.ChromeReaderMode,
                                 contentDescription = null,
@@ -435,37 +390,6 @@ fun ModuleRepoDetailScreenMaterial(
         },
         contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
     ) { innerPadding ->
-        LaunchedEffect(module.moduleId) {
-            if (module.moduleId.isNotEmpty()) {
-                withContext(Dispatchers.IO) {
-                    runCatching {
-                        val detail = fetchModuleDetail(module.moduleId)
-                        if (detail != null) {
-                            readmeHtml = detail.readmeHtml
-                            if (detail.sourceUrl.isNotEmpty()) sourceUrl = detail.sourceUrl
-                            detailReleases = detail.releases.map { r ->
-                                ReleaseArg(
-                                    tagName = r.tagName,
-                                    name = r.name,
-                                    publishedAt = r.publishedAt,
-                                    assets = r.assets.map { a -> ReleaseAssetArg(a.name, a.downloadUrl, a.size, a.downloadCount) },
-                                    descriptionHTML = r.descriptionHTML
-                                )
-                            }
-                        } else {
-                            detailReleases = emptyList()
-                        }
-                    }.onSuccess {
-                        readmeLoaded = true
-                    }.onFailure {
-                        readmeLoaded = true
-                        detailReleases = emptyList()
-                    }
-                }
-            } else {
-                readmeLoaded = true
-            }
-        }
         val tabs = listOf(
             stringResource(R.string.tab_readme),
             stringResource(R.string.tab_releases),
@@ -483,24 +407,25 @@ fun ModuleRepoDetailScreenMaterial(
                     top = innerPadding.calculateTopPadding() + 56.dp + 8.dp,
                     start = innerPadding.calculateStartPadding(layoutDirection),
                     end = innerPadding.calculateEndPadding(layoutDirection),
-                    bottom = innerPadding.calculateBottomPadding() + WindowInsets.systemBars.asPaddingValues().calculateBottomPadding() + 16.dp
+                    bottom = innerPadding.calculateBottomPadding()
+                            + WindowInsets.systemBars.asPaddingValues().calculateBottomPadding() + 16.dp
                 )
                 when (page) {
                     0 -> ReadmePage(
-                        readmeHtml = readmeHtml,
-                        readmeLoaded = readmeLoaded,
+                        readmeHtml = state.readmeHtml,
+                        readmeLoaded = state.readmeLoaded,
                         innerPadding = paddedInnerPadding,
                         scrollBehavior = scrollBehavior
                     )
 
                     1 -> ReleasesPage(
-                        detailReleases = detailReleases,
+                        detailReleases = state.detailReleases,
                         innerPadding = paddedInnerPadding,
                         scrollBehavior = scrollBehavior,
                         confirmTitle = confirmTitle,
                         confirmDialog = confirmDialog,
                         scope = scope,
-                        onInstallModule = onInstallModule,
+                        onInstallModule = actions.onInstallModule,
                         context = context,
                         setPendingDownload = { pendingDownload = it }
                     )
@@ -509,8 +434,10 @@ fun ModuleRepoDetailScreenMaterial(
                         module = module,
                         innerPadding = paddedInnerPadding,
                         scrollBehavior = scrollBehavior,
-                        uriHandler = uriHandler,
-                        sourceUrl = sourceUrl
+                        uriHandler = object : UriHandler {
+                            override fun openUri(uri: String) = actions.onOpenUrl(uri)
+                        },
+                        sourceUrl = state.sourceUrl
                     )
                 }
             }
@@ -532,7 +459,7 @@ fun ModuleRepoDetailScreenMaterial(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ReadmePage(
     readmeHtml: String?,
@@ -554,8 +481,9 @@ private fun ReadmePage(
         ),
     ) {
         item {
-            val isLoading = remember { mutableStateOf(true) }
-            if (isLoading.value) {
+            val contentReady = rememberContentReady()
+            var isLoading by remember { mutableStateOf(true) }
+            if (isLoading) {
                 Box(
                     modifier = Modifier.fillParentMaxSize(),
                     contentAlignment = Alignment.Center
@@ -563,11 +491,11 @@ private fun ReadmePage(
                     LoadingIndicator()
                 }
             }
-            if (readmeLoaded && readmeHtml != null) {
+            if (contentReady && readmeLoaded && readmeHtml != null) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     GithubMarkdown(
                         content = readmeHtml,
-                        isLoading = isLoading,
+                        onLoadingChange = { isLoading = it },
                         containerColor = MaterialTheme.colorScheme.surface,
                     )
                 }
@@ -576,7 +504,7 @@ private fun ReadmePage(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @SuppressLint("DefaultLocale")
 @Composable
 fun ReleasesPage(
@@ -681,6 +609,8 @@ fun ReleasesPage(
                                         remember(sizeText, asset.downloadCount) { "$sizeText · ${asset.downloadCount} downloads" }
                                     var isDownloading by remember(fileName, asset.downloadUrl) { mutableStateOf(false) }
                                     var progress by remember(fileName, asset.downloadUrl) { mutableIntStateOf(0) }
+                                    var downloadedUri by remember(fileName, asset.downloadUrl) { mutableStateOf<Uri?>(null) }
+                                    val isDownloaded = downloadedUri != null
                                     val onClickDownload = remember(fileName, asset.downloadUrl) {
                                         {
                                             val startText = context.getString(R.string.module_start_downloading, fileName)
@@ -690,7 +620,10 @@ fun ReleasesPage(
                                                     download(
                                                         asset.downloadUrl,
                                                         fileName,
-                                                        onDownloaded = onInstallModule,
+                                                        onDownloaded = { uri ->
+                                                            isDownloading = false
+                                                            downloadedUri = uri
+                                                        },
                                                         onDownloading = { isDownloading = true },
                                                         onProgress = { p -> scope.launch(Dispatchers.Main) { progress = p } }
                                                     )
@@ -717,19 +650,22 @@ fun ReleasesPage(
                                                 modifier = Modifier.padding(top = 2.dp)
                                             )
                                         }
-                                        FilledTonalButton(
-                                            onClick = onClickDownload,
-                                            contentPadding = ButtonDefaults.TextButtonContentPadding
-                                        ) {
-                                            if (isDownloading) {
-                                                CircularWavyProgressIndicator(
-                                                    progress = { progress / 100f },
-                                                    modifier = Modifier.size(20.dp),
-                                                )
-                                            } else {
+                                        if (isDownloaded) {
+                                            FilledTonalButton(
+                                                onClick = {
+                                                    val uri = downloadedUri ?: return@FilledTonalButton
+                                                    val file = uri.path?.let { java.io.File(it) }
+                                                    if (file != null && file.exists()) {
+                                                        onInstallModule(uri)
+                                                    } else {
+                                                        downloadedUri = null
+                                                    }
+                                                },
+                                                contentPadding = ButtonDefaults.TextButtonContentPadding
+                                            ) {
                                                 Icon(
                                                     modifier = Modifier.size(20.dp),
-                                                    imageVector = Icons.Outlined.Download,
+                                                    imageVector = Icons.Outlined.InstallMobile,
                                                     contentDescription = stringResource(R.string.install)
                                                 )
                                                 Text(
@@ -737,6 +673,30 @@ fun ReleasesPage(
                                                     text = stringResource(R.string.install),
                                                     style = MaterialTheme.typography.labelMedium,
                                                 )
+                                            }
+                                        } else {
+                                            FilledTonalButton(
+                                                onClick = onClickDownload,
+                                                enabled = !isDownloading,
+                                                contentPadding = ButtonDefaults.TextButtonContentPadding
+                                            ) {
+                                                if (isDownloading) {
+                                                    CircularWavyProgressIndicator(
+                                                        progress = { progress / 100f },
+                                                        modifier = Modifier.size(20.dp),
+                                                    )
+                                                } else {
+                                                    Icon(
+                                                        modifier = Modifier.size(20.dp),
+                                                        imageVector = Icons.Outlined.Download,
+                                                        contentDescription = stringResource(R.string.download)
+                                                    )
+                                                    Text(
+                                                        modifier = Modifier.padding(start = 7.dp),
+                                                        text = stringResource(R.string.download),
+                                                        style = MaterialTheme.typography.labelMedium,
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -756,7 +716,6 @@ fun ReleasesPage(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InfoPage(
     module: RepoModuleArg,

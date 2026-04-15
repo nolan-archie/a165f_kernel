@@ -27,14 +27,13 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.extra.SuperDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.window.WindowDialog
 
 @Composable
 fun LoadingDialogMiuix(showDialog: MutableState<Boolean>) {
-    SuperDialog(
-        show = showDialog,
-        onDismissRequest = {},
+    WindowDialog(
+        show = showDialog.value,
         content = {
             Box(
                 modifier = Modifier.fillMaxWidth(),
@@ -65,9 +64,9 @@ fun ConfirmDialogMiuix(
     dismiss: () -> Unit,
     showDialog: MutableState<Boolean>
 ) {
-    SuperDialog(
+    WindowDialog(
+        show = showDialog.value,
         modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top)),
-        show = showDialog,
         title = visuals.title,
         onDismissRequest = {
             dismiss()

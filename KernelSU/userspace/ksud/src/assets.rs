@@ -23,6 +23,12 @@ mod android {
                 Asset::get(&file).ok_or_else(|| anyhow::anyhow!("asset not found: {file}"))?;
             ensure_binary(format!("{BINARY_DIR}{file}"), &asset.data, ignore_if_exist)?;
         }
+
+        // Create resetprop -> ksud symlink (resetprop is now built into ksud)
+        let resetprop_link = RESETPROP_PATH;
+        let _ = std::fs::remove_file(resetprop_link);
+        std::os::unix::fs::symlink("/data/adb/ksud", resetprop_link)?;
+
         Ok(())
     }
 }
@@ -30,15 +36,19 @@ mod android {
 #[cfg(target_os = "android")]
 pub use android::*;
 
+#[cfg(all(target_arch = "aarch64", target_os = "android"))]
+#[derive(RustEmbed)]
+#[folder = "bin/aarch64"]
+struct Asset;
+
+#[cfg(all(target_arch = "arm", target_os = "android"))]
+#[derive(RustEmbed)]
+#[folder = "bin/arm"]
+struct Asset;
+
 #[cfg(all(target_arch = "x86_64", target_os = "android"))]
 #[derive(RustEmbed)]
 #[folder = "bin/x86_64"]
-struct Asset;
-
-// IF NOT x86_64 ANDROID, ie. macos, linux, windows, always use aarch64
-#[cfg(not(all(target_arch = "x86_64", target_os = "android")))]
-#[derive(RustEmbed)]
-#[folder = "bin/aarch64"]
 struct Asset;
 
 pub fn get_asset_data(name: &str) -> Result<std::borrow::Cow<'static, [u8]>> {
