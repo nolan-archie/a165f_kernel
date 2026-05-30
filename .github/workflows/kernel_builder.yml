@@ -85,13 +85,19 @@ jobs:
 
       - name: Fix Mediatek Connectivity Modules
         run: |
-          # Target the exact path inside the build worktree
-          TARGET_DIR="build-workspace/kernel-5.10/drivers/misc/mediatek/connectivity/wmt_drv_ext"
-          mkdir -p "$TARGET_DIR"
-          cat > "$TARGET_DIR/Makefile" << 'EOL'
-          obj-$(CONFIG_MTK_COMBO_WIFI) += wmt_chrdev_wifi_ext.o
-          EOL
-          echo "Successfully generated missing Makefile in $TARGET_DIR"
+          # Define connectivity Makefile location
+          CONN_MAKEFILE="build-workspace/kernel-5.10/drivers/misc/mediatek/connectivity/Makefile"
+          
+          if [ -f "$CONN_MAKEFILE" ]; then
+            echo "Altering connectivity Makefile to remove missing wmt_drv_ext dependency..."
+            # Comment out or completely strip references pointing down to wmt_drv_ext compilation
+            sed -i '/wmt_drv_ext/d' "$CONN_MAKEFILE"
+            
+            # Print matching context lines to verify the change caught successfully
+            grep -n "wmt" "$CONN_MAKEFILE" || true
+          else
+            echo "Error: Connectivity Makefile not found at $CONN_MAKEFILE"
+          fi
 
       - name: Build Kernel
         run: |
