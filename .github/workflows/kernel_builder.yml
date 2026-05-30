@@ -85,19 +85,46 @@ jobs:
 
       - name: Fix Mediatek Connectivity Modules
         run: |
-          # Define connectivity Makefile location
-          CONN_MAKEFILE="build-workspace/kernel-5.10/drivers/misc/mediatek/connectivity/Makefile"
+          # Define absolute paths to safeguard against worktree layer mapping anomalies
+          KERNEL_CONN_DIR="$GITHUB_WORKSPACE/build-workspace/kernel-5.10/drivers/misc/mediatek/connectivity"
           
-          if [ -f "$CONN_MAKEFILE" ]; then
-            echo "Altering connectivity Makefile to remove missing wmt_drv_ext dependency..."
-            # Comment out or completely strip references pointing down to wmt_drv_ext compilation
-            sed -i '/wmt_drv_ext/d' "$CONN_MAKEFILE"
-            
-            # Print matching context lines to verify the change caught successfully
-            grep -n "wmt" "$CONN_MAKEFILE" || true
+          # Identify where the branch environment holds the vendor package structure
+          if [ -d "$GITHUB_WORKSPACE/build-workspace/vendor/mediatek/kernel_modules/connectivity" ]; then
+            VENDOR_CONN_DIR="$GITHUB_WORKSPACE/build-workspace/vendor/mediatek/kernel_modules/connectivity"
           else
-            echo "Error: Connectivity Makefile not found at $CONN_MAKEFILE"
+            VENDOR_CONN_DIR="$GITHUB_WORKSPACE/vendor/mediatek/kernel_modules/connectivity"
           fi
+          
+          echo "Using Vendor Connectivity Source from: $VENDOR_CONN_DIR"
+          echo "Target Kernel Connectivity Directory: $KERNEL_CONN_DIR"
+          
+          # Rebuild core target architecture directory
+          mkdir -p "$KERNEL_CONN_DIR"
+          
+          # Helper function to dynamically discover and link matching source drivers safely
+          link_driver() {
+            local name=$1
+            local target_link="$KERNEL_CONN_DIR/$2"
+            
+            if [ -d "$VENDOR_CONN_DIR/$name" ]; then
+              ln -sfn "$VENDOR_CONN_DIR/$name" "$target_link"
+              echo "Linked $name -> $target_link"
+            elif [ -d "$VENDOR_CONN_DIR/${name}_ext" ]; then
+              ln -sfn "$VENDOR_CONN_DIR/${name}_ext" "$target_link"
+              echo "Linked ${name}_ext -> $target_link"
+            else
+              echo "Warning: Could not isolate source module components for $name"
+            fi
+          }
+          
+          # Link all 4 foundational wireless components omitted by .gitignore profiles
+          link_driver "wmt" "wmt_drv_ext"
+          link_driver "wlan" "wlan_drv_gen4m_ext"
+          link_driver "bt" "bt_drv_ext"
+          link_driver "wmt_chrdev_wifi" "wmt_chrdev_wifi_ext"
+          
+          echo "Verification of successfully mapped hardware layers:"
+          ls -la "$KERNEL_CONN_DIR"
 
       - name: Build Kernel
         run: |
