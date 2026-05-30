@@ -1,0 +1,95 @@
+name: Weekly Kernel Builder
+
+on:
+  schedule:
+    - cron: '0 0 * * 1' # Every Monday at 00:00 UTC
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        branch: [suki-su-latest, suki-su-latest-permissive]
+      fail-fast: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Maximize Build Space
+        run: |
+          chmod +x scripts/maximize_space.sh
+          ./scripts/maximize_space.sh
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential rsync python2 bc bison flex libssl-dev libelf-dev
+          # Ensure python2 is available as 'python' if needed
+          sudo ln -sf /usr/bin/python2 /usr/bin/python
+
+      - name: Setup Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Prepare Build Workspace
+        run: |
+          git worktree add build-workspace ${{ matrix.branch }}
+
+      - name: Update and Patch
+        id: updates
+        run: |
+          cd build-workspace
+          ../scripts/automate_updates.sh
+          
+          # Check if there are changes to commit
+          if [ -n "$(git status --porcelain)" ]; then
+            git add .
+            git commit -m "Auto-update KernelSU and SUSFS to latest commits"
+            git push origin ${{ matrix.branch }}
+            echo "updated=true" >> $GITHUB_OUTPUT
+          else
+            echo "updated=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Copy changelog for release
+          cp changelog.md ../changelog_${{ matrix.branch }}.md
+
+      - name: Build Kernel
+        run: |
+          cd build-workspace
+          chmod +x build.sh
+          ./build.sh
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-${{ matrix.branch }}
+          path: build-workspace/dist/*
+
+      - name: Create Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="build-$(date +'%Y.%m.%d')-${{ matrix.branch }}"
+          RELEASE_NAME="Weekly Build - $(date +'%Y-%m-%d') (${{ matrix.branch }})"
+          
+          # Use the generated changelog if it exists
+          if [ -f "changelog_${{ matrix.branch }}.md" ]; then
+            BODY_FILE="changelog_${{ matrix.branch }}.md"
+          else
+            echo "Weekly automated build for branch ${{ matrix.branch }}" > release_body.txt
+            BODY_FILE="release_body.txt"
+          fi
+          
+          gh release create "$TAG_NAME" \
+            --title "$RELEASE_NAME" \
+            --notes-file "$BODY_FILE" \
+            build-workspace/dist/*
