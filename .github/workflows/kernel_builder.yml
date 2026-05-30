@@ -58,14 +58,15 @@ jobs:
           if [ -n "$(git status --porcelain)" ]; then
             git add .
             git commit -m "Auto-update KernelSU and SUSFS to latest commits"
-            git push origin ${{ matrix.branch }}
+            git push origin ${{ matrix.branch }} || echo "Push failed, but continuing build"
             echo "updated=true" >> $GITHUB_OUTPUT
           else
+            echo "No changes to commit. Dependencies are already up to date."
             echo "updated=false" >> $GITHUB_OUTPUT
           fi
           
           # Copy changelog for release
-          cp changelog.md ../changelog_${{ matrix.branch }}.md
+          cp changelog.md ../changelog_${{ matrix.branch }}.md || touch ../changelog_${{ matrix.branch }}.md
 
       - name: Build Kernel
         run: |
