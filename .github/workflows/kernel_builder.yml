@@ -47,6 +47,12 @@ jobs:
       - name: Prepare Build Workspace
         run: |
           git worktree add build-workspace ${{ matrix.branch }}
+          # Fix local submodule tracking issues if present in the branch
+          cd build-workspace
+          if git config --get submodule.susfs4ksu.url >/dev/null; then
+            git submodule deinit -f susfs4ksu || true
+            git rm --cached susfs4ksu 2>/dev/null || true
+          fi
 
       - name: Update and Patch
         id: updates
@@ -76,14 +82,17 @@ jobs:
           else
             echo "No new updates this week." > ../changelog_${{ matrix.branch }}.md
           fi
-          
+
       - name: Fix Mediatek Connectivity Modules
         run: |
-          mkdir -p kernel-5.10/drivers/misc/mediatek/connectivity/wmt_drv_ext
-          cat > kernel-5.10/drivers/misc/mediatek/connectivity/wmt_drv_ext/Makefile << 'EOL'
+          # Target the exact path inside the build worktree
+          TARGET_DIR="build-workspace/kernel-5.10/drivers/misc/mediatek/connectivity/wmt_drv_ext"
+          mkdir -p "$TARGET_DIR"
+          cat > "$TARGET_DIR/Makefile" << 'EOL'
           obj-$(CONFIG_MTK_COMBO_WIFI) += wmt_chrdev_wifi_ext.o
           EOL
-             
+          echo "Successfully generated missing Makefile in $TARGET_DIR"
+
       - name: Build Kernel
         run: |
           cd build-workspace
