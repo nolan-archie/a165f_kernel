@@ -107,7 +107,7 @@ install_dependencies() {
             local debian_packages=(
                 "build-essential"
                 "rsync"
-                "python2"
+                
                 "git"
                 "tar"
                 "gzip"
@@ -132,7 +132,7 @@ install_dependencies() {
             
         dnf)
             log_info "Installing Fedora dependencies..."
-            if ! sudo dnf install -y gcc gcc-c++ make rsync python2 git tar gzip curl wget bc cpio flex bison zip unzip openssl-devel dtc; then
+            if ! sudo dnf install -y gcc gcc-c++ make rsync git tar gzip curl wget bc cpio flex bison zip unzip openssl-devel dtc; then
                 die "Failed to install dependencies"
             fi
             ;;
