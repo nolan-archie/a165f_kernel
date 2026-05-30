@@ -83,8 +83,8 @@ jobs:
             echo "No new updates this week." > ../changelog_${{ matrix.branch }}.md
           fi
 
-           - name: Fix Mediatek Connectivity Modules
-             run: |
+      - name: Fix Mediatek Connectivity Modules
+        run: |
           TARGET_MAKEFILE="build-workspace/kernel-5.10/drivers/misc/mediatek/connectivity/Makefile"
 
           if [ -f "$TARGET_MAKEFILE" ]; then
