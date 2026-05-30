@@ -37,6 +37,8 @@ if [ -f "/tmp/susfs_bridge.c.bak" ]; then
 fi
 
 # 3. Patch supercall.c
+# Prevent script from failing if no changes are detected
+set +e
 echo "Checking supercall.c for SUSFS integration..."
 
 # Ensure include is present
