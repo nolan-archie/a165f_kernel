@@ -54,19 +54,28 @@ jobs:
           cd build-workspace
           ../scripts/automate_updates.sh
           
-          # Check if there are changes to commit
-          if [ -n "$(git status --porcelain)" ]; then
-            git add .
+          # Debug: show status before committing
+          git status
+          
+          # Stage all changes (including new files)
+          git add -A
+          
+          # Check for changes and commit
+          if ! git diff-index --quiet HEAD --; then
             git commit -m "Auto-update KernelSU and SUSFS to latest commits"
             git push origin ${{ matrix.branch }} || echo "Push failed, but continuing build"
             echo "updated=true" >> $GITHUB_OUTPUT
           else
-            echo "No changes to commit. Dependencies are already up to date."
+            echo "No changes detected. Dependencies are already up to date."
             echo "updated=false" >> $GITHUB_OUTPUT
           fi
           
-          # Copy changelog for release
-          cp changelog.md ../changelog_${{ matrix.branch }}.md || touch ../changelog_${{ matrix.branch }}.md
+          # Ensure a changelog exists for the release step
+          if [ -f changelog.md ]; then
+            cp changelog.md ../changelog_${{ matrix.branch }}.md
+          else
+            echo "No new updates this week." > ../changelog_${{ matrix.branch }}.md
+          fi
 
       - name: Build Kernel
         run: |
