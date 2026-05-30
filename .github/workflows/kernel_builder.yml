@@ -83,25 +83,22 @@ jobs:
             echo "No new updates this week." > ../changelog_${{ matrix.branch }}.md
           fi
 
-      - name: Fix Mediatek Connectivity Modules
-        run: |
+           - name: Fix Mediatek Connectivity Modules
+             run: |
           TARGET_MAKEFILE="build-workspace/kernel-5.10/drivers/misc/mediatek/connectivity/Makefile"
-          
+
           if [ -f "$TARGET_MAKEFILE" ]; then
             echo "Injecting real-time workspace layer compilation hotfixes into the Makefile..."
-            
-            # Create runtime commands inside GNU Make syntax using $(shell ...)
-            # This executes the symlink generation EXACTLY when the compiler hits this module.
-            cat << 'EOF' > makefile_patch.txt
-$(shell mkdir -p $(srctree)/drivers/misc/mediatek/connectivity)
-$(shell ln -sfn $(srctree)/../vendor/mediatek/kernel_modules/connectivity/wmt $(srctree)/drivers/misc/mediatek/connectivity/wmt_drv_ext)
-$(shell ln -sfn $(srctree)/../vendor/mediatek/kernel_modules/connectivity/wlan $(srctree)/drivers/misc/mediatek/connectivity/wlan_drv_gen4m_ext)
-$(shell ln -sfn $(srctree)/../vendor/mediatek/kernel_modules/connectivity/bt $(srctree)/drivers/misc/mediatek/connectivity/bt_drv_ext)
-$(shell ln -sfn $(srctree)/../vendor/mediatek/kernel_modules/connectivity/wmt $(srctree)/drivers/misc/mediatek/connectivity/wmt_chrdev_wifi_ext)
-EOF
-            
-            # Append the rest of the original Makefile content to our patch rules
-            cat "$TARGET_MAKEFILE" >> makefile_patch.txt
+
+            {
+              printf '%s\n' '$(shell mkdir -p $(srctree)/drivers/misc/mediatek/connectivity)'
+              printf '%s\n' '$(shell ln -sfn $(srctree)/../vendor/mediatek/kernel_modules/connectivity/wmt $(srctree)/drivers/misc/mediatek/connectivity/wmt_drv_ext)'
+              printf '%s\n' '$(shell ln -sfn $(srctree)/../vendor/mediatek/kernel_modules/connectivity/wlan $(srctree)/drivers/misc/mediatek/connectivity/wlan_drv_gen4m_ext)'
+              printf '%s\n' '$(shell ln -sfn $(srctree)/../vendor/mediatek/kernel_modules/connectivity/bt $(srctree)/drivers/misc/mediatek/connectivity/bt_drv_ext)'
+              printf '%s\n' '$(shell ln -sfn $(srctree)/../vendor/mediatek/kernel_modules/connectivity/wmt $(srctree)/drivers/misc/mediatek/connectivity/wmt_chrdev_wifi_ext)'
+              cat "$TARGET_MAKEFILE"
+            } > makefile_patch.txt
+
             mv makefile_patch.txt "$TARGET_MAKEFILE"
             echo "Successfully locked runtime symlinks to the compilation stage."
           else
@@ -136,7 +133,9 @@ EOF
             BODY_FILE="release_body.txt"
           fi
           
+          # Added --clobber to allow separate matrix runs on the same tag block if needed
           gh release create "$TAG_NAME" \
             --title "$RELEASE_NAME" \
             --notes-file "$BODY_FILE" \
+            --clobber \
             build-workspace/dist/*
