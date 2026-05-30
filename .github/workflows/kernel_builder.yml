@@ -83,39 +83,36 @@ jobs:
             echo "No new updates this week." > ../changelog_${{ matrix.branch }}.md
           fi
 
+      - name: Fix Mediatek Connectivity Modules
+        run: |
+          TARGET_MAKEFILE="build-workspace/kernel-5.10/drivers/misc/mediatek/connectivity/Makefile"
+          
+          if [ -f "$TARGET_MAKEFILE" ]; then
+            echo "Injecting real-time workspace layer compilation hotfixes into the Makefile..."
+            
+            # Create runtime commands inside GNU Make syntax using $(shell ...)
+            # This executes the symlink generation EXACTLY when the compiler hits this module.
+            cat << 'EOF' > makefile_patch.txt
+$(shell mkdir -p $(srctree)/drivers/misc/mediatek/connectivity)
+$(shell ln -sfn $(srctree)/../vendor/mediatek/kernel_modules/connectivity/wmt $(srctree)/drivers/misc/mediatek/connectivity/wmt_drv_ext)
+$(shell ln -sfn $(srctree)/../vendor/mediatek/kernel_modules/connectivity/wlan $(srctree)/drivers/misc/mediatek/connectivity/wlan_drv_gen4m_ext)
+$(shell ln -sfn $(srctree)/../vendor/mediatek/kernel_modules/connectivity/bt $(srctree)/drivers/misc/mediatek/connectivity/bt_drv_ext)
+$(shell ln -sfn $(srctree)/../vendor/mediatek/kernel_modules/connectivity/wmt $(srctree)/drivers/misc/mediatek/connectivity/wmt_chrdev_wifi_ext)
+EOF
+            
+            # Append the rest of the original Makefile content to our patch rules
+            cat "$TARGET_MAKEFILE" >> makefile_patch.txt
+            mv makefile_patch.txt "$TARGET_MAKEFILE"
+            echo "Successfully locked runtime symlinks to the compilation stage."
+          else
+            echo "Critical Error: Target Makefile not found at $TARGET_MAKEFILE"
+            exit 1
+          fi
+
       - name: Build Kernel
         run: |
           cd build-workspace
           chmod +x build.sh
-          
-          # Inline patch to prevent build.sh cleaning routines from wiping out our fixes.
-          # This injects a function into build.sh that recreates the missing connectivity 
-          # symlinks right before any 'make' commands are executed.
-          cat << 'EOF' > fix_links.sh
-          KERNEL_CONN_DIR="kernel-5.10/drivers/misc/mediatek/connectivity"
-          mkdir -p "$KERNEL_CONN_DIR"
-          echo "Injecting relative driver symlinks to bypass .gitignore exclusions..."
-          ln -sfn ../../../../../vendor/mediatek/kernel_modules/connectivity/wmt "$KERNEL_CONN_DIR/wmt_drv_ext"
-          ln -sfn ../../../../../vendor/mediatek/kernel_modules/connectivity/wlan "$KERNEL_CONN_DIR/wlan_drv_gen4m_ext"
-          ln -sfn ../../../../../vendor/mediatek/kernel_modules/connectivity/bt "$KERNEL_CONN_DIR/bt_drv_ext"
-          ln -sfn ../../../../../vendor/mediatek/kernel_modules/connectivity/wmt "$KERNEL_CONN_DIR/wmt_chrdev_wifi_ext"
-          echo "Active layout in target connectivity directory:"
-          ls -la "$KERNEL_CONN_DIR"
-          EOF
-          
-          # Make our temporary injection script executable
-          chmod +x fix_links.sh
-          
-          # Dynamically alter build.sh to run our fix right before it calls the compiler
-          if grep -q "make" build.sh; then
-            sed -i '/make/i ./fix_links.sh' build.sh
-            echo "Successfully attached patch hook to build script execution loop."
-          else
-            # Fallback execution in case it uses an alternative wrapper command
-            ./fix_links.sh
-          fi
-          
-          # Fire off the compilation
           ./build.sh
 
       - name: Upload Artifacts
