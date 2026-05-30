@@ -125,7 +125,7 @@ install_dependencies() {
             
             log_info "Installing Debian/Ubuntu dependencies..."
             sudo apt update || die "Failed to update package lists"
-            if ! sudo apt install -y "${debian_packages[@]}"; then
+            if ! sudo apt install -y build-essential rsync git tar gzip curl wget bc cpio flex bison zip unzip libssl-dev device-tree-compiler; then
                 die "Failed to install dependencies"
             fi
             ;;
