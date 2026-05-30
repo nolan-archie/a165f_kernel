@@ -27,18 +27,17 @@ jobs:
           chmod +x scripts/maximize_space.sh
           ./scripts/maximize_space.sh
 
-      - name: Set up Python 2.7
-        uses: actions/setup-python@v5
-        with:
-          python-version: '2.7'
-
       - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential rsync bc bison flex libssl-dev libelf-dev
-          # python2.7 is now provided by setup-python, ensure it's linked
-          sudo ln -sf $(which python2.7) /usr/bin/python
-          sudo ln -sf $(which python2.7) /usr/bin/python2
+          sudo apt-get install -y software-properties-common
+          sudo add-apt-repository -y ppa:deadsnakes/ppa
+          sudo apt-get update
+          sudo apt-get install -y build-essential rsync bc bison flex libssl-dev libelf-dev python2.7 python2.7-dev
+          
+          # Link python2.7 to python and python2
+          sudo ln -sf /usr/bin/python2.7 /usr/bin/python
+          sudo ln -sf /usr/bin/python2.7 /usr/bin/python2
 
       - name: Setup Git
         run: |
