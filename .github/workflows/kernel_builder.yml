@@ -83,53 +83,39 @@ jobs:
             echo "No new updates this week." > ../changelog_${{ matrix.branch }}.md
           fi
 
-      - name: Fix Mediatek Connectivity Modules
-        run: |
-          # Define absolute paths to safeguard against worktree layer mapping anomalies
-          KERNEL_CONN_DIR="$GITHUB_WORKSPACE/build-workspace/kernel-5.10/drivers/misc/mediatek/connectivity"
-          
-          # Identify where the branch environment holds the vendor package structure
-          if [ -d "$GITHUB_WORKSPACE/build-workspace/vendor/mediatek/kernel_modules/connectivity" ]; then
-            VENDOR_CONN_DIR="$GITHUB_WORKSPACE/build-workspace/vendor/mediatek/kernel_modules/connectivity"
-          else
-            VENDOR_CONN_DIR="$GITHUB_WORKSPACE/vendor/mediatek/kernel_modules/connectivity"
-          fi
-          
-          echo "Using Vendor Connectivity Source from: $VENDOR_CONN_DIR"
-          echo "Target Kernel Connectivity Directory: $KERNEL_CONN_DIR"
-          
-          # Rebuild core target architecture directory
-          mkdir -p "$KERNEL_CONN_DIR"
-          
-          # Helper function to dynamically discover and link matching source drivers safely
-          link_driver() {
-            local name=$1
-            local target_link="$KERNEL_CONN_DIR/$2"
-            
-            if [ -d "$VENDOR_CONN_DIR/$name" ]; then
-              ln -sfn "$VENDOR_CONN_DIR/$name" "$target_link"
-              echo "Linked $name -> $target_link"
-            elif [ -d "$VENDOR_CONN_DIR/${name}_ext" ]; then
-              ln -sfn "$VENDOR_CONN_DIR/${name}_ext" "$target_link"
-              echo "Linked ${name}_ext -> $target_link"
-            else
-              echo "Warning: Could not isolate source module components for $name"
-            fi
-          }
-          
-          # Link all 4 foundational wireless components omitted by .gitignore profiles
-          link_driver "wmt" "wmt_drv_ext"
-          link_driver "wlan" "wlan_drv_gen4m_ext"
-          link_driver "bt" "bt_drv_ext"
-          link_driver "wmt_chrdev_wifi" "wmt_chrdev_wifi_ext"
-          
-          echo "Verification of successfully mapped hardware layers:"
-          ls -la "$KERNEL_CONN_DIR"
-
       - name: Build Kernel
         run: |
           cd build-workspace
           chmod +x build.sh
+          
+          # Inline patch to prevent build.sh cleaning routines from wiping out our fixes.
+          # This injects a function into build.sh that recreates the missing connectivity 
+          # symlinks right before any 'make' commands are executed.
+          cat << 'EOF' > fix_links.sh
+          KERNEL_CONN_DIR="kernel-5.10/drivers/misc/mediatek/connectivity"
+          mkdir -p "$KERNEL_CONN_DIR"
+          echo "Injecting relative driver symlinks to bypass .gitignore exclusions..."
+          ln -sfn ../../../../../vendor/mediatek/kernel_modules/connectivity/wmt "$KERNEL_CONN_DIR/wmt_drv_ext"
+          ln -sfn ../../../../../vendor/mediatek/kernel_modules/connectivity/wlan "$KERNEL_CONN_DIR/wlan_drv_gen4m_ext"
+          ln -sfn ../../../../../vendor/mediatek/kernel_modules/connectivity/bt "$KERNEL_CONN_DIR/bt_drv_ext"
+          ln -sfn ../../../../../vendor/mediatek/kernel_modules/connectivity/wmt "$KERNEL_CONN_DIR/wmt_chrdev_wifi_ext"
+          echo "Active layout in target connectivity directory:"
+          ls -la "$KERNEL_CONN_DIR"
+          EOF
+          
+          # Make our temporary injection script executable
+          chmod +x fix_links.sh
+          
+          # Dynamically alter build.sh to run our fix right before it calls the compiler
+          if grep -q "make" build.sh; then
+            sed -i '/make/i ./fix_links.sh' build.sh
+            echo "Successfully attached patch hook to build script execution loop."
+          else
+            # Fallback execution in case it uses an alternative wrapper command
+            ./fix_links.sh
+          fi
+          
+          # Fire off the compilation
           ./build.sh
 
       - name: Upload Artifacts
