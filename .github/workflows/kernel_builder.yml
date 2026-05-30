@@ -2,8 +2,8 @@ name: Weekly Kernel Builder
 
 on:
   schedule:
-    - cron: '0 0 * * 1' # Every Monday at 00:00 UTC
-  workflow_dispatch: # Allow manual trigger
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -34,8 +34,6 @@ jobs:
           sudo add-apt-repository -y ppa:deadsnakes/ppa
           sudo apt-get update
           sudo apt-get install -y build-essential rsync bc bison flex libssl-dev libelf-dev python2.7 python2.7-dev
-          
-          # Link python2.7 to python and python2
           sudo ln -sf /usr/bin/python2.7 /usr/bin/python
           sudo ln -sf /usr/bin/python2.7 /usr/bin/python2
 
@@ -47,7 +45,6 @@ jobs:
       - name: Prepare Build Workspace
         run: |
           git worktree add build-workspace ${{ matrix.branch }}
-          # Fix local submodule tracking issues if present in the branch
           cd build-workspace
           if git config --get submodule.susfs4ksu.url >/dev/null; then
             git submodule deinit -f susfs4ksu || true
@@ -59,14 +56,10 @@ jobs:
         run: |
           cd build-workspace
           ../scripts/automate_updates.sh
-          
-          # Debug: show status before committing
+
           git status
-          
-          # Stage all changes (including new files)
           git add -A
-          
-          # Check for changes and commit
+
           if ! git diff-index --quiet HEAD --; then
             git commit -m "Auto-update KernelSU and SUSFS to latest commits"
             git push origin ${{ matrix.branch }} || echo "Push failed, but continuing build"
@@ -75,35 +68,28 @@ jobs:
             echo "No changes detected. Dependencies are already up to date."
             echo "updated=false" >> $GITHUB_OUTPUT
           fi
-          
-          # Ensure a changelog exists for the release step
+
           if [ -f changelog.md ]; then
             cp changelog.md ../changelog_${{ matrix.branch }}.md
           else
             echo "No new updates this week." > ../changelog_${{ matrix.branch }}.md
           fi
 
-      - name: Fix Mediatek Connectivity Modules
+      - name: Verify KernelSU Consistency
         run: |
-          TARGET_MAKEFILE="build-workspace/kernel-5.10/drivers/misc/mediatek/connectivity/Makefile"
-
-          if [ -f "$TARGET_MAKEFILE" ]; then
-            echo "Injecting real-time workspace layer compilation hotfixes into the Makefile..."
-
-            {
-              printf '%s\n' '$(shell mkdir -p $(srctree)/drivers/misc/mediatek/connectivity)'
-              printf '%s\n' '$(shell ln -sfn $(srctree)/../vendor/mediatek/kernel_modules/connectivity/wmt $(srctree)/drivers/misc/mediatek/connectivity/wmt_drv_ext)'
-              printf '%s\n' '$(shell ln -sfn $(srctree)/../vendor/mediatek/kernel_modules/connectivity/wlan $(srctree)/drivers/misc/mediatek/connectivity/wlan_drv_gen4m_ext)'
-              printf '%s\n' '$(shell ln -sfn $(srctree)/../vendor/mediatek/kernel_modules/connectivity/bt $(srctree)/drivers/misc/mediatek/connectivity/bt_drv_ext)'
-              printf '%s\n' '$(shell ln -sfn $(srctree)/../vendor/mediatek/kernel_modules/connectivity/wmt $(srctree)/drivers/misc/mediatek/connectivity/wmt_chrdev_wifi_ext)'
-              cat "$TARGET_MAKEFILE"
-            } > makefile_patch.txt
-
-            mv makefile_patch.txt "$TARGET_MAKEFILE"
-            echo "Successfully locked runtime symlinks to the compilation stage."
+          cd build-workspace
+          if grep -R -n "ksu_no_custom_rc" drivers/kernelsu >/tmp/ksu_hits.txt 2>/dev/null; then
+            echo "KernelSU symbol usage found:"
+            cat /tmp/ksu_hits.txt
           else
-            echo "Critical Error: Target Makefile not found at $TARGET_MAKEFILE"
-            exit 1
+            echo "No ksu_no_custom_rc usage found."
+          fi
+
+          if grep -R -n "ksu_no_custom_rc" drivers/kernelsu/runtime/ksud_integration.c >/dev/null 2>&1; then
+            if ! grep -R -n "ksu_no_custom_rc" drivers/kernelsu | grep -v "ksud_integration.c" >/dev/null 2>&1; then
+              echo "KernelSU mismatch detected: ksud_integration.c references ksu_no_custom_rc but no declaration was found."
+              exit 1
+            fi
           fi
 
       - name: Build Kernel
@@ -124,16 +110,14 @@ jobs:
         run: |
           TAG_NAME="build-$(date +'%Y.%m.%d')-${{ matrix.branch }}"
           RELEASE_NAME="Weekly Build - $(date +'%Y-%m-%d') (${{ matrix.branch }})"
-          
-          # Use the generated changelog if it exists
+
           if [ -f "changelog_${{ matrix.branch }}.md" ]; then
             BODY_FILE="changelog_${{ matrix.branch }}.md"
           else
             echo "Weekly automated build for branch ${{ matrix.branch }}" > release_body.txt
             BODY_FILE="release_body.txt"
           fi
-          
-          # Added --clobber to allow separate matrix runs on the same tag block if needed
+
           gh release create "$TAG_NAME" \
             --title "$RELEASE_NAME" \
             --notes-file "$BODY_FILE" \
