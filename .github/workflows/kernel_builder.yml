@@ -76,7 +76,14 @@ jobs:
           else
             echo "No new updates this week." > ../changelog_${{ matrix.branch }}.md
           fi
-
+          
+      - name: Fix Mediatek Connectivity Modules
+        run: |
+          mkdir -p kernel-5.10/drivers/misc/mediatek/connectivity/wmt_drv_ext
+          cat > kernel-5.10/drivers/misc/mediatek/connectivity/wmt_drv_ext/Makefile << 'EOL'
+          obj-$(CONFIG_MTK_COMBO_WIFI) += wmt_chrdev_wifi_ext.o
+          EOL
+             
       - name: Build Kernel
         run: |
           cd build-workspace
