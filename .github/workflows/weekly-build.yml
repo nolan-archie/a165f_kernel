@@ -28,6 +28,7 @@ jobs:
       with:
         fetch-depth: 1
         submodules: false
+
     - name: Install dependencies
       run: |
         sudo apt-get update -qq
@@ -35,19 +36,18 @@ jobs:
           build-essential rsync python3 python3-dev git \
           tar gzip curl wget bc cpio flex bison zip unzip \
           libssl-dev device-tree-compiler libelf-dev \
-          libncurses-dev lld llvm clang-15 ccache
-        # Link clang to expected binary name if needed
-        sudo ln -sf /usr/bin/clang-15 /usr/bin/clang || true
+          libncurses-dev lld llvm clang ccache
         python3 --version
-   
+
     - name: Cache toolchain
       id: cache-toolchain
       uses: actions/cache@v4
       with:
         path: |
           kernel/prebuilts
+          kernel/prebuilts-master
           prebuilts
-        key: samsung-ndk-toolchain-v1
+        key: samsung-ndk-toolchain-v2
 
     - name: Download toolchain
       if: steps.cache-toolchain.outputs.cache-hit != 'true'
@@ -56,7 +56,34 @@ jobs:
         curl -L --progress-bar "$TOOLCHAIN_URL" -o toolchain.tar.gz
         tar -xzf toolchain.tar.gz -C .
         rm toolchain.tar.gz
-        ls kernel/prebuilts prebuilts
+        echo "=== Extracted clang binaries ==="
+        find . -maxdepth 5 -name "clang" -type f 2>/dev/null | head -10
+
+    - name: Ensure prebuilts-master symlink
+      run: |
+        CLANG_BIN="kernel/prebuilts-master/clang/host/linux-x86/clang-r416183b/bin/clang"
+        if [ ! -f "$CLANG_BIN" ] && [ ! -L "$CLANG_BIN" ]; then
+          echo "Clang missing at prebuilts-master, checking prebuilts..."
+          if [ -d "kernel/prebuilts/clang" ]; then
+            echo "Found at kernel/prebuilts — creating symlink"
+            ln -sfn "${GITHUB_WORKSPACE}/kernel/prebuilts" \
+                    "${GITHUB_WORKSPACE}/kernel/prebuilts-master"
+          else
+            echo "Prebuilt toolchain not found in either path!"
+            echo "Falling back to apt clang at expected prebuilt path..."
+            BIN_DIR="kernel/prebuilts-master/clang/host/linux-x86/clang-r416183b/bin"
+            mkdir -p "$BIN_DIR"
+            for tool in clang clang++ ld.lld llvm-ar llvm-nm llvm-objcopy \
+                        llvm-objdump llvm-readelf llvm-strip llvm-ranlib; do
+              SYS="$(which $tool 2>/dev/null || true)"
+              [ -n "$SYS" ] && ln -sf "$SYS" "$BIN_DIR/$tool" && echo "  linked: $tool"
+            done
+          fi
+        else
+          echo "Clang already present at prebuilts-master — no action needed"
+        fi
+        echo "=== Clang validation ==="
+        kernel/prebuilts-master/clang/host/linux-x86/clang-r416183b/bin/clang --version
 
     - name: Set version
       run: |
