@@ -241,9 +241,9 @@ AK3EOF
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ env.BUILD_KERNEL_VERSION }}
-        name: "SukiSU Ultra — ${{ env.BUILD_KERNEL_VERSION }} | ${{ env.SUKISU_BRANCH }}"
+        name: "SukiSU Ultra - ${{ env.BUILD_KERNEL_VERSION }} | ${{ env.SUKISU_BRANCH }}"
         body: |
-          ## SM-A165F / SM-A155F — Auto Weekly Build
+          ## SM-A165F / SM-A155F - Auto Weekly Build
 
           | Component | Version |
           |-----------|---------|
