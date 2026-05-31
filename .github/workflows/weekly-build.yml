@@ -105,13 +105,12 @@ jobs:
           -o /tmp/sukisu_setup.sh
         bash /tmp/sukisu_setup.sh "$SUKISU_BRANCH"
         cd ..
-
     - name: Write version defconfig
       run: |
         mkdir -p custom_defconfigs
-        printf 'CONFIG_LOCALVERSION_AUTO=n\nCONFIG_LOCALVERSION="-nolanarchie-%s"\n' \
-          "$BUILD_VERSION" > custom_defconfigs/version_defconfig
-
+        printf 'CONFIG_LOCALVERSION_AUTO=n\nCONFIG_LOCALVERSION="-nolanarchie-dev"\n' \
+          > custom_defconfigs/version_defconfig
+          
     - name: Write knox defconfig
       run: |
         mkdir -p custom_defconfigs
