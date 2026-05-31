@@ -10,7 +10,7 @@ on:
         required: false
         default: 'main'
       build_version:
-        description: 'Version label blank for auto date'
+        description: 'Version label blank for auto commit count'
         required: false
         default: ''
 
@@ -90,7 +90,8 @@ jobs:
         if [ -n "${{ github.event.inputs.build_version }}" ]; then
           BUILD_VERSION="${{ github.event.inputs.build_version }}"
         else
-          BUILD_VERSION="auto-$(date +%Y%m%d-%H%M%S)"
+          COUNT=$(git rev-list --count HEAD)
+          BUILD_VERSION="${COUNT:0:-2}.${COUNT: -2}"
         fi
         echo "BUILD_VERSION=${BUILD_VERSION}" >> $GITHUB_ENV
         
