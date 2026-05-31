@@ -1,4 +1,4 @@
-name: Weekly Kernel Build (SukiSU-Ultra + susfs)
+name: Weekly Kernel Build
 
 on:
   schedule:
@@ -6,11 +6,11 @@ on:
   workflow_dispatch:
     inputs:
       sukisu_branch:
-        description: 'SukiSU susfs branch (e.g. susfs-main, susfs-test, susfs-1.5.7)'
+        description: 'SukiSU branch e.g. susfs-main susfs-test'
         required: false
         default: 'susfs-main'
       build_version:
-        description: 'Version label (blank = auto date)'
+        description: 'Version label blank for auto date'
         required: false
         default: ''
 
@@ -22,214 +22,178 @@ jobs:
     name: Build A165F Kernel
     runs-on: ubuntu-22.04
 
-    env:
-      ARCH: arm64
-      PLATFORM_VERSION: "13"
-      OUT_KERNEL: out/target/product/a16/obj/KERNEL_OBJ
-      TOOLCHAIN_URL: https://github.com/ravindu644/android_kernel_a165f/releases/download/toolchain/toolchain.tar.gz
-
     steps:
-    - name: Checkout kernel source
+    - name: Checkout
       uses: actions/checkout@v4
       with:
         fetch-depth: 1
         submodules: false
 
-    - name: Install build dependencies
+    - name: Install dependencies
       run: |
         sudo apt-get update -qq
         sudo apt-get install -y --no-install-recommends \
-          build-essential rsync python3 python3-dev git tar gzip curl wget \
-          bc cpio flex bison zip unzip libssl-dev device-tree-compiler \
-          libelf-dev libncurses-dev lld llvm ccache
+          build-essential rsync python3 python3-dev git \
+          tar gzip curl wget bc cpio flex bison zip unzip \
+          libssl-dev device-tree-compiler libelf-dev \
+          libncurses-dev lld llvm ccache
         python3 --version
 
-    - name: Cache Samsung NDK toolchain
+    - name: Cache toolchain
       id: cache-toolchain
       uses: actions/cache@v4
       with:
         path: |
           kernel/prebuilts
           prebuilts
-        key: samsung-ndk-toolchain-a165f-v1
+        key: samsung-ndk-toolchain-v1
 
-    - name: Download & extract Samsung NDK toolchain
+    - name: Download toolchain
       if: steps.cache-toolchain.outputs.cache-hit != 'true'
       run: |
-        curl -L --progress-bar "${{ env.TOOLCHAIN_URL }}" -o toolchain.tar.gz
+        TOOLCHAIN_URL="https://github.com/ravindu644/android_kernel_a165f/releases/download/toolchain/toolchain.tar.gz"
+        curl -L --progress-bar "$TOOLCHAIN_URL" -o toolchain.tar.gz
         tar -xzf toolchain.tar.gz -C .
         rm toolchain.tar.gz
-        [[ -d kernel/prebuilts ]] || { echo "ERROR: kernel/prebuilts missing"; exit 1; }
-        [[ -d prebuilts ]]        || { echo "ERROR: prebuilts missing"; exit 1; }
 
-    - name: Set build version
+    - name: Set version
       run: |
         if [ -n "${{ github.event.inputs.build_version }}" ]; then
-          VERSION="${{ github.event.inputs.build_version }}"
+          echo "BUILD_VERSION=${{ github.event.inputs.build_version }}" >> $GITHUB_ENV
         else
-          VERSION="weekly-$(date +%Y%m%d)"
+          echo "BUILD_VERSION=weekly-$(date +%Y%m%d)" >> $GITHUB_ENV
         fi
-        echo "BUILD_KERNEL_VERSION=${VERSION}" >> $GITHUB_ENV
-        SUKISU_BRANCH="${{ github.event.inputs.sukisu_branch }}"
-        [ -z "$SUKISU_BRANCH" ] && SUKISU_BRANCH="susfs-main"
-        echo "SUKISU_BRANCH=${SUKISU_BRANCH}" >> $GITHUB_ENV
+        BRANCH="${{ github.event.inputs.sukisu_branch }}"
+        if [ -z "$BRANCH" ]; then
+          BRANCH="susfs-main"
+        fi
+        echo "SUKISU_BRANCH=$BRANCH" >> $GITHUB_ENV
 
-    - name: Integrate SukiSU-Ultra + susfs
+    - name: Integrate SukiSU-Ultra
       run: |
         cd kernel
-        echo "Integrating SukiSU-Ultra with branch: ${SUKISU_BRANCH}"
         curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" \
-          | bash -s "${SUKISU_BRANCH}"
-        echo "Integration complete"
-        # Confirm KernelSU dir was created by setup.sh
-        ls -la KernelSU/ | head -5 || echo "WARNING: KernelSU dir not found"
+          | bash -s "$SUKISU_BRANCH"
         cd ..
 
-    - name: Write disable_knox defconfig
+    - name: Write knox defconfig
       run: |
-        cat > custom_defconfigs/disable_knox.config << 'KNOX_EOF'
-        # Disable Samsung Knox
-        CONFIG_SAMSUNG_PRODUCT_SHIP=n
-        CONFIG_SEC_RESTRICT_FORK=n
-        CONFIG_SEC_RESTRICT_SETUID=n
-        CONFIG_UH=n
-        CONFIG_RKP=n
-        CONFIG_RKP_CFP=n
-        CONFIG_KDP=n
-        CONFIG_FIVE=n
-        CONFIG_FIVE_PA=n
-        CONFIG_FIVE_PA_FEATURE=n
-        KNOX_EOF
+        mkdir -p custom_defconfigs
+        printf '%s\n' \
+          'CONFIG_SAMSUNG_PRODUCT_SHIP=n' \
+          'CONFIG_SEC_RESTRICT_FORK=n' \
+          'CONFIG_SEC_RESTRICT_SETUID=n' \
+          'CONFIG_UH=n' \
+          'CONFIG_RKP=n' \
+          'CONFIG_RKP_CFP=n' \
+          'CONFIG_KDP=n' \
+          'CONFIG_FIVE=n' \
+          > custom_defconfigs/disable_knox.config
 
-    - name: Create required symlinks
+    - name: Create symlinks
       run: |
         for d in custom_defconfigs prebuilts_helio_g99 oem_prebuilt_images; do
-          if [ -d "${GITHUB_WORKSPACE}/${d}" ] && [ ! -e "/${d}" ]; then
-            sudo ln -sf "${GITHUB_WORKSPACE}/${d}" "/${d}"
-            echo "Symlink: /${d}"
+          if [ -d "${GITHUB_WORKSPACE}/$d" ] && [ ! -e "/$d" ]; then
+            sudo ln -sf "${GITHUB_WORKSPACE}/$d" "/$d"
           fi
         done
 
-    - name: Generate build.config
+    - name: Write version defconfig
       run: |
-        CONFIG_DIR="${GITHUB_WORKSPACE}/out/target/product/a16/obj/KERNEL_OBJ"
-        mkdir -p "$CONFIG_DIR"
-        rm -f "${CONFIG_DIR}/build.config" \
-              "${CONFIG_DIR}/build.config.gki.aarch64" \
-              "${CONFIG_DIR}/build.config.mtk"
+        mkdir -p custom_defconfigs
+        echo "CONFIG_LOCALVERSION_AUTO=n" > custom_defconfigs/version_defconfig
+        echo "CONFIG_LOCALVERSION=\"-nolanarchie-$BUILD_VERSION\"" >> custom_defconfigs/version_defconfig
 
-        mkdir -p "${GITHUB_WORKSPACE}/custom_defconfigs"
-        printf 'CONFIG_LOCALVERSION_AUTO=n\nCONFIG_LOCALVERSION="-nolanarchie-%s"\n' \
-          "${BUILD_KERNEL_VERSION}" \
-          > "${GITHUB_WORKSPACE}/custom_defconfigs/version_defconfig"
-
+    - name: Generate build config
+      run: |
+        OUT="${GITHUB_WORKSPACE}/out/target/product/a16/obj/KERNEL_OBJ"
+        mkdir -p "$OUT"
         cd "${GITHUB_WORKSPACE}/kernel-5.10"
         python3 scripts/gen_build_config.py \
           --kernel-defconfig a16_00_defconfig \
           --kernel-defconfig-overlays "entry_level.config disable_knox.config" \
           -m user \
-          -o "${CONFIG_DIR}/build.config"
+          -o "$OUT/build.config"
         cd "${GITHUB_WORKSPACE}"
-        head -20 "${CONFIG_DIR}/build.config"
 
     - name: Build kernel
       run: |
+        OUT="${GITHUB_WORKSPACE}/out/target/product/a16/obj/KERNEL_OBJ"
         export ARCH=arm64
         export PLATFORM_VERSION=13
-        export CROSS_COMPILE="aarch64-linux-gnu-"
-        export CROSS_COMPILE_COMPAT="arm-linux-gnueabi-"
-        export OUT_DIR="${GITHUB_WORKSPACE}/out/target/product/a16/obj/KERNEL_OBJ"
-        export DIST_DIR="${OUT_DIR}"
-        export BUILD_CONFIG="${OUT_DIR}/build.config"
+        export CROSS_COMPILE=aarch64-linux-gnu-
+        export CROSS_COMPILE_COMPAT=arm-linux-gnueabi-
+        export OUT_DIR="$OUT"
+        export DIST_DIR="$OUT"
+        export BUILD_CONFIG="$OUT/build.config"
         export MERGE_CONFIG="${GITHUB_WORKSPACE}/kernel-5.10/scripts/kconfig/merge_config.sh"
         export WDIR="${GITHUB_WORKSPACE}"
-        export BUILD_KERNEL_VERSION="${BUILD_KERNEL_VERSION}"
-
-        export GKI_KERNEL_BUILD_OPTIONS="
-          SKIP_MRPROPER=1
-          KMI_SYMBOL_LIST_STRICT_MODE=0
-          ABI_DEFINITION=
-          BUILD_BOOT_IMG=1
-          MKBOOTIMG_PATH=${GITHUB_WORKSPACE}/mkbootimg/mkbootimg.py
-          KERNEL_BINARY=Image.gz
-          BOOT_IMAGE_HEADER_VERSION=4
-          SKIP_VENDOR_BOOT=1
-          AVB_SIGN_BOOT_IMG=1
-          AVB_BOOT_PARTITION_SIZE=67108864
-          AVB_BOOT_KEY=${GITHUB_WORKSPACE}/mkbootimg/tests/data/testkey_rsa2048.pem
-          AVB_BOOT_ALGORITHM=SHA256_RSA2048
-          AVB_BOOT_PARTITION_NAME=boot
-          GKI_RAMDISK_PREBUILT_BINARY=${GITHUB_WORKSPACE}/oem_prebuilt_images/gki-ramdisk.lz4
-          LTO=none
-        "
-        export MKBOOTIMG_EXTRA_ARGS="
-          --os_version 12.0.0
-          --os_patch_level 2025-05-00
-          --pagesize 4096
-        "
         export GKI_RAMDISK_PREBUILT_BINARY="${GITHUB_WORKSPACE}/oem_prebuilt_images/gki-ramdisk.lz4"
-
+        export MKBOOTIMG_EXTRA_ARGS="--os_version 12.0.0 --os_patch_level 2025-05-00 --pagesize 4096"
+        export SKIP_MRPROPER=1
+        export KMI_SYMBOL_LIST_STRICT_MODE=0
+        export ABI_DEFINITION=
+        export BUILD_BOOT_IMG=1
+        export MKBOOTIMG_PATH="${GITHUB_WORKSPACE}/mkbootimg/mkbootimg.py"
+        export KERNEL_BINARY=Image.gz
+        export BOOT_IMAGE_HEADER_VERSION=4
+        export SKIP_VENDOR_BOOT=1
+        export AVB_SIGN_BOOT_IMG=1
+        export AVB_BOOT_PARTITION_SIZE=67108864
+        export AVB_BOOT_KEY="${GITHUB_WORKSPACE}/mkbootimg/tests/data/testkey_rsa2048.pem"
+        export AVB_BOOT_ALGORITHM=SHA256_RSA2048
+        export AVB_BOOT_PARTITION_NAME=boot
+        export LTO=none
         cd "${GITHUB_WORKSPACE}/kernel"
-        env ${GKI_KERNEL_BUILD_OPTIONS} ./build/build.sh 2>&1 | tee "${GITHUB_WORKSPACE}/build.log"
-        BUILD_EXIT=${PIPESTATUS[0]}
-        cd "${GITHUB_WORKSPACE}"
-        [ $BUILD_EXIT -eq 0 ] || { echo "::error::Kernel build failed"; exit 1; }
+        ./build/build.sh 2>&1 | tee "${GITHUB_WORKSPACE}/build.log"
+        exit ${PIPESTATUS[0]}
 
-    - name: Collect and package artifacts
+    - name: Collect artifacts
       run: |
-        OUT_DIR="${GITHUB_WORKSPACE}/out/target/product/a16/obj/KERNEL_OBJ"
+        OUT="${GITHUB_WORKSPACE}/out/target/product/a16/obj/KERNEL_OBJ"
         DIST="${GITHUB_WORKSPACE}/dist"
         mkdir -p "$DIST"
-
-        # Collect boot.img
-        [ -f "${OUT_DIR}/boot.img" ] && cp "${OUT_DIR}/boot.img" "$DIST/" \
-          && echo "boot.img collected" || echo "WARNING: boot.img not found"
-
-        # Collect Image.gz
-        IMGZ="${OUT_DIR}/kernel-5.10/arch/arm64/boot/Image.gz"
-        [ -f "$IMGZ" ] && cp "$IMGZ" "$DIST/" \
-          && echo "Image.gz collected" || echo "WARNING: Image.gz not found"
-
-        # Build AnyKernel3 zip
+        if [ -f "$OUT/boot.img" ]; then
+          cp "$OUT/boot.img" "$DIST/"
+        fi
+        if [ -f "$OUT/kernel-5.10/arch/arm64/boot/Image.gz" ]; then
+          cp "$OUT/kernel-5.10/arch/arm64/boot/Image.gz" "$DIST/"
+        fi
         git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git ak3_tmp
-        [ -f "$DIST/Image.gz" ] && cp "$DIST/Image.gz" ak3_tmp/
-
-        cat > ak3_tmp/anykernel.sh << 'AK3EOF'
-kernel.string=SukiSU-Ultra @ nolan-archie
-do.devicecheck=1
-do.modules=0
-do.systemless=1
-do.cleanup=1
-do.cleanuponabort=0
-device.name1=a16
-device.name2=a165f
-device.name3=a155f
-device.name4=A165F
-device.name5=A155F
-block=/dev/block/platform/bootdevice/by-name/boot;
-is_slot_device=0;
-ramdisk_compression=auto;
-. tools/ak3-core.sh
-. tools/magiskboot.sh
-flash_image boot $block
-AK3EOF
-
-        ZIP_NAME="SukiSu-Ultra-SM-A165F-${BUILD_KERNEL_VERSION}.zip"
-        cd ak3_tmp && zip -r9 "${DIST}/${ZIP_NAME}" . -x ".git/*" "*.md" \
-          && echo "AK3 zip created" && cd "${GITHUB_WORKSPACE}"
-        echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_ENV
-
-        # Build tar
-        TAR_NAME="SukiSu-Ultra-SM-A165F-${BUILD_KERNEL_VERSION}.tar"
+        if [ -f "$DIST/Image.gz" ]; then
+          cp "$DIST/Image.gz" ak3_tmp/
+        fi
+        printf '%s\n' \
+          'kernel.string=SukiSU-Ultra @ nolan-archie' \
+          'do.devicecheck=1' \
+          'do.modules=0' \
+          'do.systemless=1' \
+          'do.cleanup=1' \
+          'do.cleanuponabort=0' \
+          'device.name1=a16' \
+          'device.name2=a165f' \
+          'device.name3=a155f' \
+          'device.name4=A165F' \
+          'device.name5=A155F' \
+          'block=/dev/block/platform/bootdevice/by-name/boot;' \
+          'is_slot_device=0;' \
+          'ramdisk_compression=auto;' \
+          '. tools/ak3-core.sh' \
+          '. tools/magiskboot.sh' \
+          'flash_image boot $block' \
+          > ak3_tmp/anykernel.sh
+        ZIP="SukiSU-Ultra-A165F-${BUILD_VERSION}.zip"
+        cd ak3_tmp
+        zip -r9 "$DIST/$ZIP" . -x ".git/*" "*.md"
+        cd "${GITHUB_WORKSPACE}"
+        echo "ARTIFACT_ZIP=$ZIP" >> $GITHUB_ENV
+        TAR="SukiSU-Ultra-A165F-${BUILD_VERSION}.tar"
         cd "$DIST"
-        FILES=()
-        [ -f boot.img ]  && FILES+=(boot.img)
-        [ -f Image.gz ]  && FILES+=(Image.gz)
-        tar -cvf "${TAR_NAME}" "${FILES[@]}"
-        echo "TAR_NAME=${TAR_NAME}" >> $GITHUB_ENV
+        tar -cvf "$TAR" boot.img Image.gz 2>/dev/null || tar -cvf "$TAR" boot.img 2>/dev/null || true
+        echo "ARTIFACT_TAR=$TAR" >> $GITHUB_ENV
         cd "${GITHUB_WORKSPACE}"
 
-    - name: Upload build log (always)
+    - name: Upload build log
       if: always()
       uses: actions/upload-artifact@v4
       with:
@@ -237,32 +201,26 @@ AK3EOF
         path: build.log
         retention-days: 14
 
-    - name: Create GitHub Release
+    - name: Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: ${{ env.BUILD_KERNEL_VERSION }}
-        name: "SukiSU Ultra - ${{ env.BUILD_KERNEL_VERSION }} | ${{ env.SUKISU_BRANCH }}"
+        tag_name: ${{ env.BUILD_VERSION }}
+        name: "SukiSU Ultra ${{ env.BUILD_VERSION }} ${{ env.SUKISU_BRANCH }}"
         body: |
-          ## SM-A165F / SM-A155F - Auto Weekly Build
+          SM-A165F / SM-A155F Auto Weekly Build
 
-          | Component | Version |
-          |-----------|---------|
-          | SukiSU-Ultra branch | `${{ env.SUKISU_BRANCH }}` |
-          | Build label | `${{ env.BUILD_KERNEL_VERSION }}` |
+          SukiSU-Ultra branch: ${{ env.SUKISU_BRANCH }}
+          Build: ${{ env.BUILD_VERSION }}
 
-          ### Flashing
-          | File | Method |
-          |------|--------|
-          | `boot.img` | `fastboot flash boot boot.img` or TWRP |
-          | `*.zip` | Flash in TWRP / OrangeFox (AnyKernel3) |
-          | `*.tar` | Odin / tarball format |
-
-          > Built automatically every Monday. SukiSU-Ultra + susfs fetched fresh each run.
+          Flashing:
+          boot.img - fastboot flash boot boot.img or TWRP
+          zip - Flash in TWRP or OrangeFox
+          tar - Odin format
         files: |
           dist/boot.img
           dist/Image.gz
-          dist/${{ env.ZIP_NAME }}
-          dist/${{ env.TAR_NAME }}
+          dist/${{ env.ARTIFACT_ZIP }}
+          dist/${{ env.ARTIFACT_TAR }}
         draft: false
         prerelease: false
         fail_on_unmatched_files: false
