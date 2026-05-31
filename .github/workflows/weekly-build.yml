@@ -103,7 +103,7 @@ jobs:
         cd kernel-5.10
         curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" \
           -o /tmp/sukisu_setup.sh
-        bash /tmp/sukisu_setup.sh "$SUKISU_BRANCH"
+        bash /tmp/sukisu_setup.sh "builtin"
         cd ..
     - name: Write version defconfig
       run: |
