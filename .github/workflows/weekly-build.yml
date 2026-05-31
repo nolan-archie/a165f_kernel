@@ -150,6 +150,7 @@ jobs:
         export AVB_BOOT_ALGORITHM=SHA256_RSA2048
         export AVB_BOOT_PARTITION_NAME=boot
         export LTO=none
+        export EXTRA_CFLAGS="-Wframe-larger-than=16384"
         cd "${GITHUB_WORKSPACE}/kernel"
         ./build/build.sh 2>&1 | tee "${GITHUB_WORKSPACE}/build.log"
         exit ${PIPESTATUS[0]}
