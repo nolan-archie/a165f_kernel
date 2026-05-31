@@ -71,7 +71,7 @@ jobs:
 
     - name: Integrate SukiSU-Ultra
       run: |
-        cd kernel
+        cd kernel-5.10
         curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" \
           | bash -s "$SUKISU_BRANCH"
         cd ..
