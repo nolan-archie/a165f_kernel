@@ -26,7 +26,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
       with:
-        fetch-depth: 1
+        fetch-depth: 0
         submodules: false
 
     - name: Install dependencies
@@ -85,19 +85,23 @@ jobs:
         echo "=== Clang validation ==="
         kernel/prebuilts-master/clang/host/linux-x86/clang-r416183b/bin/clang --version
 
-    - name: Set version
+    - name: Generate build version
       run: |
         if [ -n "${{ github.event.inputs.build_version }}" ]; then
-          echo "BUILD_VERSION=${{ github.event.inputs.build_version }}" >> $GITHUB_ENV
+          BUILD_VERSION="${{ github.event.inputs.build_version }}"
         else
-         COUNT=$(git rev-list --count HEAD)
-          echo "BUILD_VERSION=${COUNT:0:-2}.${COUNT: -2}" >> $GITHUB_ENV
+          BUILD_VERSION="auto-$(date +%Y%m%d-%H%M%S)"
         fi
+        echo "BUILD_VERSION=${BUILD_VERSION}" >> $GITHUB_ENV
+        
         BRANCH="${{ github.event.inputs.sukisu_branch }}"
         if [ -z "$BRANCH" ]; then
           BRANCH="main"
         fi
         echo "SUKISU_BRANCH=$BRANCH" >> $GITHUB_ENV
+        
+        echo "Build Version: ${BUILD_VERSION}"
+        echo "SukiSU Branch: ${BRANCH}"
         
     - name: Integrate SukiSU-Ultra
       run: |
