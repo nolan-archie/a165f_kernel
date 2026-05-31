@@ -246,7 +246,7 @@ jobs:
         tag_name: ${{ env.BUILD_VERSION }}
         name: "SukiSU Ultra ${{ env.BUILD_VERSION }} ${{ env.SUKISU_BRANCH }}"
         body: |
-          SM-A165F / SM-A155F Auto Weekly Build
+          SM-A165F / SM-A155F Auto Build
 
           SukiSU-Ultra branch: ${{ env.SUKISU_BRANCH }}
           Build: ${{ env.BUILD_VERSION }}
