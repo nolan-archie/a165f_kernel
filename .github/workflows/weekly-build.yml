@@ -1,0 +1,289 @@
+name: Weekly Kernel Build (KernelSU + SukiSU)
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+    inputs:
+      kernelsu_ref:
+        description: 'KernelSU tag/branch (blank = latest tag)'
+        required: false
+        default: ''
+      susfs_ref:
+        description: 'susfs4ksu branch (blank = kernel-5.10)'
+        required: false
+        default: ''
+      build_version:
+        description: 'Version label (blank = auto date)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build A165F Kernel
+    runs-on: ubuntu-22.04
+
+    env:
+      ARCH: arm64
+      PLATFORM_VERSION: "13"
+      OUT_KERNEL: out/target/product/a16/obj/KERNEL_OBJ
+      TOOLCHAIN_URL: https://github.com/ravindu644/android_kernel_a165f/releases/download/toolchain/toolchain.tar.gz
+
+    steps:
+    - name: Checkout kernel source
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+        submodules: false
+
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y --no-install-recommends \
+          build-essential rsync python2 python2-dev git tar gzip curl wget \
+          bc cpio flex bison zip unzip libssl-dev device-tree-compiler \
+          libelf-dev lld llvm ccache
+        python2 --version
+
+    - name: Cache Samsung NDK toolchain
+      id: cache-toolchain
+      uses: actions/cache@v4
+      with:
+        path: |
+          kernel/prebuilts
+          prebuilts
+        key: samsung-ndk-toolchain-a165f-v1
+
+    - name: Download & extract Samsung NDK toolchain
+      if: steps.cache-toolchain.outputs.cache-hit != 'true'
+      run: |
+        curl -L --progress-bar "${{ env.TOOLCHAIN_URL }}" -o toolchain.tar.gz
+        tar -xzf toolchain.tar.gz -C .
+        rm toolchain.tar.gz
+        [[ -d kernel/prebuilts ]] || { echo "ERROR: kernel/prebuilts missing"; exit 1; }
+        [[ -d prebuilts ]]        || { echo "ERROR: prebuilts missing"; exit 1; }
+
+    - name: Set build version
+      run: |
+        if [ -n "${{ github.event.inputs.build_version }}" ]; then
+          VERSION="${{ github.event.inputs.build_version }}"
+        else
+          VERSION="weekly-$(date +%Y%m%d)"
+        fi
+        echo "BUILD_KERNEL_VERSION=${VERSION}" >> $GITHUB_ENV
+
+    - name: Fetch latest KernelSU
+      run: |
+        REF="${{ github.event.inputs.kernelsu_ref }}"
+        if [ -z "$REF" ]; then
+          REF=$(git ls-remote --tags https://github.com/tiann/KernelSU.git \
+                | grep -v '\^{}' | awk '{print $2}' | sed 's|refs/tags/||' \
+                | grep '^v' | sort -V | tail -1)
+          echo "Auto-resolved KernelSU tag: $REF"
+        fi
+        echo "KERNELSU_REF=${REF}" >> $GITHUB_ENV
+        rm -rf KernelSU
+        git clone --depth=1 --branch "$REF" \
+          https://github.com/tiann/KernelSU.git KernelSU
+        grep -m1 'KSU_VERSION' KernelSU/kernel/Makefile || true
+
+    - name: Fetch latest susfs4ksu
+      run: |
+        REF="${{ github.event.inputs.susfs_ref }}"
+        [ -z "$REF" ] && REF="kernel-5.10"
+        echo "SUSFS_REF=${REF}" >> $GITHUB_ENV
+        rm -rf susfs4ksu
+        git clone --depth=1 --branch "$REF" \
+          https://gitlab.com/simonpunk/susfs4ksu.git susfs4ksu
+        ls susfs4ksu/kernel_patches/
+
+    - name: Apply KernelSU
+      run: |
+        cd kernel
+        bash ../KernelSU/kernel/setup.sh ../KernelSU
+        cd ..
+
+    - name: Apply susfs patches
+      run: |
+        cd kernel
+        FAILED=0
+        for patch in ../susfs4ksu/kernel_patches/*.patch; do
+          [ -f "$patch" ] || continue
+          echo "Applying: $(basename $patch)"
+          if patch -p1 --forward --no-backup-if-mismatch < "$patch"; then
+            echo "  applied"
+          else
+            echo "  WARNING: failed or already applied: $(basename $patch)"
+            FAILED=$((FAILED + 1))
+          fi
+        done
+        [ $FAILED -gt 0 ] && echo "::warning::${FAILED} patch(es) did not apply cleanly"
+        cd ..
+
+    - name: Create required symlinks
+      run: |
+        for d in custom_defconfigs prebuilts_helio_g99 oem_prebuilt_images; do
+          if [ -d "${GITHUB_WORKSPACE}/${d}" ] && [ ! -e "/${d}" ]; then
+            sudo ln -sf "${GITHUB_WORKSPACE}/${d}" "/${d}"
+            echo "Symlink: /${d}"
+          fi
+        done
+
+    - name: Generate build.config
+      run: |
+        CONFIG_DIR="${GITHUB_WORKSPACE}/out/target/product/a16/obj/KERNEL_OBJ"
+        mkdir -p "$CONFIG_DIR"
+        rm -f "${CONFIG_DIR}/build.config" \
+              "${CONFIG_DIR}/build.config.gki.aarch64" \
+              "${CONFIG_DIR}/build.config.mtk"
+
+        mkdir -p "${GITHUB_WORKSPACE}/custom_defconfigs"
+        printf 'CONFIG_LOCALVERSION_AUTO=n\nCONFIG_LOCALVERSION="-nolanarchie-%s"\n' \
+          "${BUILD_KERNEL_VERSION}" \
+          > "${GITHUB_WORKSPACE}/custom_defconfigs/version_defconfig"
+
+        cd "${GITHUB_WORKSPACE}/kernel-5.10"
+        python2 scripts/gen_build_config.py \
+          --kernel-defconfig a16_00_defconfig \
+          --kernel-defconfig-overlays entry_level.config \
+          -m user \
+          -o "${CONFIG_DIR}/build.config"
+        cd "${GITHUB_WORKSPACE}"
+        head -20 "${CONFIG_DIR}/build.config"
+
+    - name: Build kernel
+      run: |
+        export ARCH=arm64
+        export PLATFORM_VERSION=13
+        export CROSS_COMPILE="aarch64-linux-gnu-"
+        export CROSS_COMPILE_COMPAT="arm-linux-gnueabi-"
+        export OUT_DIR="${GITHUB_WORKSPACE}/out/target/product/a16/obj/KERNEL_OBJ"
+        export DIST_DIR="${OUT_DIR}"
+        export BUILD_CONFIG="${OUT_DIR}/build.config"
+        export MERGE_CONFIG="${GITHUB_WORKSPACE}/kernel-5.10/scripts/kconfig/merge_config.sh"
+        export WDIR="${GITHUB_WORKSPACE}"
+        export BUILD_KERNEL_VERSION="${BUILD_KERNEL_VERSION}"
+
+        rm -f "${OUT_DIR}/boot.img" \
+              "${OUT_DIR}/kernel-5.10/arch/arm64/boot/Image.gz"
+
+        export GKI_KERNEL_BUILD_OPTIONS="
+          SKIP_MRPROPER=1
+          KMI_SYMBOL_LIST_STRICT_MODE=0
+          ABI_DEFINITION=
+          BUILD_BOOT_IMG=1
+          MKBOOTIMG_PATH=${GITHUB_WORKSPACE}/mkbootimg/mkbootimg.py
+          KERNEL_BINARY=Image.gz
+          BOOT_IMAGE_HEADER_VERSION=4
+          SKIP_VENDOR_BOOT=1
+          AVB_SIGN_BOOT_IMG=1
+          AVB_BOOT_PARTITION_SIZE=67108864
+          AVB_BOOT_KEY=${GITHUB_WORKSPACE}/mkbootimg/tests/data/testkey_rsa2048.pem
+          AVB_BOOT_ALGORITHM=SHA256_RSA2048
+          AVB_BOOT_PARTITION_NAME=boot
+          GKI_RAMDISK_PREBUILT_BINARY=${GITHUB_WORKSPACE}/oem_prebuilt_images/gki-ramdisk.lz4
+          LTO=full
+        "
+        export MKBOOTIMG_EXTRA_ARGS="
+          --os_version 12.0.0
+          --os_patch_level 2025-05-00
+          --pagesize 4096
+        "
+        export GKI_RAMDISK_PREBUILT_BINARY="${GITHUB_WORKSPACE}/oem_prebuilt_images/gki-ramdisk.lz4"
+
+        cd "${GITHUB_WORKSPACE}/kernel"
+        env ${GKI_KERNEL_BUILD_OPTIONS} ./build/build.sh 2>&1 | tee "${GITHUB_WORKSPACE}/build.log"
+        BUILD_EXIT=${PIPESTATUS[0]}
+        cd "${GITHUB_WORKSPACE}"
+        [ $BUILD_EXIT -eq 0 ] || { echo "::error::Kernel build failed"; exit 1; }
+
+    - name: Collect and package artifacts
+      run: |
+        OUT_DIR="${GITHUB_WORKSPACE}/out/target/product/a16/obj/KERNEL_OBJ"
+        DIST="${GITHUB_WORKSPACE}/dist"
+        mkdir -p "$DIST"
+
+        [ -f "${OUT_DIR}/boot.img" ] && cp "${OUT_DIR}/boot.img" "$DIST/" && echo "boot.img collected"
+        IMGZ="${OUT_DIR}/kernel-5.10/arch/arm64/boot/Image.gz"
+        [ -f "$IMGZ" ] && cp "$IMGZ" "$DIST/" && echo "Image.gz collected"
+
+        git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git ak3_tmp
+        [ -f "$DIST/Image.gz" ] && cp "$DIST/Image.gz" ak3_tmp/
+
+        cat > ak3_tmp/anykernel.sh << 'AK3EOF'
+kernel.string=KernelSU + SukiSU @ nolan-archie
+do.devicecheck=1
+do.modules=0
+do.systemless=1
+do.cleanup=1
+do.cleanuponabort=0
+device.name1=a16
+device.name2=a165f
+device.name3=a155f
+device.name4=A165F
+device.name5=A155F
+block=/dev/block/platform/bootdevice/by-name/boot;
+is_slot_device=0;
+ramdisk_compression=auto;
+. tools/ak3-core.sh
+. tools/magiskboot.sh
+flash_image boot $block
+AK3EOF
+
+        ZIP_NAME="SukiSu-Ultra-SM-A165F-${BUILD_KERNEL_VERSION}.zip"
+        cd ak3_tmp && zip -r9 "${DIST}/${ZIP_NAME}" . -x ".git/*" "*.md" && cd "${GITHUB_WORKSPACE}"
+        echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_ENV
+
+        TAR_NAME="SukiSu-Ultra-SM-A165F-${BUILD_KERNEL_VERSION}.tar"
+        cd "$DIST"
+        FILES=()
+        [ -f boot.img ] && FILES+=(boot.img)
+        [ -f Image.gz ] && FILES+=(Image.gz)
+        tar -cvf "${TAR_NAME}" "${FILES[@]}"
+        echo "TAR_NAME=${TAR_NAME}" >> $GITHUB_ENV
+        cd "${GITHUB_WORKSPACE}"
+
+    - name: Upload build log
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-log-${{ github.run_number }}
+        path: build.log
+        retention-days: 14
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ env.BUILD_KERNEL_VERSION }}
+        name: "SukiSu Ultra — ${{ env.BUILD_KERNEL_VERSION }} | KernelSU ${{ env.KERNELSU_REF }}"
+        body: |
+          ## SM-A165F / SM-A155F — Auto Weekly Build
+
+          | Component | Version |
+          |-----------|---------|
+          | KernelSU  | `${{ env.KERNELSU_REF }}` |
+          | susfs4ksu branch | `${{ env.SUSFS_REF }}` |
+          | Build label | `${{ env.BUILD_KERNEL_VERSION }}` |
+
+          ### Flashing
+          | File | Method |
+          |------|--------|
+          | `boot.img` | `fastboot flash boot boot.img` or TWRP |
+          | `*.zip` | Flash in TWRP / OrangeFox (AnyKernel3) |
+          | `Image.gz` | Raw kernel image |
+          | `*.tar` | Tarball format |
+
+          > Built automatically every Monday. KernelSU and susfs fetched fresh each run.
+        files: |
+          dist/boot.img
+          dist/Image.gz
+          dist/${{ env.ZIP_NAME }}
+          dist/${{ env.TAR_NAME }}
+        draft: false
+        prerelease: false
+        fail_on_unmatched_files: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
