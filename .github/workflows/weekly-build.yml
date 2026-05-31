@@ -1,18 +1,14 @@
-name: Weekly Kernel Build (KernelSU + SukiSU)
+name: Weekly Kernel Build (SukiSU-Ultra + susfs)
 
 on:
   schedule:
     - cron: '0 0 * * 1'
   workflow_dispatch:
     inputs:
-      kernelsu_ref:
-        description: 'KernelSU tag/branch (blank = latest tag)'
+      sukisu_branch:
+        description: 'SukiSU susfs branch (e.g. susfs-main, susfs-test, susfs-1.5.7)'
         required: false
-        default: ''
-      susfs_ref:
-        description: 'susfs4ksu branch (blank = kernel-5.10)'
-        required: false
-        default: ''
+        default: 'susfs-main'
       build_version:
         description: 'Version label (blank = auto date)'
         required: false
@@ -43,10 +39,10 @@ jobs:
       run: |
         sudo apt-get update -qq
         sudo apt-get install -y --no-install-recommends \
-          build-essential rsync python2 python2-dev git tar gzip curl wget \
+          build-essential rsync python3 python3-dev git tar gzip curl wget \
           bc cpio flex bison zip unzip libssl-dev device-tree-compiler \
-          libelf-dev lld llvm ccache
-        python2 --version
+          libelf-dev libncurses-dev lld llvm ccache
+        python3 --version
 
     - name: Cache Samsung NDK toolchain
       id: cache-toolchain
@@ -74,54 +70,36 @@ jobs:
           VERSION="weekly-$(date +%Y%m%d)"
         fi
         echo "BUILD_KERNEL_VERSION=${VERSION}" >> $GITHUB_ENV
+        SUKISU_BRANCH="${{ github.event.inputs.sukisu_branch }}"
+        [ -z "$SUKISU_BRANCH" ] && SUKISU_BRANCH="susfs-main"
+        echo "SUKISU_BRANCH=${SUKISU_BRANCH}" >> $GITHUB_ENV
 
-    - name: Fetch latest KernelSU
-      run: |
-        REF="${{ github.event.inputs.kernelsu_ref }}"
-        if [ -z "$REF" ]; then
-          REF=$(git ls-remote --tags https://github.com/tiann/KernelSU.git \
-                | grep -v '\^{}' | awk '{print $2}' | sed 's|refs/tags/||' \
-                | grep '^v' | sort -V | tail -1)
-          echo "Auto-resolved KernelSU tag: $REF"
-        fi
-        echo "KERNELSU_REF=${REF}" >> $GITHUB_ENV
-        rm -rf KernelSU
-        git clone --depth=1 --branch "$REF" \
-          https://github.com/tiann/KernelSU.git KernelSU
-        grep -m1 'KSU_VERSION' KernelSU/kernel/Makefile || true
-
-    - name: Fetch latest susfs4ksu
-      run: |
-        REF="${{ github.event.inputs.susfs_ref }}"
-        [ -z "$REF" ] && REF="kernel-5.10"
-        echo "SUSFS_REF=${REF}" >> $GITHUB_ENV
-        rm -rf susfs4ksu
-        git clone --depth=1 --branch "$REF" \
-          https://gitlab.com/simonpunk/susfs4ksu.git susfs4ksu
-        ls susfs4ksu/kernel_patches/
-
-    - name: Apply KernelSU
+    - name: Integrate SukiSU-Ultra + susfs
       run: |
         cd kernel
-        bash ../KernelSU/kernel/setup.sh ../KernelSU
+        echo "Integrating SukiSU-Ultra with branch: ${SUKISU_BRANCH}"
+        curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" \
+          | bash -s "${SUKISU_BRANCH}"
+        echo "Integration complete"
+        # Confirm KernelSU dir was created by setup.sh
+        ls -la KernelSU/ | head -5 || echo "WARNING: KernelSU dir not found"
         cd ..
 
-    - name: Apply susfs patches
+    - name: Write disable_knox defconfig
       run: |
-        cd kernel
-        FAILED=0
-        for patch in ../susfs4ksu/kernel_patches/*.patch; do
-          [ -f "$patch" ] || continue
-          echo "Applying: $(basename $patch)"
-          if patch -p1 --forward --no-backup-if-mismatch < "$patch"; then
-            echo "  applied"
-          else
-            echo "  WARNING: failed or already applied: $(basename $patch)"
-            FAILED=$((FAILED + 1))
-          fi
-        done
-        [ $FAILED -gt 0 ] && echo "::warning::${FAILED} patch(es) did not apply cleanly"
-        cd ..
+        cat > custom_defconfigs/disable_knox.config << 'KNOX_EOF'
+        # Disable Samsung Knox
+        CONFIG_SAMSUNG_PRODUCT_SHIP=n
+        CONFIG_SEC_RESTRICT_FORK=n
+        CONFIG_SEC_RESTRICT_SETUID=n
+        CONFIG_UH=n
+        CONFIG_RKP=n
+        CONFIG_RKP_CFP=n
+        CONFIG_KDP=n
+        CONFIG_FIVE=n
+        CONFIG_FIVE_PA=n
+        CONFIG_FIVE_PA_FEATURE=n
+        KNOX_EOF
 
     - name: Create required symlinks
       run: |
@@ -146,9 +124,9 @@ jobs:
           > "${GITHUB_WORKSPACE}/custom_defconfigs/version_defconfig"
 
         cd "${GITHUB_WORKSPACE}/kernel-5.10"
-        python2 scripts/gen_build_config.py \
+        python3 scripts/gen_build_config.py \
           --kernel-defconfig a16_00_defconfig \
-          --kernel-defconfig-overlays entry_level.config \
+          --kernel-defconfig-overlays "entry_level.config disable_knox.config" \
           -m user \
           -o "${CONFIG_DIR}/build.config"
         cd "${GITHUB_WORKSPACE}"
@@ -167,9 +145,6 @@ jobs:
         export WDIR="${GITHUB_WORKSPACE}"
         export BUILD_KERNEL_VERSION="${BUILD_KERNEL_VERSION}"
 
-        rm -f "${OUT_DIR}/boot.img" \
-              "${OUT_DIR}/kernel-5.10/arch/arm64/boot/Image.gz"
-
         export GKI_KERNEL_BUILD_OPTIONS="
           SKIP_MRPROPER=1
           KMI_SYMBOL_LIST_STRICT_MODE=0
@@ -185,7 +160,7 @@ jobs:
           AVB_BOOT_ALGORITHM=SHA256_RSA2048
           AVB_BOOT_PARTITION_NAME=boot
           GKI_RAMDISK_PREBUILT_BINARY=${GITHUB_WORKSPACE}/oem_prebuilt_images/gki-ramdisk.lz4
-          LTO=full
+          LTO=none
         "
         export MKBOOTIMG_EXTRA_ARGS="
           --os_version 12.0.0
@@ -206,15 +181,21 @@ jobs:
         DIST="${GITHUB_WORKSPACE}/dist"
         mkdir -p "$DIST"
 
-        [ -f "${OUT_DIR}/boot.img" ] && cp "${OUT_DIR}/boot.img" "$DIST/" && echo "boot.img collected"
-        IMGZ="${OUT_DIR}/kernel-5.10/arch/arm64/boot/Image.gz"
-        [ -f "$IMGZ" ] && cp "$IMGZ" "$DIST/" && echo "Image.gz collected"
+        # Collect boot.img
+        [ -f "${OUT_DIR}/boot.img" ] && cp "${OUT_DIR}/boot.img" "$DIST/" \
+          && echo "boot.img collected" || echo "WARNING: boot.img not found"
 
+        # Collect Image.gz
+        IMGZ="${OUT_DIR}/kernel-5.10/arch/arm64/boot/Image.gz"
+        [ -f "$IMGZ" ] && cp "$IMGZ" "$DIST/" \
+          && echo "Image.gz collected" || echo "WARNING: Image.gz not found"
+
+        # Build AnyKernel3 zip
         git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git ak3_tmp
         [ -f "$DIST/Image.gz" ] && cp "$DIST/Image.gz" ak3_tmp/
 
         cat > ak3_tmp/anykernel.sh << 'AK3EOF'
-kernel.string=KernelSU + SukiSU @ nolan-archie
+kernel.string=SukiSU-Ultra @ nolan-archie
 do.devicecheck=1
 do.modules=0
 do.systemless=1
@@ -234,19 +215,21 @@ flash_image boot $block
 AK3EOF
 
         ZIP_NAME="SukiSu-Ultra-SM-A165F-${BUILD_KERNEL_VERSION}.zip"
-        cd ak3_tmp && zip -r9 "${DIST}/${ZIP_NAME}" . -x ".git/*" "*.md" && cd "${GITHUB_WORKSPACE}"
+        cd ak3_tmp && zip -r9 "${DIST}/${ZIP_NAME}" . -x ".git/*" "*.md" \
+          && echo "AK3 zip created" && cd "${GITHUB_WORKSPACE}"
         echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_ENV
 
+        # Build tar
         TAR_NAME="SukiSu-Ultra-SM-A165F-${BUILD_KERNEL_VERSION}.tar"
         cd "$DIST"
         FILES=()
-        [ -f boot.img ] && FILES+=(boot.img)
-        [ -f Image.gz ] && FILES+=(Image.gz)
+        [ -f boot.img ]  && FILES+=(boot.img)
+        [ -f Image.gz ]  && FILES+=(Image.gz)
         tar -cvf "${TAR_NAME}" "${FILES[@]}"
         echo "TAR_NAME=${TAR_NAME}" >> $GITHUB_ENV
         cd "${GITHUB_WORKSPACE}"
 
-    - name: Upload build log
+    - name: Upload build log (always)
       if: always()
       uses: actions/upload-artifact@v4
       with:
@@ -258,14 +241,13 @@ AK3EOF
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ env.BUILD_KERNEL_VERSION }}
-        name: "SukiSu Ultra — ${{ env.BUILD_KERNEL_VERSION }} | KernelSU ${{ env.KERNELSU_REF }}"
+        name: "SukiSU Ultra — ${{ env.BUILD_KERNEL_VERSION }} | ${{ env.SUKISU_BRANCH }}"
         body: |
           ## SM-A165F / SM-A155F — Auto Weekly Build
 
           | Component | Version |
           |-----------|---------|
-          | KernelSU  | `${{ env.KERNELSU_REF }}` |
-          | susfs4ksu branch | `${{ env.SUSFS_REF }}` |
+          | SukiSU-Ultra branch | `${{ env.SUKISU_BRANCH }}` |
           | Build label | `${{ env.BUILD_KERNEL_VERSION }}` |
 
           ### Flashing
@@ -273,10 +255,9 @@ AK3EOF
           |------|--------|
           | `boot.img` | `fastboot flash boot boot.img` or TWRP |
           | `*.zip` | Flash in TWRP / OrangeFox (AnyKernel3) |
-          | `Image.gz` | Raw kernel image |
-          | `*.tar` | Tarball format |
+          | `*.tar` | Odin / tarball format |
 
-          > Built automatically every Monday. KernelSU and susfs fetched fresh each run.
+          > Built automatically every Monday. SukiSU-Ultra + susfs fetched fresh each run.
         files: |
           dist/boot.img
           dist/Image.gz
