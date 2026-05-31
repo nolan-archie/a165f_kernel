@@ -90,14 +90,15 @@ jobs:
         if [ -n "${{ github.event.inputs.build_version }}" ]; then
           echo "BUILD_VERSION=${{ github.event.inputs.build_version }}" >> $GITHUB_ENV
         else
-          echo "BUILD_VERSION=weekly-$(date +%Y%m%d)" >> $GITHUB_ENV
+         COUNT=$(git rev-list --count HEAD)
+          echo "BUILD_VERSION=${COUNT:0:-2}.${COUNT: -2}" >> $GITHUB_ENV
         fi
         BRANCH="${{ github.event.inputs.sukisu_branch }}"
         if [ -z "$BRANCH" ]; then
           BRANCH="main"
         fi
         echo "SUKISU_BRANCH=$BRANCH" >> $GITHUB_ENV
-
+        
     - name: Integrate SukiSU-Ultra
       run: |
         cd kernel-5.10
@@ -105,6 +106,7 @@ jobs:
           -o /tmp/sukisu_setup.sh
         bash /tmp/sukisu_setup.sh "builtin"
         cd ..
+
     - name: Write version defconfig
       run: |
         mkdir -p custom_defconfigs
@@ -125,6 +127,14 @@ jobs:
           'CONFIG_FIVE=n' \
           > custom_defconfigs/disable_knox.config
 
+    - name: Write permissive defconfig
+      run: |
+        printf '%s\n' \
+          'CONFIG_SECURITY_SELINUX_DEVELOP=y' \
+          'CONFIG_SECURITY_SELINUX_BOOTPARAM=y' \
+          'CONFIG_SECURITY_SELINUX_BOOTPARAM_VALUE=0' \
+          > kernel-5.10/arch/arm64/configs/permissive.config
+
     - name: Create root symlinks
       run: |
         for d in custom_defconfigs prebuilts_helio_g99 oem_prebuilt_images; do
@@ -142,7 +152,7 @@ jobs:
         cd "${GITHUB_WORKSPACE}/kernel-5.10"
         python3 scripts/gen_build_config.py \
           --kernel-defconfig a16_00_defconfig \
-          --kernel-defconfig-overlays "entry_level.config" \
+          --kernel-defconfig-overlays "entry_level.config permissive.config" \
           -m user \
           -o "$OUTDIR/build.config"
         cd "${GITHUB_WORKSPACE}"
@@ -249,6 +259,7 @@ jobs:
 
           SukiSU-Ultra branch: ${{ env.SUKISU_BRANCH }}
           Build: ${{ env.BUILD_VERSION }}
+          SELinux: Permissive
 
           Flashing:
           boot.img - fastboot flash boot boot.img or TWRP
