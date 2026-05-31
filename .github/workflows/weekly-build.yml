@@ -73,7 +73,7 @@ jobs:
       run: |
         cd kernel-5.10
         curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" \
-          | bash -s "$SUKISU_BRANCH"
+          | bash -s -- "$SUKISU_BRANCH"
         cd ..
 
     - name: Write knox defconfig
@@ -144,8 +144,8 @@ jobs:
         export AVB_BOOT_ALGORITHM=SHA256_RSA2048
         export AVB_BOOT_PARTITION_NAME=boot
         export LTO=none
-        cd "${GITHUB_WORKSPACE}/kernel"
-        ./build/build.sh 2>&1 | tee "${GITHUB_WORKSPACE}/build.log"
+        cd "${GITHUB_WORKSPACE}"
+        kernel/build/build.sh 2>&1 | tee "${GITHUB_WORKSPACE}/build.log"
         exit ${PIPESTATUS[0]}
 
     - name: Collect artifacts
