@@ -258,6 +258,7 @@ jobs:
       uses: ncipollo/release-action@v1
       with:
         tag: ${{ env.BUILD_VERSION }}
+        commit: ${{ github.sha }}
         name: "SukiSU Ultra ${{ env.BUILD_VERSION }} ${{ env.SUKISU_BRANCH }}"
         body: |
           SM-A165F / SM-A155F Auto Build
