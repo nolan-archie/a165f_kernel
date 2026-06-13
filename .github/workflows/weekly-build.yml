@@ -91,8 +91,16 @@ jobs:
           BUILD_VERSION="${{ github.event.inputs.build_version }}"
         else
           COUNT=$(git rev-list --count HEAD)
-          BUILD_VERSION="${COUNT:0:-2}.${COUNT: -2}"
+          # If commits are under 100, format cleanly as v0.XX to prevent a leading dot
+          if [ "$COUNT" -lt 100 ]; then
+            BUILD_VERSION="v0.${COUNT}"
+          else
+            BUILD_VERSION="v${COUNT:0:-2}.${COUNT: -2}"
+          fi
         fi
+        
+        # Remove any unexpected white spaces
+        BUILD_VERSION=$(echo "$BUILD_VERSION" | tr -d ' ')
         echo "BUILD_VERSION=${BUILD_VERSION}" >> $GITHUB_ENV
         
         BRANCH="${{ github.event.inputs.sukisu_branch }}"
@@ -278,5 +286,5 @@ jobs:
           dist/${{ env.ARTIFACT_TAR }}
         draft: false
         prerelease: false
-        allowUpdates: false
+        allowUpdates: true
         token: ${{ secrets.GITHUB_TOKEN }}
