@@ -404,14 +404,14 @@ jobs:
         Kernel version:
         ${RELEASE_KERNEL_VERSION}
 
-        <a href="${BOOT_IMG_URL}">DOWNLOAD</a>
+        DOWNLOAD:
+        ${BOOT_IMG_URL}
 
         Disclaimer :I am not responsible for any bricked device, and all the software has been tested on our devices locally
         EOF
         )
 
-        curl --fail --show-error --silent --retry 3 --retry-delay 5 \
+        curl --fail-with-body --show-error --silent --retry 3 --retry-delay 5 \
           -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
           -F "chat_id=${TELEGRAM_CHAT_ID}" \
-          -F "text=${MESSAGE}" \
-          -F "parse_mode=HTML"
+          -F "text=${MESSAGE}"
