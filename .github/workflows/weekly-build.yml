@@ -359,7 +359,7 @@ jobs:
         allowUpdates: true
         token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Send boot.img to Telegram
+    - name: Send Telegram release message
       env:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -375,7 +375,7 @@ jobs:
         fi
 
         BOOT_IMG_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/${BUILD_VERSION}/boot.img"
-        CAPTION=$(cat <<EOF
+        MESSAGE=$(cat <<EOF
         NEW RELEASE!!!!!
 
         Stable kernel release for A165F
@@ -411,8 +411,7 @@ jobs:
         )
 
         curl --fail --show-error --silent --retry 3 --retry-delay 5 \
-          -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
+          -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
           -F "chat_id=${TELEGRAM_CHAT_ID}" \
-          -F "document=@dist/boot.img" \
-          -F "caption=${CAPTION}" \
+          -F "text=${MESSAGE}" \
           -F "parse_mode=HTML"
