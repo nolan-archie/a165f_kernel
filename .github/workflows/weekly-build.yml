@@ -13,6 +13,10 @@ on:
         description: 'Version label blank for auto commit count'
         required: false
         default: ''
+      manager_version:
+        description: 'Manager version blank for latest SukiSU release'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -254,6 +258,72 @@ jobs:
         echo "ARTIFACT_TAR=$TAR" >> $GITHUB_ENV
         cd "${GITHUB_WORKSPACE}"
 
+    - name: Resolve release metadata
+      env:
+        MANAGER_VERSION_OVERRIDE: ${{ github.event.inputs.manager_version }}
+      run: |
+        set -euo pipefail
+
+        RELEASE_KERNEL_VERSION=$(awk '
+          $1 == "VERSION" && $2 == "=" { version = $3 }
+          $1 == "PATCHLEVEL" && $2 == "=" { patchlevel = $3 }
+          $1 == "SUBLEVEL" && $2 == "=" { sublevel = $3 }
+          $1 == "EXTRAVERSION" && $2 == "=" { extraversion = $3 }
+          END {
+            if (version == "" || patchlevel == "") {
+              exit 1
+            }
+            printf "%s.%s", version, patchlevel
+            if (sublevel != "") {
+              printf ".%s", sublevel
+            }
+            printf "%s\n", extraversion
+          }
+        ' kernel-5.10/Makefile)
+
+        SUSFS_VERSION=$(awk '
+          $1 == "#define" && $2 == "SUSFS_VERSION" {
+            gsub(/"/, "", $3)
+            print $3
+            exit
+          }
+        ' kernel-5.10/include/linux/susfs.h 2>/dev/null || true)
+        SUSFS_VERSION="${SUSFS_VERSION:-unknown}"
+
+        MANAGER_NAME="SukiSu Ultra"
+        MANAGER_VERSION="${MANAGER_VERSION_OVERRIDE:-}"
+        if [ -z "$MANAGER_VERSION" ]; then
+          MANAGER_VERSION=$(curl --fail --show-error --silent --retry 3 --retry-delay 5 \
+            "https://api.github.com/repos/SukiSU-Ultra/SukiSU-Ultra/releases/latest" \
+            | python3 -c 'import json, sys; print(json.load(sys.stdin).get("tag_name", ""))' \
+            || true)
+        fi
+        if [ -z "$MANAGER_VERSION" ]; then
+          for kbuild in kernel-5.10/KernelSU/kernel/Kbuild KernelSU/kernel/Kbuild; do
+            if [ -f "$kbuild" ]; then
+              MANAGER_VERSION=$(awk '
+                $1 == "KSU_VERSION_API" && $2 == ":=" {
+                  print "v" $3
+                  exit
+                }
+              ' "$kbuild")
+              [ -n "$MANAGER_VERSION" ] && break
+            fi
+          done
+        fi
+        MANAGER_VERSION="${MANAGER_VERSION:-unknown}"
+
+        {
+          echo "MANAGER_NAME=${MANAGER_NAME}"
+          echo "MANAGER_VERSION=${MANAGER_VERSION}"
+          echo "SUSFS_VERSION=${SUSFS_VERSION}"
+          echo "RELEASE_KERNEL_VERSION=${RELEASE_KERNEL_VERSION}"
+        } >> "$GITHUB_ENV"
+
+        echo "Manager: ${MANAGER_NAME} ${MANAGER_VERSION}"
+        echo "SUSFS: ${SUSFS_VERSION}"
+        echo "Kernel: ${RELEASE_KERNEL_VERSION}"
+
     - name: Upload build log
       if: always()
       uses: actions/upload-artifact@v4
@@ -288,3 +358,61 @@ jobs:
         prerelease: false
         allowUpdates: true
         token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Send boot.img to Telegram
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      run: |
+        set -euo pipefail
+
+        : "${TELEGRAM_BOT_TOKEN:?Set the TELEGRAM_BOT_TOKEN repository secret}"
+        : "${TELEGRAM_CHAT_ID:?Set the TELEGRAM_CHAT_ID repository secret}"
+
+        if [ ! -f dist/boot.img ]; then
+          echo "dist/boot.img was not produced"
+          exit 1
+        fi
+
+        BOOT_IMG_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/${BUILD_VERSION}/boot.img"
+        CAPTION=$(cat <<EOF
+        NEW RELEASE!!!!!
+
+        Stable kernel release for A165F
+
+        FEATURES:
+        Upstreamed the kernel to ${RELEASE_KERNEL_VERSION}
+        INLINE  HOOK: ✅
+
+        SUSFS : ✅
+
+        SUS MOUNT : ✅
+        KSTAT : ✅
+        UNAME :✅
+        LOG :✅
+        HIDE SUSFS KSU SUSFS SYMBOLS:✅
+        SUSFS SPOOF CMDLINE OR BOOTCONFIG:✅
+        OPEN DIRECT:✅
+        SUS MAP:✅
+
+        Manager :
+        ${MANAGER_NAME}
+        Manager version:
+        ${MANAGER_VERSION}
+        SuSFS version:
+        ${SUSFS_VERSION}
+        Kernel version:
+        ${RELEASE_KERNEL_VERSION}
+
+        <a href="${BOOT_IMG_URL}">DOWNLOAD</a>
+
+        Disclaimer :I am not responsible for any bricked device, and all the software has been tested on our devices locally
+        EOF
+        )
+
+        curl --fail --show-error --silent --retry 3 --retry-delay 5 \
+          -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
+          -F "chat_id=${TELEGRAM_CHAT_ID}" \
+          -F "document=@dist/boot.img" \
+          -F "caption=${CAPTION}" \
+          -F "parse_mode=HTML"
