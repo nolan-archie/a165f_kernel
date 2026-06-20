@@ -300,6 +300,7 @@ jobs:
               | python3 -c 'import json, sys; print(json.load(sys.stdin).get("tag_name", ""))' \
               || true)
           fi
+
           if [ -z "$MANAGER_VERSION" ]; then
             for kbuild in kernel-5.10/KernelSU/kernel/Kbuild KernelSU/kernel/Kbuild; do
               if [ -f "$kbuild" ]; then
@@ -313,6 +314,7 @@ jobs:
               fi
             done
           fi
+
           MANAGER_VERSION="${MANAGER_VERSION:-unknown}"
 
           {
