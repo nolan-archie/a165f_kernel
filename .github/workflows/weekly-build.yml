@@ -33,6 +33,15 @@ jobs:
           fetch-depth: 0
           submodules: false
 
+      - name: Set up Swap Space
+        run: |
+          echo "Allocating 8GB of swap to prevent LTO OOM kills..."
+          sudo fallocate -l 8G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          free -h
+
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
@@ -40,7 +49,8 @@ jobs:
             build-essential rsync python3 python3-dev git \
             tar gzip curl wget bc cpio flex bison zip unzip \
             libssl-dev device-tree-compiler libelf-dev \
-            libncurses-dev lld llvm clang ccache
+            libncurses-dev lld llvm clang ccache \
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi crossbuild-essential-arm64
           python3 --version
 
       - name: Cache toolchain
@@ -90,9 +100,12 @@ jobs:
           kernel/prebuilts-master/clang/host/linux-x86/clang-r416183b/bin/clang --version
 
       - name: Generate build version
+        env:
+          INPUT_BUILD_VERSION: ${{ inputs.build_version }}
+          INPUT_SUKISU_BRANCH: ${{ inputs.sukisu_branch }}
         run: |
-          if [ -n "${{ github.event.inputs.build_version }}" ]; then
-            BUILD_VERSION="${{ github.event.inputs.build_version }}"
+          if [ -n "$INPUT_BUILD_VERSION" ]; then
+            BUILD_VERSION="$INPUT_BUILD_VERSION"
           else
             COUNT=$(git rev-list --count HEAD)
             MAJOR=$((COUNT / 100))
@@ -103,7 +116,7 @@ jobs:
           BUILD_VERSION=$(echo "$BUILD_VERSION" | tr -d ' ')
           echo "BUILD_VERSION=${BUILD_VERSION}" >> "$GITHUB_ENV"
 
-          BRANCH="${{ github.event.inputs.sukisu_branch }}"
+          BRANCH="$INPUT_SUKISU_BRANCH"
           if [ -z "$BRANCH" ]; then
             BRANCH="main"
           fi
@@ -256,13 +269,17 @@ jobs:
 
           TAR="SukiSU-Ultra-A165F-${BUILD_VERSION}.tar"
           cd "$DIST"
-          tar -cvf "$TAR" boot.img Image.gz 2>/dev/null || tar -cvf "$TAR" boot.img 2>/dev/null || true
+          if [ -f boot.img ] && [ -f Image.gz ]; then
+            tar -cvf "$TAR" boot.img Image.gz
+          elif [ -f boot.img ]; then
+            tar -cvf "$TAR" boot.img
+          fi
           echo "ARTIFACT_TAR=$TAR" >> $GITHUB_ENV
           cd "${GITHUB_WORKSPACE}"
 
       - name: Resolve release metadata
         env:
-          MANAGER_VERSION_OVERRIDE: ${{ github.event.inputs.manager_version }}
+          MANAGER_VERSION_OVERRIDE: ${{ inputs.manager_version }}
         run: |
           set -euo pipefail
 
@@ -381,40 +398,40 @@ jobs:
           BOOT_IMG_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/${BUILD_VERSION}/boot.img"
 
           MESSAGE=$(cat <<EOF
-NEW RELEASE!!!!!
+          NEW RELEASE!!!!!
 
-Stable kernel release for A165F
+          Stable kernel release for A165F
 
-FEATURES:
-Upstreamed the kernel to ${RELEASE_KERNEL_VERSION}
-INLINE HOOK: ✅
-SUSFS: ✅
-SUS MOUNT: ✅
-KSTAT: ✅
-UNAME: ✅
-LOG: ✅
-HIDE SUSFS KSU SUSFS SYMBOLS: ✅
-SUSFS SPOOF CMDLINE OR BOOTCONFIG: ✅
-OPEN DIRECT: ✅
-SUS MAP: ✅
+          FEATURES:
+          Upstreamed the kernel to ${RELEASE_KERNEL_VERSION}
+          INLINE HOOK: ✅
+          SUSFS: ✅
+          SUS MOUNT: ✅
+          KSTAT: ✅
+          UNAME: ✅
+          LOG: ✅
+          HIDE SUSFS KSU SUSFS SYMBOLS: ✅
+          SUSFS SPOOF CMDLINE OR BOOTCONFIG: ✅
+          OPEN DIRECT: ✅
+          SUS MAP: ✅
 
-Manager:
-${MANAGER_NAME}
+          Manager:
+          ${MANAGER_NAME}
 
-Manager version:
-${MANAGER_VERSION}
+          Manager version:
+          ${MANAGER_VERSION}
 
-SUSFS version:
-${SUSFS_VERSION}
+          SUSFS version:
+          ${SUSFS_VERSION}
 
-Kernel version:
-${RELEASE_KERNEL_VERSION}
+          Kernel version:
+          ${RELEASE_KERNEL_VERSION}
 
-DOWNLOAD:
-${BOOT_IMG_URL}
+          DOWNLOAD:
+          ${BOOT_IMG_URL}
 
-Disclaimer: I am not responsible for any bricked device, and all the software has been tested on our devices locally.
-EOF
+          Disclaimer: I am not responsible for any bricked device, and all the software has been tested on our devices locally.
+          EOF
           )
 
           curl --fail-with-body --show-error --silent --retry 3 --retry-delay 5 \
