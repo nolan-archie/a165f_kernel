@@ -36,7 +36,8 @@ jobs:
       - name: Set up Swap Space
         run: |
           echo "Allocating 8GB of swap to prevent LTO OOM kills..."
-          sudo fallocate -l 8G /swapfile
+          # Using dd instead of fallocate to avoid "Text file busy" on GitHub runners
+          sudo dd if=/dev/zero of=/swapfile bs=1M count=8192 status=progress
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
           sudo swapon /swapfile
