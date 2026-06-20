@@ -35,14 +35,17 @@ jobs:
 
       - name: Set up Swap Space
         run: |
-          echo "Allocating 8GB of swap to prevent LTO OOM kills..."
-          # Using dd instead of fallocate to avoid "Text file busy" on GitHub runners
-          sudo dd if=/dev/zero of=/swapfile bs=1M count=8192 status=progress
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
+          echo "Allocating 8GB of extra swap to prevent LTO OOM kills..."
+          # The runner already has a locked /swapfile active. 
+          # We create an additional one in /mnt to bypass the lock.
+          
+          sudo fallocate -l 12G /mnt/build-swapfile || sudo dd if=/dev/zero of=/mnt/build-swapfile bs=1M count=8192 status=progress
+          sudo chmod 600 /mnt/build-swapfile
+          sudo mkswap /mnt/build-swapfile
+          sudo swapon /mnt/build-swapfile
+          
+          echo "=== Memory and Swap Status ==="
           free -h
-
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
