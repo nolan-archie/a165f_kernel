@@ -1,4 +1,4 @@
-6name: Weekly Kernel Build
+name: Weekly Kernel Build
 
 on:
   schedule:
