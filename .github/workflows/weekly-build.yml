@@ -1,4 +1,4 @@
-name: Weekly Kernel Build
+6name: Weekly Kernel Build
 
 on:
   schedule:
@@ -359,7 +359,7 @@ jobs:
         allowUpdates: true
         token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Send Telegram release message
+       - name: Send Telegram release message
       env:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -375,19 +375,45 @@ jobs:
         fi
 
         BOOT_IMG_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/${BUILD_VERSION}/boot.img"
+
         MESSAGE=$(cat <<EOF
-        NEW RELEASE!!!!!
+NEW RELEASE!!!!!
 
-        Stable kernel release for A165F
+Stable kernel release for A165F
 
-        FEATURES:
-        Upstreamed the kernel to ${RELEASE_KERNEL_VERSION}
-        INLINE  HOOK: ✅
+FEATURES:
+Upstreamed the kernel to ${RELEASE_KERNEL_VERSION}
+INLINE HOOK: ✅
+SUSFS: ✅
+SUS MOUNT: ✅
+KSTAT: ✅
+UNAME: ✅
+LOG: ✅
+HIDE SUSFS KSU SUSFS SYMBOLS: ✅
+SUSFS SPOOF CMDLINE OR BOOTCONFIG: ✅
+OPEN DIRECT: ✅
+SUS MAP: ✅
 
-        SUSFS : ✅
+Manager:
+${MANAGER_NAME}
+Manager version:
+${MANAGER_VERSION}
+SUSFS version:
+${SUSFS_VERSION}
+Kernel version:
+${RELEASE_KERNEL_VERSION}
 
-        SUS MOUNT : ✅
-        KSTAT : ✅
+DOWNLOAD:
+${BOOT_IMG_URL}
+
+Disclaimer: I am not responsible for any bricked device, and all the software has been tested on our devices locally
+EOF
+        )
+
+        curl --fail-with-body --show-error --silent --retry 3 --retry-delay 5 \
+          -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+          --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+          --data-urlencode "text=${MESSAGE}" : ✅
         UNAME :✅
         LOG :✅
         HIDE SUSFS KSU SUSFS SYMBOLS:✅
