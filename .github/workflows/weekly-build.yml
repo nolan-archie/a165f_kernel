@@ -368,7 +368,7 @@ jobs:
 
             SukiSU-Ultra branch: ${{ env.SUKISU_BRANCH }}
             Build: ${{ env.BUILD_VERSION }}
-            SELinux: Permissive
+            SELinux: ENFORCING
 
             Flashing:
             boot.img - fastboot flash boot boot.img or TWRP
