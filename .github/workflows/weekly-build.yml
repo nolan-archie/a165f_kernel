@@ -44,7 +44,6 @@ jobs:
           sudo chmod 600 /mnt/build-swapfile
           sudo mkswap /mnt/build-swapfile
           sudo swapon /mnt/build-swapfile
-
           echo "=== Memory and Swap Status ==="
           free -h
 
@@ -184,7 +183,7 @@ jobs:
       - name: Apply SUSFS compatibility shims
         run: |
           set -euo pipefail
-          python3 - <<'PY2'
+          python3 - <<'EOF'
 from pathlib import Path
 
 def replace_once(path: str, old: str, new: str) -> None:
@@ -215,7 +214,7 @@ void susfs_sus_kstat_spoof_show_map_vma(struct inode *inode, dev_t *out_dev, uns
     susfs_sus_ino_for_show_map_vma(inode->i_ino, out_dev, out_ino);
 }
 
-#endif // #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT""",
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT"""
 )
 
 replace_once(
@@ -229,7 +228,7 @@ replace_once(
     return susfs_get_redirected_path(inode->i_ino);
 }
 
-#endif // #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT""",
+#endif // #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT"""
 )
 
 replace_once(
@@ -249,9 +248,11 @@ replace_once(
     "struct filename* susfs_get_redirected_path(unsigned long ino);",
     "struct filename* susfs_get_redirected_path(unsigned long ino);\nstruct filename *susfs_open_redirect_spoof_do_sys_openat(struct inode *inode);",
 )
-PY2
+EOF
 
           grep -R "susfs_open_redirect_spoof_do_sys_openat\|susfs_sus_kstat_spoof_show_map_vma\|susfs_sus_kstat_spoof_generic_fillattr" kernel-5.10 -n
+
+      # ... (rest of the workflow remains the same as previous version)
 
       - name: Write version defconfig
         run: |
@@ -426,13 +427,9 @@ PY2
             $1 == "SUBLEVEL" && $2 == "=" { sublevel = $3 }
             $1 == "EXTRAVERSION" && $2 == "=" { extraversion = $3 }
             END {
-              if (version == "" || patchlevel == "") {
-                exit 1
-              }
+              if (version == "" || patchlevel == "") { exit 1 }
               printf "%s.%s", version, patchlevel
-              if (sublevel != "") {
-                printf ".%s", sublevel
-              }
+              if (sublevel != "") { printf ".%s", sublevel }
               printf "%s\n", extraversion
             }
           ' kernel-5.10/Makefile)
@@ -536,41 +533,34 @@ PY2
 
           BOOT_IMG_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/${BUILD_VERSION}/boot.img"
 
-          MESSAGE=$(cat <<EOF
-          NEW RELEASE!!!!!
+          MESSAGE=$(cat <<'TELEGRAM'
+NEW RELEASE!!!!!
 
-          Stable kernel release for A165F
+Stable kernel release for A165F
 
-          FEATURES:
-          Upstreamed the kernel to ${RELEASE_KERNEL_VERSION}
-          INLINE HOOK: ✅
-          SUSFS: ✅
-          SUS MOUNT: ✅
-          KSTAT: ✅
-          UNAME: ✅
-          LOG: ✅
-          HIDE SUSFS KSU SUSFS SYMBOLS: ✅
-          SUSFS SPOOF CMDLINE OR BOOTCONFIG: ✅
-          OPEN DIRECT: ✅
-          SUS MAP: ✅
+FEATURES:
+Upstreamed the kernel to ${RELEASE_KERNEL_VERSION}
+INLINE HOOK: ✅
+SUSFS: ✅
+SUS MOUNT: ✅
+KSTAT: ✅
+UNAME: ✅
+LOG: ✅
+HIDE SUSFS KSU SUSFS SYMBOLS: ✅
+SUSFS SPOOF CMDLINE OR BOOTCONFIG: ✅
+OPEN DIRECT: ✅
+SUS MAP: ✅
 
-          Manager:
-          ${MANAGER_NAME}
+Manager: ${MANAGER_NAME}
+Manager version: ${MANAGER_VERSION}
+SUSFS version: ${SUSFS_VERSION}
+Kernel version: ${RELEASE_KERNEL_VERSION}
 
-          Manager version:
-          ${MANAGER_VERSION}
+DOWNLOAD:
+${BOOT_IMG_URL}
 
-          SUSFS version:
-          ${SUSFS_VERSION}
-
-          Kernel version:
-          ${RELEASE_KERNEL_VERSION}
-
-          DOWNLOAD:
-          ${BOOT_IMG_URL}
-
-          Disclaimer: I am not responsible for any bricked device, and all the software has been tested on our devices locally.
-          EOF
+Disclaimer: I am not responsible for any bricked device...
+TELEGRAM
           )
 
           curl --fail-with-body --show-error --silent --retry 3 --retry-delay 5 \
