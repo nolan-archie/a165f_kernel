@@ -1,4 +1,4 @@
- name: Weekly Kernel Build
+name: Weekly Kernel Build
 
 on:
   schedule:
@@ -39,8 +39,8 @@ jobs:
 
       - name: Set up Swap Space
         run: |
-          echo "Allocating 8GB of extra swap to prevent LTO OOM kills..."
-          sudo fallocate -l 12G /mnt/build-swapfile || sudo dd if=/dev/zero of=/mnt/build-swapfile bs=1M count=8192 status=progress
+          echo "Allocating 12 GB of extra swap to prevent LTO OOM kills..."
+          sudo fallocate -l 12G /mnt/build-swapfile || sudo dd if=/dev/zero of=/mnt/build-swapfile bs=1M count=12288 status=progress
           sudo chmod 600 /mnt/build-swapfile
           sudo mkswap /mnt/build-swapfile
           sudo swapon /mnt/build-swapfile
@@ -154,39 +154,43 @@ jobs:
           git clone --depth=1 --branch "${SUSFS_BRANCH}" \
             https://gitlab.com/simonpunk/susfs4ksu.git /tmp/susfs4ksu
 
-          cp -f /tmp/susfs4ksu/kernel_patches/fs/susfs.c \
-            kernel-5.10/fs/susfs.c
-          cp -f /tmp/susfs4ksu/kernel_patches/include/linux/susfs.h \
-            kernel-5.10/include/linux/susfs.h
-          cp -f /tmp/susfs4ksu/kernel_patches/include/linux/susfs_def.h \
-            kernel-5.10/include/linux/susfs_def.h
+          cp -f /tmp/susfs4ksu/kernel_patches/fs/susfs.c kernel-5.10/fs/susfs.c
+          cp -f /tmp/susfs4ksu/kernel_patches/include/linux/susfs.h kernel-5.10/include/linux/susfs.h
+          cp -f /tmp/susfs4ksu/kernel_patches/include/linux/susfs_def.h kernel-5.10/include/linux/susfs_def.h
 
           if ! grep -q 'obj-$(CONFIG_KSU_SUSFS) += susfs.o' kernel-5.10/fs/Makefile; then
             printf '\nobj-$(CONFIG_KSU_SUSFS) += susfs.o\n' >> kernel-5.10/fs/Makefile
           fi
 
           cd kernel-5.10/KernelSU
-          if ! grep -q 'KernelSU - SUSFS' kernel/Kconfig; then
+          if ! grep -q 'config KSU_SUSFS' kernel/Kconfig 2>/dev/null; then
             patch -p1 --forward < /tmp/susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch
           else
             echo "KernelSU SUSFS patch already present"
           fi
           cd "${GITHUB_WORKSPACE}"
 
-          SUSFS_VERSION=$(grep -oE "[0-9]+\.[0-9]+(\.[0-9]+)?" kernel-5.10/include/linux/susfs.h | head -1 || true)
+          SUSFS_VERSION=$(awk '
+            $1 == "#define" && $2 == "SUSFS_VERSION" {
+              gsub(/"/, "", $3)
+              print $3
+              exit
+            }
+          ' kernel-5.10/include/linux/susfs.h 2>/dev/null || true)
           SUSFS_VERSION="${SUSFS_VERSION:-unknown}"
           echo "SUSFS_VERSION=${SUSFS_VERSION}" >> "$GITHUB_ENV"
           echo "SUSFS ${SUSFS_VERSION} integrated from ${SUSFS_BRANCH}"
 
       - name: Write version defconfig
         run: |
-          mkdir -p custom_defconfigs
+          mkdir -p custom_defconfigs kernel-5.10/arch/arm64/configs
           printf 'CONFIG_LOCALVERSION_AUTO=n\nCONFIG_LOCALVERSION="-nolanarchie-dev"\n' \
             > custom_defconfigs/version_defconfig
+          cp custom_defconfigs/version_defconfig kernel-5.10/arch/arm64/configs/version.config
 
       - name: Write knox defconfig
         run: |
-          mkdir -p custom_defconfigs
+          mkdir -p custom_defconfigs kernel-5.10/arch/arm64/configs
           printf '%s\n' \
             'CONFIG_SAMSUNG_PRODUCT_SHIP=n' \
             'CONFIG_SEC_RESTRICT_FORK=n' \
@@ -197,6 +201,7 @@ jobs:
             'CONFIG_KDP=n' \
             'CONFIG_FIVE=n' \
             > custom_defconfigs/disable_knox.config
+          cp custom_defconfigs/disable_knox.config kernel-5.10/arch/arm64/configs/disable_knox.config
 
       - name: Write permissive defconfig
         run: |
@@ -240,7 +245,7 @@ jobs:
           cd "${GITHUB_WORKSPACE}/kernel-5.10"
           python3 scripts/gen_build_config.py \
             --kernel-defconfig a16_00_defconfig \
-            --kernel-defconfig-overlays "entry_level.config permissive.config susfs.config" \
+            --kernel-defconfig-overlays "entry_level.config version.config disable_knox.config permissive.config susfs.config" \
             -m user \
             -o "$OUTDIR/build.config"
           cd "${GITHUB_WORKSPACE}"
@@ -318,9 +323,6 @@ jobs:
             'block=/dev/block/platform/bootdevice/by-name/boot;' \
             'is_slot_device=0;' \
             'ramdisk_compression=auto;' \
-            '. tools/ak3-core.sh' \
-            '. tools/magiskboot.sh' \
-            'flash_image boot $block' \
             > ak3_tmp/anykernel.sh
 
           ZIP="SukiSU-Ultra-A165F-${BUILD_VERSION}.zip"
@@ -344,7 +346,6 @@ jobs:
           MANAGER_VERSION_OVERRIDE: ${{ inputs.manager_version }}
         run: |
           set -euo pipefail
-
           RELEASE_KERNEL_VERSION=$(awk '
             $1 == "VERSION" && $2 == "=" { version = $3 }
             $1 == "PATCHLEVEL" && $2 == "=" { patchlevel = $3 }
@@ -389,7 +390,6 @@ jobs:
               fi
             done
           fi
-
           MANAGER_VERSION="${MANAGER_VERSION:-unknown}"
 
           {
@@ -424,7 +424,7 @@ jobs:
             SUSFS branch: ${{ env.SUSFS_BRANCH }}
             SUSFS version: ${{ env.SUSFS_VERSION }}
             Build: ${{ env.BUILD_VERSION }}
-            SELinux: ENFORCING
+            SELinux: PERMISSIVE
 
             Flashing:
             boot.img - fastboot flash boot boot.img or TWRP
