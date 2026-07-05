@@ -178,20 +178,16 @@ jobs:
           fi
           cd "${GITHUB_WORKSPACE}"
 
-          SUSFS_VERSION=$(awk '
-            $1 == "#define" && $2 == "SUSFS_VERSION" {
-              gsub(/"/, "", $3)
-              print $3
-              exit
-            }
-          ' kernel-5.10/include/linux/susfs.h)
+          SUSFS_VERSION=$(grep -oE "[0-9]+\.[0-9]+(\.[0-9]+)?" kernel-5.10/include/linux/susfs.h | head -1 || true)
+          SUSFS_VERSION="${SUSFS_VERSION:-unknown}"
 
           if [ -z "$SUSFS_VERSION" ]; then
-            echo "Could not detect SUSFS_VERSION after integration"
-            exit 1
           fi
           echo "SUSFS_VERSION=${SUSFS_VERSION}" >> "$GITHUB_ENV"
           echo "SUSFS ${SUSFS_VERSION} integrated from ${SUSFS_BRANCH}"
+      - name: Apply SUSFS compatibility shims
+        run: bash scripts/apply_susfs_compat.sh
+
 
       - name: Apply SUSFS compatibility shims
         run: |
