@@ -32,12 +32,12 @@ extern bool susfs_is_inode_sus_path(struct inode *inode);
  * Note the "unsafe_put_user() semantics: we goto a
  * label for errors.
  */
-#define unsafe_copy_dirent_name(_dst, _src, _len, label) do {	\
-	char __user *dst = (_dst);				\
-	const char *src = (_src);				\
-	size_t len = (_len);					\
-	unsafe_put_user(0, dst+len, label);			\
-	unsafe_copy_to_user(dst, src, len, label);		\
+#define unsafe_copy_dirent_name(_dst, _src, _len, label) do { \
+	char __user *dst = (_dst);\
+	const char *src = (_src);\
+	size_t len = (_len);\
+	unsafe_put_user(0, dst+len, label);\
+	unsafe_copy_to_user(dst, src, len, label);\
 } while (0)
 
 
@@ -154,6 +154,9 @@ static int fillonedir(struct dir_context *ctx, const char *name, int namlen,
 		container_of(ctx, struct readdir_callback, ctx);
 	struct old_linux_dirent __user * dirent;
 	unsigned long d_ino;
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	struct inode *inode;
+#endif
 
 	if (buf->result)
 		return -EINVAL;
@@ -166,7 +169,6 @@ static int fillonedir(struct dir_context *ctx, const char *name, int namlen,
 		return -EOVERFLOW;
 	}
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
-	struct inode *inode;
 
 	inode = ilookup(buf->sb, ino);
 	if (!inode) {
@@ -256,6 +258,9 @@ static int filldir(struct dir_context *ctx, const char *name, int namlen,
 	int reclen = ALIGN(offsetof(struct linux_dirent, d_name) + namlen + 2,
 		sizeof(long));
 	int prev_reclen;
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	struct inode *inode;
+#endif
 
 	buf->error = verify_dirent_name(name, namlen);
 	if (unlikely(buf->error))
@@ -269,7 +274,6 @@ static int filldir(struct dir_context *ctx, const char *name, int namlen,
 		return -EOVERFLOW;
 	}
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
-	struct inode *inode;
 
 	inode = ilookup(buf->sb, ino);
 	if (!inode) {
@@ -364,6 +368,9 @@ static int filldir64(struct dir_context *ctx, const char *name, int namlen,
 	int reclen = ALIGN(offsetof(struct linux_dirent64, d_name) + namlen + 1,
 		sizeof(u64));
 	int prev_reclen;
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	struct inode *inode;
+#endif
 
 	buf->error = verify_dirent_name(name, namlen);
 	if (unlikely(buf->error))
@@ -375,7 +382,6 @@ static int filldir64(struct dir_context *ctx, const char *name, int namlen,
 	if (prev_reclen && signal_pending(current))
 		return -EINTR;
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
-	struct inode *inode;
 
 	inode = ilookup(buf->sb, ino);
 	if (!inode) {
@@ -473,6 +479,9 @@ static int compat_fillonedir(struct dir_context *ctx, const char *name,
 		container_of(ctx, struct compat_readdir_callback, ctx);
 	struct compat_old_linux_dirent __user *dirent;
 	compat_ulong_t d_ino;
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	struct inode *inode;
+#endif
 
 	if (buf->result)
 		return -EINVAL;
@@ -485,7 +494,6 @@ static int compat_fillonedir(struct dir_context *ctx, const char *name,
 		return -EOVERFLOW;
 	}
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
-	struct inode *inode;
 
 	inode = ilookup(buf->sb, ino);
 	if (!inode) {
@@ -560,7 +568,7 @@ struct compat_getdents_callback {
 };
 
 static int compat_filldir(struct dir_context *ctx, const char *name, int namlen,
-		loff_t offset, u64 ino, unsigned int d_type)
+			loff_t offset, u64 ino, unsigned int d_type)
 {
 	struct compat_linux_dirent __user *dirent, *prev;
 	struct compat_getdents_callback *buf =
@@ -569,6 +577,9 @@ static int compat_filldir(struct dir_context *ctx, const char *name, int namlen,
 	int reclen = ALIGN(offsetof(struct compat_linux_dirent, d_name) +
 		namlen + 2, sizeof(compat_long_t));
 	int prev_reclen;
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	struct inode *inode;
+#endif
 
 	buf->error = verify_dirent_name(name, namlen);
 	if (unlikely(buf->error))
@@ -585,7 +596,6 @@ static int compat_filldir(struct dir_context *ctx, const char *name, int namlen,
 	if (prev_reclen && signal_pending(current))
 		return -EINTR;
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
-	struct inode *inode;
 
 	inode = ilookup(buf->sb, ino);
 	if (!inode) {
