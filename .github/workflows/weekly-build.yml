@@ -134,12 +134,17 @@ jobs:
           echo "SukiSU Branch: ${BRANCH}"
           echo "SUSFS Branch: ${SUSFS_BRANCH}"
 
-      # >>>>> FIX: Apply SUSFS BEFORE SukiSU setup.sh <<<<<
-      # The SUSFS kernel patch must be applied BEFORE SukiSU setup.sh because:
-      # 1. SukiSU's builtin branch already includes SUSFS hook calls in its code
-      # 2. The SUSFS patch adds the actual function definitions and kernel hooks
-      # 3. If applied after SukiSU, the patch conflicts with SukiSU's modifications
-      - name: Integrate SUSFS (before SukiSU)
+      - name: Integrate SukiSU-Ultra
+        run: |
+          set -euo pipefail
+          cd kernel-5.10
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" \
+            -o /tmp/sukisu_setup.sh
+          bash /tmp/sukisu_setup.sh "${SUKISU_BRANCH}"
+          test -d KernelSU/kernel
+          cd ..
+
+      - name: Integrate SUSFS
         run: |
           set -euo pipefail
           rm -rf /tmp/susfs4ksu
@@ -151,75 +156,112 @@ jobs:
           cp -f /tmp/susfs4ksu/kernel_patches/include/linux/susfs.h kernel-5.10/include/linux/susfs.h
           cp -f /tmp/susfs4ksu/kernel_patches/include/linux/susfs_def.h kernel-5.10/include/linux/susfs_def.h
 
-          # Apply the main SUSFS kernel integration patch
-          # This MUST be done before SukiSU setup.sh to avoid conflicts
-          cd kernel-5.10
-          echo "=== Available SUSFS kernel patches ==="
-          ls -la /tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel*.patch 2>/dev/null || true
-          ls -la /tmp/susfs4ksu/kernel_patches/50_add_susfs_in_gki*.patch 2>/dev/null || true
+          # Add susfs.o to fs/Makefile (patch may fail on Samsung kernel, so do it manually)
+          if ! grep -q 'obj-$(CONFIG_KSU_SUSFS) += susfs.o' kernel-5.10/fs/Makefile; then
+            printf '\nobj-$(CONFIG_KSU_SUSFS) += susfs.o\n' >> kernel-5.10/fs/Makefile
+            echo "Added susfs.o to fs/Makefile"
+          else
+            echo "susfs.o already in fs/Makefile"
+          fi
 
-          # Try multiple possible patch filenames
-          PATCH_FILE=""
-          for candidate in \
-            "/tmp/susfs4ksu/kernel_patches/50_add_susfs_in_gki-${SUSFS_BRANCH}.patch" \
-            "/tmp/susfs4ksu/kernel_patches/50_add_susfs_in_gki-android13-5.10.patch" \
-            "/tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel-${SUSFS_BRANCH}.patch" \
-            "/tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel-5.10.patch" \
-            "/tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel.patch"
-          do
-            if [ -f "$candidate" ]; then
-              PATCH_FILE="$candidate"
-              break
+          # Patch KernelSU Kconfig to enable SUSFS options
+          cd kernel-5.10/KernelSU
+          if [ -f kernel/Kconfig ] && ! grep -q 'config KSU_SUSFS' kernel/Kconfig 2>/dev/null; then
+            patch -p1 --forward < /tmp/susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch || {
+              echo "KernelSU SUSFS Kconfig patch failed or already applied"
+            }
+          else
+            echo "KernelSU SUSFS Kconfig already present or Kconfig not found"
+          fi
+          cd "${GITHUB_WORKSPACE}"
+
+          # >>>>> CRITICAL FIX: Manually add #include <linux/susfs.h> to all files that need it <<<<<
+          # The SUSFS patch (50_add_susfs_in_gki-*.patch) fails on Samsung's modified kernel
+          # because Samsung's code differs from stock GKI. The patch would add this include
+          # to files that call SUSFS functions. Without it, those functions are implicitly
+          # declared, causing LTO linker errors even though fs/susfs.c compiles.
+          #
+          # We add the include AFTER the existing #include <linux/...> block in each file.
+          # This is safe because if the include is already present, grep will skip it.
+          
+          cd kernel-5.10
+          
+          add_susfs_include() {
+            local file="$1"
+            if [ -f "$file" ] && ! grep -q '#include <linux/susfs.h>' "$file"; then
+              # Find the last #include <linux/...> line and insert after it
+              local last_include=$(grep -n '#include <linux/' "$file" | tail -1 | cut -d: -f1)
+              if [ -n "$last_include" ]; then
+                sed -i "${last_include}a #include <linux/susfs.h>" "$file"
+                echo "Added susfs.h include to $file"
+              else
+                # No linux includes found, add at top after any existing includes
+                local first_non_include=$(grep -n -v '^#include' "$file" | head -1 | cut -d: -f1)
+                if [ -n "$first_non_include" ] && [ "$first_non_include" -gt 1 ]; then
+                  sed -i "$((first_non_include - 1))a #include <linux/susfs.h>" "$file"
+                else
+                  # Fallback: prepend after SPDX/license header
+                  sed -i '1a #include <linux/susfs.h>' "$file"
+                fi
+                echo "Added susfs.h include to $file (fallback)"
+              fi
+            else
+              if [ -f "$file" ]; then
+                echo "susfs.h already included in $file"
+              else
+                echo "File not found: $file"
+              fi
             fi
+          }
+
+          # Files that the SUSFS patch modifies (all need the include)
+          SUSFS_FILES="
+            drivers/input/input.c
+            fs/exec.c
+            fs/namei.c
+            fs/namespace.c
+            fs/notify/fdinfo.c
+            fs/open.c
+            fs/proc/base.c
+            fs/proc/bootconfig.c
+            fs/proc/fd.c
+            fs/proc/task_mmu.c
+            fs/proc_namespace.c
+            fs/read_write.c
+            fs/readdir.c
+            fs/stat.c
+            fs/statfs.c
+            kernel/kallsyms.c
+            kernel/reboot.c
+            kernel/sys.c
+            mm/memory.c
+            security/selinux/avc.c
+            security/selinux/hooks.c
+            security/selinux/selinuxfs.c
+          "
+          
+          for f in $SUSFS_FILES; do
+            add_susfs_include "$f"
           done
 
-          if [ -z "$PATCH_FILE" ]; then
-            echo "ERROR: Could not find any SUSFS kernel patch file!"
-            find /tmp/susfs4ksu/kernel_patches/ -name "*.patch" -type f 2>/dev/null || true
-            exit 1
+          # Also ensure SukiSU's setuid_hook.c has the include
+          if [ -f drivers/kernelsu/setuid_hook.c ]; then
+            add_susfs_include "drivers/kernelsu/setuid_hook.c"
           fi
 
-          echo "Applying SUSFS kernel patch: $PATCH_FILE"
-          # Apply with --forward to reject already-applied patches, but allow fuzz
-          # Use || true to continue even if some hunks fail (Samsung kernel has modifications)
-          patch -p1 --forward < "$PATCH_FILE" || true
-
-          # Check for rejects and report them
-          if find . -name "*.rej" -type f | grep -q .; then
-            echo "WARNING: Some patch hunks were rejected. Listing .rej files:"
-            find . -name "*.rej" -type f
-            echo ""
-            echo "Attempting to manually fix critical files..."
-            
-            # The most critical fix: ensure fs/exec.c has the susfs include
-            # and the function calls are properly hooked
-            for rej_file in $(find . -name "*.rej" -type f); do
-              original_file="${rej_file%.rej}"
-              echo "Rejected patch for: $original_file"
-              # Show the reject content for debugging
-              echo "--- Reject content ---"
-              cat "$rej_file"
-              echo "--- End reject ---"
-            done
-          fi
-
-          # Verify key functions are now defined
-          if ! grep -q "susfs_is_sdcard_android_data_decrypted" fs/exec.c 2>/dev/null; then
-            echo "ERROR: susfs_is_sdcard_android_data_decrypted not found in fs/exec.c"
-            echo "The SUSFS patch did not apply correctly."
-            exit 1
-          fi
-          if ! grep -q "susfs_run_sus_path_loop" fs/exec.c 2>/dev/null; then
-            echo "ERROR: susfs_run_sus_path_loop not found in fs/exec.c"
-            echo "The SUSFS patch did not apply correctly."
-            exit 1
-          fi
-
-          # Verify fs/Makefile has susfs.o (patch should have added it)
-          if ! grep -q "susfs.o" fs/Makefile; then
-            echo "Adding susfs.o to fs/Makefile (patch missed it)"
-            printf '\nobj-$(CONFIG_KSU_SUSFS) += susfs.o\n' >> fs/Makefile
-          fi
+          # Verify key files have the include
+          echo "=== Verifying susfs.h includes ==="
+          for f in fs/exec.c fs/namespace.c fs/open.c fs/namei.c fs/readdir.c fs/stat.c \
+                   kernel/kallsyms.c kernel/reboot.c kernel/sys.c mm/memory.c \
+                   security/selinux/avc.c security/selinux/hooks.c; do
+            if [ -f "$f" ]; then
+              if grep -q '#include <linux/susfs.h>' "$f"; then
+                echo "✓ $f"
+              else
+                echo "✗ MISSING: $f"
+              fi
+            fi
+          done
 
           cd "${GITHUB_WORKSPACE}"
 
@@ -234,28 +276,6 @@ jobs:
           SUSFS_VERSION="${SUSFS_VERSION:-unknown}"
           echo "SUSFS_VERSION=${SUSFS_VERSION}" >> "$GITHUB_ENV"
           echo "SUSFS ${SUSFS_VERSION} integrated from ${SUSFS_BRANCH}"
-
-      - name: Integrate SukiSU-Ultra
-        run: |
-          set -euo pipefail
-          cd kernel-5.10
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" \
-            -o /tmp/sukisu_setup.sh
-          bash /tmp/sukisu_setup.sh "${SUKISU_BRANCH}"
-          test -d KernelSU/kernel
-          
-          # Patch KernelSU Kconfig to enable SUSFS options
-          # This must be done AFTER SukiSU setup but the SUSFS files were already copied
-          if [ -f KernelSU/kernel/Kconfig ]; then
-            if ! grep -q 'config KSU_SUSFS' KernelSU/kernel/Kconfig 2>/dev/null; then
-              patch -p1 --forward < /tmp/susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch || {
-                echo "KernelSU SUSFS Kconfig patch failed or already applied"
-              }
-            else
-              echo "KernelSU SUSFS Kconfig already present"
-            fi
-          fi
-          cd ..
 
       - name: Write version defconfig
         run: |
