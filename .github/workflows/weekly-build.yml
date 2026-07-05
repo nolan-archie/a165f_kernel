@@ -211,26 +211,26 @@ jobs:
 
           # 3. Add variable definition to susfs.c (NOT a function)
           # The variable must be defined and kept in sync with the static key.
-          # We insert the variable definition near the top of susfs.c, after the existing
-          # static key definition but before any functions that use it.
-          # Find the line with DEFINE_STATIC_KEY_TRUE(susfs_is_sdcard_android_data_not_decrypted)
-          # and add our variable after it.
           STATIC_KEY_LINE=$(grep -n 'DEFINE_STATIC_KEY_TRUE(susfs_is_sdcard_android_data_not_decrypted)' fs/susfs.c | head -1 | cut -d: -f1)
           if [ -n "$STATIC_KEY_LINE" ]; then
             sed -i "${STATIC_KEY_LINE}a bool susfs_is_sdcard_android_data_decrypted = false;" fs/susfs.c
             echo "Added variable definition after static key (line $STATIC_KEY_LINE)"
           else
-            # Fallback: add at the top after includes
             sed -i '1a bool susfs_is_sdcard_android_data_decrypted = false;' fs/susfs.c
             echo "Added variable definition at top (fallback)"
           fi
 
           # 4. Update the variable whenever the static key is changed
-          # The static key is disabled (set to false, meaning decrypted) in two places:
-          # - susfs_sdcard_cleanup_fn()
-          # - susfs_start_sdcard_monitor_fn() (error path)
-          # When the key is disabled, we set the variable to true (decrypted).
-          sed -i 's/static_branch_disable(&susfs_is_sdcard_android_data_not_decrypted);/static_branch_disable(\\&susfs_is_sdcard_android_data_not_decrypted);\\n\\tsusfs_is_sdcard_android_data_decrypted = true;/' fs/susfs.c
+          # Use Python for multiline replacement (sed can't handle \n in replacement)
+          python3 -c "
+with open('fs/susfs.c', 'r') as f:
+    content = f.read()
+old = 'static_branch_disable(&susfs_is_sdcard_android_data_not_decrypted);'
+new = 'static_branch_disable(&susfs_is_sdcard_android_data_not_decrypted);\\n\\tsusfs_is_sdcard_android_data_decrypted = true;'
+content = content.replace(old, new)
+with open('fs/susfs.c', 'w') as f:
+    f.write(content)
+"
           echo "Added variable updates after static key changes"
 
           # 5. Add #include <linux/susfs.h> to all files that need it
