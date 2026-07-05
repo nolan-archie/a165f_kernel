@@ -1,4 +1,4 @@
-name: Weekly Kernel Build
+ name: Weekly Kernel Build
 
 on:
   schedule:
@@ -457,13 +457,12 @@ jobs:
 
           BOOT_IMG_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/${BUILD_VERSION}/boot.img"
 
-          MESSAGE=$(cat <<'TELEGRAM'
-NEW RELEASE!!!!!
+          MESSAGE=$(printf 'NEW RELEASE!!!!!
 
 Stable kernel release for A165F
 
 FEATURES:
-Upstreamed the kernel to ${RELEASE_KERNEL_VERSION}
+Upstreamed the kernel to %s
 INLINE HOOK: ✅
 SUSFS: ✅
 SUS MOUNT: ✅
@@ -475,17 +474,21 @@ SUSFS SPOOF CMDLINE OR BOOTCONFIG: ✅
 OPEN DIRECT: ✅
 SUS MAP: ✅
 
-Manager: ${MANAGER_NAME}
-Manager version: ${MANAGER_VERSION}
-SUSFS version: ${SUSFS_VERSION}
-Kernel version: ${RELEASE_KERNEL_VERSION}
+Manager: %s
+Manager version: %s
+SUSFS version: %s
+Kernel version: %s
 
 DOWNLOAD:
-${BOOT_IMG_URL}
+%s
 
-Disclaimer: I am not responsible for any bricked device...
-TELEGRAM
-          )
+Disclaimer: I am not responsible for any bricked device...\n' \
+            "${RELEASE_KERNEL_VERSION}" \
+            "${MANAGER_NAME}" \
+            "${MANAGER_VERSION}" \
+            "${SUSFS_VERSION}" \
+            "${RELEASE_KERNEL_VERSION}" \
+            "${BOOT_IMG_URL}")
 
           curl --fail-with-body --show-error --silent --retry 3 --retry-delay 5 \
             -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
