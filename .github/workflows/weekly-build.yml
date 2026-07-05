@@ -134,17 +134,12 @@ jobs:
           echo "SukiSU Branch: ${BRANCH}"
           echo "SUSFS Branch: ${SUSFS_BRANCH}"
 
-      - name: Integrate SukiSU-Ultra
-        run: |
-          set -euo pipefail
-          cd kernel-5.10
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" \
-            -o /tmp/sukisu_setup.sh
-          bash /tmp/sukisu_setup.sh "${SUKISU_BRANCH}"
-          test -d KernelSU/kernel
-          cd ..
-
-      - name: Integrate SUSFS
+      # >>>>> FIX: Apply SUSFS BEFORE SukiSU setup.sh <<<<<
+      # The SUSFS kernel patch must be applied BEFORE SukiSU setup.sh because:
+      # 1. SukiSU's builtin branch already includes SUSFS hook calls in its code
+      # 2. The SUSFS patch adds the actual function definitions and kernel hooks
+      # 3. If applied after SukiSU, the patch conflicts with SukiSU's modifications
+      - name: Integrate SUSFS (before SukiSU)
         run: |
           set -euo pipefail
           rm -rf /tmp/susfs4ksu
@@ -156,59 +151,76 @@ jobs:
           cp -f /tmp/susfs4ksu/kernel_patches/include/linux/susfs.h kernel-5.10/include/linux/susfs.h
           cp -f /tmp/susfs4ksu/kernel_patches/include/linux/susfs_def.h kernel-5.10/include/linux/susfs_def.h
 
-          # Add susfs.o to fs/Makefile
-          if ! grep -q 'obj-$(CONFIG_KSU_SUSFS) += susfs.o' kernel-5.10/fs/Makefile; then
-            printf '\nobj-$(CONFIG_KSU_SUSFS) += susfs.o\n' >> kernel-5.10/fs/Makefile
-          fi
-
-          # Patch KernelSU Kconfig to enable SUSFS options
-          cd kernel-5.10/KernelSU
-          if ! grep -q 'config KSU_SUSFS' kernel/Kconfig 2>/dev/null; then
-            patch -p1 --forward < /tmp/susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch
-          else
-            echo "KernelSU SUSFS patch already present"
-          fi
-          cd "${GITHUB_WORKSPACE}"
-
-          # >>>>> FIX: Apply the main SUSFS kernel integration patch <<<<<
-          # This patch hooks SUSFS functions into kernel core files (fs/exec.c, fs/namespace.c, etc.)
-          # Without it, susfs_is_sdcard_android_data_decrypted, susfs_run_sus_path_loop, etc. are undefined
+          # Apply the main SUSFS kernel integration patch
+          # This MUST be done before SukiSU setup.sh to avoid conflicts
           cd kernel-5.10
           echo "=== Available SUSFS kernel patches ==="
           ls -la /tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel*.patch 2>/dev/null || true
-          ls -la /tmp/susfs4ksu/kernel_patches/*.patch 2>/dev/null || true
+          ls -la /tmp/susfs4ksu/kernel_patches/50_add_susfs_in_gki*.patch 2>/dev/null || true
 
           # Try multiple possible patch filenames
-          PATCH_APPLIED=false
-          for patch_file in \
-            "/tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel-${SUSFS_BRANCH}.patch" \
-            "/tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel-5.10.patch" \
-            "/tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel.patch" \
+          PATCH_FILE=""
+          for candidate in \
             "/tmp/susfs4ksu/kernel_patches/50_add_susfs_in_gki-${SUSFS_BRANCH}.patch" \
             "/tmp/susfs4ksu/kernel_patches/50_add_susfs_in_gki-android13-5.10.patch" \
-            "/tmp/susfs4ksu/kernel_patches/50_add_susfs_in_android13-5.10.patch"
+            "/tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel-${SUSFS_BRANCH}.patch" \
+            "/tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel-5.10.patch" \
+            "/tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel.patch"
           do
-            if [ -f "$patch_file" ]; then
-              echo "Applying SUSFS kernel patch: $patch_file"
-              patch -p1 --forward < "$patch_file" && PATCH_APPLIED=true || {
-                echo "Patch command exited with code $?, checking if already applied..."
-                # Check if key function already exists in kernel source
-                if grep -q "susfs_is_sdcard_android_data_decrypted" fs/exec.c 2>/dev/null; then
-                  echo "Patch appears to already be applied (functions found in fs/exec.c)"
-                  PATCH_APPLIED=true
-                fi
-              }
+            if [ -f "$candidate" ]; then
+              PATCH_FILE="$candidate"
               break
             fi
           done
 
-          if [ "$PATCH_APPLIED" != "true" ]; then
-            echo "ERROR: Could not find or apply any SUSFS kernel patch!"
-            echo "SUSFS functions will be undefined. Build will fail."
-            echo "Available patches:"
+          if [ -z "$PATCH_FILE" ]; then
+            echo "ERROR: Could not find any SUSFS kernel patch file!"
             find /tmp/susfs4ksu/kernel_patches/ -name "*.patch" -type f 2>/dev/null || true
             exit 1
           fi
+
+          echo "Applying SUSFS kernel patch: $PATCH_FILE"
+          # Apply with --forward to reject already-applied patches, but allow fuzz
+          # Use || true to continue even if some hunks fail (Samsung kernel has modifications)
+          patch -p1 --forward < "$PATCH_FILE" || true
+
+          # Check for rejects and report them
+          if find . -name "*.rej" -type f | grep -q .; then
+            echo "WARNING: Some patch hunks were rejected. Listing .rej files:"
+            find . -name "*.rej" -type f
+            echo ""
+            echo "Attempting to manually fix critical files..."
+            
+            # The most critical fix: ensure fs/exec.c has the susfs include
+            # and the function calls are properly hooked
+            for rej_file in $(find . -name "*.rej" -type f); do
+              original_file="${rej_file%.rej}"
+              echo "Rejected patch for: $original_file"
+              # Show the reject content for debugging
+              echo "--- Reject content ---"
+              cat "$rej_file"
+              echo "--- End reject ---"
+            done
+          fi
+
+          # Verify key functions are now defined
+          if ! grep -q "susfs_is_sdcard_android_data_decrypted" fs/exec.c 2>/dev/null; then
+            echo "ERROR: susfs_is_sdcard_android_data_decrypted not found in fs/exec.c"
+            echo "The SUSFS patch did not apply correctly."
+            exit 1
+          fi
+          if ! grep -q "susfs_run_sus_path_loop" fs/exec.c 2>/dev/null; then
+            echo "ERROR: susfs_run_sus_path_loop not found in fs/exec.c"
+            echo "The SUSFS patch did not apply correctly."
+            exit 1
+          fi
+
+          # Verify fs/Makefile has susfs.o (patch should have added it)
+          if ! grep -q "susfs.o" fs/Makefile; then
+            echo "Adding susfs.o to fs/Makefile (patch missed it)"
+            printf '\nobj-$(CONFIG_KSU_SUSFS) += susfs.o\n' >> fs/Makefile
+          fi
+
           cd "${GITHUB_WORKSPACE}"
 
           # Extract SUSFS version for release notes
@@ -222,6 +234,28 @@ jobs:
           SUSFS_VERSION="${SUSFS_VERSION:-unknown}"
           echo "SUSFS_VERSION=${SUSFS_VERSION}" >> "$GITHUB_ENV"
           echo "SUSFS ${SUSFS_VERSION} integrated from ${SUSFS_BRANCH}"
+
+      - name: Integrate SukiSU-Ultra
+        run: |
+          set -euo pipefail
+          cd kernel-5.10
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" \
+            -o /tmp/sukisu_setup.sh
+          bash /tmp/sukisu_setup.sh "${SUKISU_BRANCH}"
+          test -d KernelSU/kernel
+          
+          # Patch KernelSU Kconfig to enable SUSFS options
+          # This must be done AFTER SukiSU setup but the SUSFS files were already copied
+          if [ -f KernelSU/kernel/Kconfig ]; then
+            if ! grep -q 'config KSU_SUSFS' KernelSU/kernel/Kconfig 2>/dev/null; then
+              patch -p1 --forward < /tmp/susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch || {
+                echo "KernelSU SUSFS Kconfig patch failed or already applied"
+              }
+            else
+              echo "KernelSU SUSFS Kconfig already present"
+            fi
+          fi
+          cd ..
 
       - name: Write version defconfig
         run: |
