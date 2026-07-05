@@ -40,16 +40,14 @@ jobs:
       - name: Set up Swap Space
         run: |
           echo "Allocating 8GB of extra swap to prevent LTO OOM kills..."
-          # The runner already has a locked /swapfile active. 
-          # We create an additional one in /mnt to bypass the lock.
-          
           sudo fallocate -l 12G /mnt/build-swapfile || sudo dd if=/dev/zero of=/mnt/build-swapfile bs=1M count=8192 status=progress
           sudo chmod 600 /mnt/build-swapfile
           sudo mkswap /mnt/build-swapfile
           sudo swapon /mnt/build-swapfile
-          
+
           echo "=== Memory and Swap Status ==="
           free -h
+
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
@@ -89,16 +87,16 @@ jobs:
             if [ -d "kernel/prebuilts/clang" ]; then
               echo "Found at kernel/prebuilts — creating symlink"
               ln -sfn "${GITHUB_WORKSPACE}/kernel/prebuilts" \
-                      "${GITHUB_WORKSPACE}/kernel/prebuilts-master"
+                "${GITHUB_WORKSPACE}/kernel/prebuilts-master"
             else
               echo "Prebuilt toolchain not found in either path!"
               echo "Falling back to apt clang at expected prebuilt path..."
               BIN_DIR="kernel/prebuilts-master/clang/host/linux-x86/clang-r416183b/bin"
               mkdir -p "$BIN_DIR"
               for tool in clang clang++ ld.lld llvm-ar llvm-nm llvm-objcopy \
-                          llvm-objdump llvm-readelf llvm-strip llvm-ranlib; do
+                llvm-objdump llvm-readelf llvm-strip llvm-ranlib; do
                 SYS="$(which $tool 2>/dev/null || true)"
-                [ -n "$SYS" ] && ln -sf "$SYS" "$BIN_DIR/$tool" && echo "  linked: $tool"
+                [ -n "$SYS" ] && ln -sf "$SYS" "$BIN_DIR/$tool" && echo " linked: $tool"
               done
             fi
           else
@@ -180,14 +178,8 @@ jobs:
 
           SUSFS_VERSION=$(grep -oE "[0-9]+\.[0-9]+(\.[0-9]+)?" kernel-5.10/include/linux/susfs.h | head -1 || true)
           SUSFS_VERSION="${SUSFS_VERSION:-unknown}"
-
-          if [ -z "$SUSFS_VERSION" ]; then
-          fi
           echo "SUSFS_VERSION=${SUSFS_VERSION}" >> "$GITHUB_ENV"
           echo "SUSFS ${SUSFS_VERSION} integrated from ${SUSFS_BRANCH}"
-      - name: Apply SUSFS compatibility shims
-        run: bash scripts/apply_susfs_compat.sh
-
 
       - name: Apply SUSFS compatibility shims
         run: |
@@ -209,18 +201,18 @@ replace_once(
     "#endif // #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT",
     """void susfs_sus_kstat_spoof_generic_fillattr(struct inode *inode, struct kstat *stat)
 {
-	if (!inode)
-		return;
+    if (!inode)
+        return;
 
-	susfs_sus_ino_for_generic_fillattr(inode->i_ino, stat);
+    susfs_sus_ino_for_generic_fillattr(inode->i_ino, stat);
 }
 
 void susfs_sus_kstat_spoof_show_map_vma(struct inode *inode, dev_t *out_dev, unsigned long *out_ino)
 {
-	if (!inode)
-		return;
+    if (!inode)
+        return;
 
-	susfs_sus_ino_for_show_map_vma(inode->i_ino, out_dev, out_ino);
+    susfs_sus_ino_for_show_map_vma(inode->i_ino, out_dev, out_ino);
 }
 
 #endif // #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT""",
@@ -231,10 +223,10 @@ replace_once(
     "#endif // #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT",
     """struct filename *susfs_open_redirect_spoof_do_sys_openat(struct inode *inode)
 {
-	if (!inode)
-		return ERR_PTR(-ENOENT);
+    if (!inode)
+        return ERR_PTR(-ENOENT);
 
-	return susfs_get_redirected_path(inode->i_ino);
+    return susfs_get_redirected_path(inode->i_ino);
 }
 
 #endif // #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT""",
