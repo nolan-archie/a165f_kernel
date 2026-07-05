@@ -193,6 +193,78 @@ jobs:
           echo "SUSFS_VERSION=${SUSFS_VERSION}" >> "$GITHUB_ENV"
           echo "SUSFS ${SUSFS_VERSION} integrated from ${SUSFS_BRANCH}"
 
+      - name: Apply SUSFS compatibility shims
+        run: |
+          set -euo pipefail
+          python3 - <<'PY2'
+from pathlib import Path
+
+def replace_once(path: str, old: str, new: str) -> None:
+    p = Path(path)
+    s = p.read_text()
+    if new in s:
+        return
+    if old not in s:
+        raise SystemExit(f"missing marker in {path}: {old!r}")
+    p.write_text(s.replace(old, new, 1))
+
+replace_once(
+    "kernel-5.10/fs/susfs.c",
+    "#endif // #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT",
+    """void susfs_sus_kstat_spoof_generic_fillattr(struct inode *inode, struct kstat *stat)
+{
+	if (!inode)
+		return;
+
+	susfs_sus_ino_for_generic_fillattr(inode->i_ino, stat);
+}
+
+void susfs_sus_kstat_spoof_show_map_vma(struct inode *inode, dev_t *out_dev, unsigned long *out_ino)
+{
+	if (!inode)
+		return;
+
+	susfs_sus_ino_for_show_map_vma(inode->i_ino, out_dev, out_ino);
+}
+
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT""",
+)
+
+replace_once(
+    "kernel-5.10/fs/susfs.c",
+    "#endif // #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT",
+    """struct filename *susfs_open_redirect_spoof_do_sys_openat(struct inode *inode)
+{
+	if (!inode)
+		return ERR_PTR(-ENOENT);
+
+	return susfs_get_redirected_path(inode->i_ino);
+}
+
+#endif // #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT""",
+)
+
+replace_once(
+    "kernel-5.10/include/linux/susfs.h",
+    "void susfs_sus_ino_for_generic_fillattr(unsigned long ino, struct kstat *stat);",
+    "void susfs_sus_ino_for_generic_fillattr(unsigned long ino, struct kstat *stat);\nvoid susfs_sus_kstat_spoof_generic_fillattr(struct inode *inode, struct kstat *stat);",
+)
+
+replace_once(
+    "kernel-5.10/include/linux/susfs.h",
+    "void susfs_sus_ino_for_show_map_vma(unsigned long ino, dev_t *out_dev, unsigned long *out_ino);",
+    "void susfs_sus_ino_for_show_map_vma(unsigned long ino, dev_t *out_dev, unsigned long *out_ino);\nvoid susfs_sus_kstat_spoof_show_map_vma(struct inode *inode, dev_t *out_dev, unsigned long *out_ino);",
+)
+
+replace_once(
+    "kernel-5.10/include/linux/susfs.h",
+    "struct filename* susfs_get_redirected_path(unsigned long ino);",
+    "struct filename* susfs_get_redirected_path(unsigned long ino);\nstruct filename *susfs_open_redirect_spoof_do_sys_openat(struct inode *inode);",
+)
+PY2
+
+          grep -R "susfs_open_redirect_spoof_do_sys_openat\|susfs_sus_kstat_spoof_show_map_vma\|susfs_sus_kstat_spoof_generic_fillattr" kernel-5.10 -n
+
       - name: Write version defconfig
         run: |
           mkdir -p custom_defconfigs
