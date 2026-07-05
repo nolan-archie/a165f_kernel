@@ -179,10 +179,12 @@ jobs:
           # We must add the missing declarations and definitions manually.
           cd kernel-5.10
 
-          # 1. Add missing function declarations to susfs.h
+          # 1. Add missing declarations to susfs.h
+          # NOTE: susfs_is_sdcard_android_data_decrypted is used as a VARIABLE by Samsung/SukiSU,
+          # not as a function. So we declare it as extern bool, not a function.
           printf '\n/* Additional declarations for SukiSU compatibility */\n' >> include/linux/susfs.h
           printf '#ifdef CONFIG_KSU_SUSFS_SUS_PATH\n' >> include/linux/susfs.h
-          printf 'bool susfs_is_sdcard_android_data_decrypted(void);\n' >> include/linux/susfs.h
+          printf 'extern bool susfs_is_sdcard_android_data_decrypted;\n' >> include/linux/susfs.h
           printf 'void susfs_run_sus_path_loop(void);\n' >> include/linux/susfs.h
           printf '#endif\n' >> include/linux/susfs.h
           printf '#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT\n' >> include/linux/susfs.h
@@ -207,35 +209,31 @@ jobs:
           sed -i -E 's/^[[:space:]]*static[[:space:]]+void[[:space:]]+susfs_run_sus_path_loop[[:space:]]*\(/void susfs_run_sus_path_loop(/' fs/susfs.c
           echo "Removed 'static' from susfs_run_sus_path_loop"
 
-          # 3. Add susfs_is_sdcard_android_data_decrypted() function to susfs.c
-          printf '\n/* Added for SukiSU compatibility */\n' >> fs/susfs.c
-          printf 'bool susfs_is_sdcard_android_data_decrypted(void) {\n' >> fs/susfs.c
-          printf '#ifdef CONFIG_KSU_SUSFS_SUS_PATH\n' >> fs/susfs.c
-          printf '    return !static_branch_unlikely(\\&susfs_is_sdcard_android_data_not_decrypted);\n' >> fs/susfs.c
-          printf '#else\n' >> fs/susfs.c
-          printf '    return true;\n' >> fs/susfs.c
-          printf '#endif\n' >> fs/susfs.c
-          printf '}\n' >> fs/susfs.c
-          echo "Added susfs_is_sdcard_android_data_decrypted() to susfs.c"
+          # 3. Add variable definition to susfs.c (NOT a function)
+          # The variable must be defined and kept in sync with the static key.
+          # We insert the variable definition near the top of susfs.c, after the existing
+          # static key definition but before any functions that use it.
+          # Find the line with DEFINE_STATIC_KEY_TRUE(susfs_is_sdcard_android_data_not_decrypted)
+          # and add our variable after it.
+          STATIC_KEY_LINE=$(grep -n 'DEFINE_STATIC_KEY_TRUE(susfs_is_sdcard_android_data_not_decrypted)' fs/susfs.c | head -1 | cut -d: -f1)
+          if [ -n "$STATIC_KEY_LINE" ]; then
+            sed -i "${STATIC_KEY_LINE}a bool susfs_is_sdcard_android_data_decrypted = false;" fs/susfs.c
+            echo "Added variable definition after static key (line $STATIC_KEY_LINE)"
+          else
+            # Fallback: add at the top after includes
+            sed -i '1a bool susfs_is_sdcard_android_data_decrypted = false;' fs/susfs.c
+            echo "Added variable definition at top (fallback)"
+          fi
 
-          # >>>>> FIX: Remove Samsung's conflicting variable declarations <<<<<
-          # Samsung's kernel already declares 'susfs_is_sdcard_android_data_decrypted' as a variable
-          # (extern bool), but SUSFS expects it as a function. Remove the variable declarations
-          # so our function declaration in susfs.h and definition in susfs.c take precedence.
-          for f in fs/namespace.c fs/exec.c fs/open.c fs/namei.c fs/readdir.c fs/stat.c \
-                   fs/statfs.c fs/read_write.c fs/proc/base.c fs/proc/task_mmu.c \
-                   kernel/kallsyms.c kernel/reboot.c kernel/sys.c mm/memory.c \
-                   security/selinux/avc.c security/selinux/hooks.c; do
-            if [ -f "$f" ]; then
-              # Remove lines like: extern bool susfs_is_sdcard_android_data_decrypted __read_mostly;
-              if grep -q 'extern bool susfs_is_sdcard_android_data_decrypted' "$f"; then
-                sed -i '/extern bool susfs_is_sdcard_android_data_decrypted/d' "$f"
-                echo "Removed conflicting variable declaration from $f"
-              fi
-            fi
-          done
+          # 4. Update the variable whenever the static key is changed
+          # The static key is disabled (set to false, meaning decrypted) in two places:
+          # - susfs_sdcard_cleanup_fn()
+          # - susfs_start_sdcard_monitor_fn() (error path)
+          # When the key is disabled, we set the variable to true (decrypted).
+          sed -i 's/static_branch_disable(&susfs_is_sdcard_android_data_not_decrypted);/static_branch_disable(\\&susfs_is_sdcard_android_data_not_decrypted);\\n\\tsusfs_is_sdcard_android_data_decrypted = true;/' fs/susfs.c
+          echo "Added variable updates after static key changes"
 
-          # 4. Add #include <linux/susfs.h> to all files that need it
+          # 5. Add #include <linux/susfs.h> to all files that need it
           add_susfs_include() {
             local file="$1"
             if [ -f "$file" ] && ! grep -q '#include <linux/susfs.h>' "$file"; then
@@ -290,13 +288,13 @@ jobs:
             add_susfs_include "drivers/kernelsu/setuid_hook.c"
           fi
 
-          # 5. Verify ALL changes
+          # 6. Verify ALL changes
           echo "=== Verifying SUSFS fixes ==="
           echo "--- susfs.h declarations ---"
-          if grep -q "susfs_is_sdcard_android_data_decrypted" include/linux/susfs.h; then
-            echo "✓ susfs_is_sdcard_android_data_decrypted declared"
+          if grep -q "extern bool susfs_is_sdcard_android_data_decrypted" include/linux/susfs.h; then
+            echo "✓ susfs_is_sdcard_android_data_decrypted declared as variable"
           else
-            echo "✗ MISSING: susfs_is_sdcard_android_data_decrypted in susfs.h"
+            echo "✗ MISSING: susfs_is_sdcard_android_data_decrypted variable declaration in susfs.h"
             exit 1
           fi
           if grep -q "susfs_run_sus_path_loop" include/linux/susfs.h; then
@@ -313,28 +311,16 @@ jobs:
             echo "✗ MISSING: non-static susfs_run_sus_path_loop in susfs.c"
             exit 1
           fi
-          if grep -q "susfs_is_sdcard_android_data_decrypted" fs/susfs.c; then
-            echo "✓ susfs_is_sdcard_android_data_decrypted defined"
+          if grep -q "bool susfs_is_sdcard_android_data_decrypted" fs/susfs.c; then
+            echo "✓ susfs_is_sdcard_android_data_decrypted defined as variable"
           else
-            echo "✗ MISSING: susfs_is_sdcard_android_data_decrypted in susfs.c"
+            echo "✗ MISSING: susfs_is_sdcard_android_data_decrypted variable in susfs.c"
             exit 1
           fi
-
-          echo "--- Conflicting declarations removed ---"
-          CONFLICT_FOUND=false
-          for f in fs/namespace.c fs/exec.c fs/open.c fs/namei.c fs/readdir.c fs/stat.c \
-                   fs/statfs.c fs/read_write.c fs/proc/base.c fs/proc/task_mmu.c \
-                   kernel/kallsyms.c kernel/reboot.c kernel/sys.c mm/memory.c \
-                   security/selinux/avc.c security/selinux/hooks.c; do
-            if [ -f "$f" ] && grep -q 'extern bool susfs_is_sdcard_android_data_decrypted' "$f"; then
-              echo "✗ STILL PRESENT: $f"
-              CONFLICT_FOUND=true
-            fi
-          done
-          if [ "$CONFLICT_FOUND" = "false" ]; then
-            echo "✓ All conflicting variable declarations removed"
+          if grep -q "susfs_is_sdcard_android_data_decrypted = true" fs/susfs.c; then
+            echo "✓ Variable update added after static key changes"
           else
-            echo "✗ Some conflicting declarations still present"
+            echo "✗ MISSING: variable update in susfs.c"
             exit 1
           fi
 
