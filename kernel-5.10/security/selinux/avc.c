@@ -50,7 +50,7 @@
 #ifdef CONFIG_KSU_SUSFS
 extern u32 susfs_ksu_sid;
 extern u32 susfs_priv_app_sid;
-bool susfs_is_avc_log_spoofing_enabled = false;
+extern bool susfs_is_avc_log_spoofing_enabled;
 #endif
 
 struct avc_entry {
@@ -146,17 +146,17 @@ static inline int avc_hash(u32 ssid, u32 tsid, u16 tclass)
 void __init avc_init(void)
 {
 	avc_node_cachep = kmem_cache_create("avc_node", sizeof(struct avc_node),
-					0, SLAB_PANIC, NULL);
+				0, SLAB_PANIC, NULL);
 	avc_xperms_cachep = kmem_cache_create("avc_xperms_node",
-					sizeof(struct avc_xperms_node),
-					0, SLAB_PANIC, NULL);
+				sizeof(struct avc_xperms_node),
+				0, SLAB_PANIC, NULL);
 	avc_xperms_decision_cachep = kmem_cache_create(
-					"avc_xperms_decision_node",
-					sizeof(struct avc_xperms_decision_node),
-					0, SLAB_PANIC, NULL);
+				"avc_xperms_decision_node",
+				sizeof(struct avc_xperms_decision_node),
+				0, SLAB_PANIC, NULL);
 	avc_xperms_data_cachep = kmem_cache_create("avc_xperms_data",
-					sizeof(struct extended_perms_data),
-					0, SLAB_PANIC, NULL);
+				sizeof(struct extended_perms_data),
+				0, SLAB_PANIC, NULL);
 }
 
 int avc_get_hash_stats(struct selinux_avc *avc, char *page)
@@ -194,7 +194,7 @@ int avc_get_hash_stats(struct selinux_avc *avc, char *page)
  * always small. i.e. less than 5, typically 1
  */
 static struct extended_perms_decision *avc_xperms_decision_lookup(u8 driver,
-					struct avc_xperms_node *xp_node)
+				struct avc_xperms_node *xp_node)
 {
 	struct avc_xperms_decision_node *xpd_node;
 
@@ -207,7 +207,7 @@ static struct extended_perms_decision *avc_xperms_decision_lookup(u8 driver,
 
 static inline unsigned int
 avc_xperms_has_perm(struct extended_perms_decision *xpd,
-					u8 perm, u8 which)
+				u8 perm, u8 which)
 {
 	unsigned int rc = 0;
 
@@ -224,7 +224,7 @@ avc_xperms_has_perm(struct extended_perms_decision *xpd,
 }
 
 static void avc_xperms_allow_perm(struct avc_xperms_node *xp_node,
-				u8 driver, u8 perm)
+			u8 driver, u8 perm)
 {
 	struct extended_perms_decision *xpd;
 	security_xperm_set(xp_node->xp.drivers.p, driver);
@@ -262,7 +262,7 @@ static void avc_xperms_free(struct avc_xperms_node *xp_node)
 }
 
 static void avc_copy_xperms_decision(struct extended_perms_decision *dest,
-					struct extended_perms_decision *src)
+				struct extended_perms_decision *src)
 {
 	dest->driver = src->driver;
 	dest->used = src->used;
@@ -282,8 +282,8 @@ static void avc_copy_xperms_decision(struct extended_perms_decision *dest,
  * information relevant to this perm
  */
 static inline void avc_quick_copy_xperms_decision(u8 perm,
-			struct extended_perms_decision *dest,
-			struct extended_perms_decision *src)
+		struct extended_perms_decision *dest,
+		struct extended_perms_decision *src)
 {
 	/*
 	 * compute index of the u32 of the 256 bits (8 u32s) that contain this
@@ -314,19 +314,19 @@ static struct avc_xperms_decision_node
 	xpd = &xpd_node->xpd;
 	if (which & XPERMS_ALLOWED) {
 		xpd->allowed = kmem_cache_zalloc(avc_xperms_data_cachep,
-						GFP_NOWAIT | __GFP_NOWARN);
+					GFP_NOWAIT | __GFP_NOWARN);
 		if (!xpd->allowed)
 			goto error;
 	}
 	if (which & XPERMS_AUDITALLOW) {
 		xpd->auditallow = kmem_cache_zalloc(avc_xperms_data_cachep,
-						GFP_NOWAIT | __GFP_NOWARN);
+					GFP_NOWAIT | __GFP_NOWARN);
 		if (!xpd->auditallow)
 			goto error;
 	}
 	if (which & XPERMS_DONTAUDIT) {
 		xpd->dontaudit = kmem_cache_zalloc(avc_xperms_data_cachep,
-						GFP_NOWAIT | __GFP_NOWARN);
+					GFP_NOWAIT | __GFP_NOWARN);
 		if (!xpd->dontaudit)
 			goto error;
 	}
@@ -337,7 +337,7 @@ error:
 }
 
 static int avc_add_xperms_decision(struct avc_node *node,
-			struct extended_perms_decision *src)
+		struct extended_perms_decision *src)
 {
 	struct avc_xperms_decision_node *dest_xpd;
 
@@ -362,7 +362,7 @@ static struct avc_xperms_node *avc_xperms_alloc(void)
 }
 
 static int avc_xperms_populate(struct avc_node *node,
-				struct avc_xperms_node *src)
+			struct avc_xperms_node *src)
 {
 	struct avc_xperms_node *dest;
 	struct avc_xperms_decision_node *dest_xpd;
@@ -394,11 +394,11 @@ error:
 }
 
 static inline u32 avc_xperms_audit_required(u32 requested,
-					struct av_decision *avd,
-					struct extended_perms_decision *xpd,
-					u8 perm,
-					int result,
-					u32 *deniedp)
+				struct av_decision *avd,
+				struct extended_perms_decision *xpd,
+				u8 perm,
+				int result,
+				u32 *deniedp)
 {
 	u32 denied, audited;
 
@@ -424,11 +424,11 @@ static inline u32 avc_xperms_audit_required(u32 requested,
 }
 
 static inline int avc_xperms_audit(struct selinux_state *state,
-				   u32 ssid, u32 tsid, u16 tclass,
-				   u32 requested, struct av_decision *avd,
-				   struct extended_perms_decision *xpd,
-				   u8 perm, int result,
-				   struct common_audit_data *ad)
+			   u32 ssid, u32 tsid, u16 tclass,
+			   u32 requested, struct av_decision *avd,
+			   struct extended_perms_decision *xpd,
+			   u8 perm, int result,
+			   struct common_audit_data *ad)
 {
 	u32 audited, denied;
 
@@ -536,7 +536,7 @@ static void avc_node_populate(struct avc_node *node, u32 ssid, u32 tsid, u16 tcl
 }
 
 static inline struct avc_node *avc_search_node(struct selinux_avc *avc,
-					       u32 ssid, u32 tsid, u16 tclass)
+				       u32 ssid, u32 tsid, u16 tclass)
 {
 	struct avc_node *node, *ret = NULL;
 	int hvalue;
@@ -569,7 +569,7 @@ static inline struct avc_node *avc_search_node(struct selinux_avc *avc,
  * Otherwise, this function returns NULL.
  */
 static struct avc_node *avc_lookup(struct selinux_avc *avc,
-				   u32 ssid, u32 tsid, u16 tclass)
+			   u32 ssid, u32 tsid, u16 tclass)
 {
 	struct avc_node *node;
 
@@ -586,7 +586,7 @@ static struct avc_node *avc_lookup(struct selinux_avc *avc,
 }
 
 static int avc_latest_notif_update(struct selinux_avc *avc,
-				   int seqno, int is_insert)
+			   int seqno, int is_insert)
 {
 	int ret = 0;
 	static DEFINE_SPINLOCK(notif_lock);
@@ -627,9 +627,9 @@ static int avc_latest_notif_update(struct selinux_avc *avc,
  * avc_node inserted. Otherwise, this function returns NULL.
  */
 static struct avc_node *avc_insert(struct selinux_avc *avc,
-				   u32 ssid, u32 tsid, u16 tclass,
-				   struct av_decision *avd,
-				   struct avc_xperms_node *xp_node)
+			   u32 ssid, u32 tsid, u16 tclass,
+			   struct av_decision *avd,
+			   struct avc_xperms_node *xp_node)
 {
 	struct avc_node *pos, *node = NULL;
 	int hvalue;
@@ -789,7 +789,7 @@ bypass_orig_flow:
 
 	/* in case of invalid context report also the actual context string */
 	rc = security_sid_to_context_inval(sad->state, sad->ssid, &scontext,
-					   &scontext_len);
+				   &scontext_len);
 	if (!rc && scontext) {
 		if (scontext_len && scontext[scontext_len - 1] == '\0')
 			scontext_len--;
@@ -799,7 +799,7 @@ bypass_orig_flow:
 	}
 
 	rc = security_sid_to_context_inval(sad->state, sad->tsid, &scontext,
-					   &scontext_len);
+				   &scontext_len);
 	if (!rc && scontext) {
 		if (scontext_len && scontext[scontext_len - 1] == '\0')
 			scontext_len--;
@@ -1051,9 +1051,9 @@ int avc_ss_reset(struct selinux_avc *avc, u32 seqno)
  */
 static noinline
 struct avc_node *avc_compute_av(struct selinux_state *state,
-				u32 ssid, u32 tsid,
-				u16 tclass, struct av_decision *avd,
-				struct avc_xperms_node *xp_node)
+			u32 ssid, u32 tsid,
+			u16 tclass, struct av_decision *avd,
+			struct avc_xperms_node *xp_node)
 {
 	rcu_read_unlock();
 	INIT_LIST_HEAD(&xp_node->xpd_head);
@@ -1136,7 +1136,7 @@ int avc_has_extended_perms(struct selinux_state *state,
 		}
 		rcu_read_unlock();
 		security_compute_xperms_decision(state, ssid, tsid, tclass,
-						 driver, &local_xpd);
+					 driver, &local_xpd);
 		rcu_read_lock();
 		avc_update_node(state->avc, AVC_CALLBACK_ADD_XPERMS, requested,
 				driver, xperm, ssid, tsid, tclass, avd.seqno,
@@ -1150,7 +1150,7 @@ int avc_has_extended_perms(struct selinux_state *state,
 		avd.allowed &= ~requested;
 
 decision:
-	denied = requested & ~(avd.allowed);
+	denied = requested & ~(avd->allowed);
 	if (unlikely(denied))
 		rc = avc_denied(state, ssid, tsid, tclass, requested,
 				driver, xperm, AVC_EXTENDED_PERMS, &avd);
@@ -1185,10 +1185,10 @@ decision:
  * should be released for the auditing.
  */
 inline int avc_has_perm_noaudit(struct selinux_state *state,
-				u32 ssid, u32 tsid,
-				u16 tclass, u32 requested,
-				unsigned int flags,
-				struct av_decision *avd)
+			u32 ssid, u32 tsid,
+			u16 tclass, u32 requested,
+			unsigned int flags,
+			struct av_decision *avd)
 {
 	struct avc_node *node;
 	struct avc_xperms_node xp_node;
