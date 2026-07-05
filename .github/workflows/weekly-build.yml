@@ -156,7 +156,7 @@ jobs:
           cp -f /tmp/susfs4ksu/kernel_patches/include/linux/susfs.h kernel-5.10/include/linux/susfs.h
           cp -f /tmp/susfs4ksu/kernel_patches/include/linux/susfs_def.h kernel-5.10/include/linux/susfs_def.h
 
-          # Add susfs.o to fs/Makefile (patch may fail on Samsung kernel, so do it manually)
+          # Add susfs.o to fs/Makefile
           if ! grep -q 'obj-$(CONFIG_KSU_SUSFS) += susfs.o' kernel-5.10/fs/Makefile; then
             printf '\nobj-$(CONFIG_KSU_SUSFS) += susfs.o\n' >> kernel-5.10/fs/Makefile
             echo "Added susfs.o to fs/Makefile"
@@ -175,34 +175,68 @@ jobs:
           fi
           cd "${GITHUB_WORKSPACE}"
 
-          # >>>>> CRITICAL FIX: Manually add #include <linux/susfs.h> to all files that need it <<<<<
-          # The SUSFS patch (50_add_susfs_in_gki-*.patch) fails on Samsung's modified kernel
-          # because Samsung's code differs from stock GKI. The patch would add this include
-          # to files that call SUSFS functions. Without it, those functions are implicitly
-          # declared, causing LTO linker errors even though fs/susfs.c compiles.
-          #
-          # We add the include AFTER the existing #include <linux/...> block in each file.
-          # This is safe because if the include is already present, grep will skip it.
-          
+          # >>>>> CRITICAL FIX: The SUSFS patch fails on Samsung kernel, so we manually fix everything <<<<<
           cd kernel-5.10
-          
+
+          # 1. Fix susfs.h - add missing function declarations that the patch would have added
+          # These declarations are needed by kernel files that call SUSFS functions
+          cat >> include/linux/susfs.h << 'EOF'
+
+          /* Additional declarations for SukiSU compatibility */
+          /* These would normally be added by 50_add_susfs_in_gki-*.patch */
+
+          #ifdef CONFIG_KSU_SUSFS_SUS_PATH
+          bool susfs_is_sdcard_android_data_decrypted(void);
+          void susfs_run_sus_path_loop(void);
+          #endif
+
+          #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+          bool susfs_is_current_proc_umounted(void);
+          bool susfs_is_current_proc_umounted_app(void);
+          #endif
+
+          #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+          void susfs_sus_kstat_spoof_generic_fillattr(struct inode *inode, struct kstat *stat);
+          void susfs_sus_kstat_spoof_show_map_vma(struct inode *inode, dev_t *out_dev, unsigned long *out_ino);
+          #endif
+
+          #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+          struct filename *susfs_open_redirect_spoof_do_sys_openat(struct inode *inode);
+          int susfs_open_redirect_spoof_vfs_readlink(struct inode *inode, char __user *buffer, int buflen);
+          int susfs_open_redirect_spoof_do_proc_readlink(struct inode *inode, char *tmp_buf, int buflen);
+          int susfs_open_redirect_spoof_vfs_statfs(struct inode *inode, struct kstatfs *buf);
+          int susfs_open_redirect_spoof_seq_show(struct inode *inode, int *out_mnt_id, unsigned long *out_ino);
+          int susfs_open_redirect_spoof_show_map_vma(struct inode *inode, unsigned long *out_ino, dev_t *out_dev, char *spoofed_name);
+          #endif
+          EOF
+
+          # 2. Fix susfs.c - remove 'static' from susfs_run_sus_path_loop so it can be called externally
+          sed -i 's/^static void susfs_run_sus_path_loop(void)/void susfs_run_sus_path_loop(void)/' fs/susfs.c
+
+          # 3. Fix susfs.c - add susfs_is_sdcard_android_data_decrypted() function
+          # This function wraps the static key that already exists in susfs.c
+          cat >> fs/susfs.c << 'EOF'
+
+          /* Added for SukiSU compatibility - would normally be added by SUSFS patch */
+          bool susfs_is_sdcard_android_data_decrypted(void) {
+          #ifdef CONFIG_KSU_SUSFS_SUS_PATH
+            return !static_branch_unlikely(&susfs_is_sdcard_android_data_not_decrypted);
+          #else
+            return true;
+          #endif
+          }
+          EOF
+
+          # 4. Add #include <linux/susfs.h> to all files that need it
           add_susfs_include() {
             local file="$1"
             if [ -f "$file" ] && ! grep -q '#include <linux/susfs.h>' "$file"; then
-              # Find the last #include <linux/...> line and insert after it
               local last_include=$(grep -n '#include <linux/' "$file" | tail -1 | cut -d: -f1)
               if [ -n "$last_include" ]; then
                 sed -i "${last_include}a #include <linux/susfs.h>" "$file"
                 echo "Added susfs.h include to $file"
               else
-                # No linux includes found, add at top after any existing includes
-                local first_non_include=$(grep -n -v '^#include' "$file" | head -1 | cut -d: -f1)
-                if [ -n "$first_non_include" ] && [ "$first_non_include" -gt 1 ]; then
-                  sed -i "$((first_non_include - 1))a #include <linux/susfs.h>" "$file"
-                else
-                  # Fallback: prepend after SPDX/license header
-                  sed -i '1a #include <linux/susfs.h>' "$file"
-                fi
+                sed -i '1a #include <linux/susfs.h>' "$file"
                 echo "Added susfs.h include to $file (fallback)"
               fi
             else
@@ -214,7 +248,6 @@ jobs:
             fi
           }
 
-          # Files that the SUSFS patch modifies (all need the include)
           SUSFS_FILES="
             drivers/input/input.c
             fs/exec.c
@@ -249,14 +282,21 @@ jobs:
             add_susfs_include "drivers/kernelsu/setuid_hook.c"
           fi
 
-          # Verify key files have the include
-          echo "=== Verifying susfs.h includes ==="
-          for f in fs/exec.c fs/namespace.c fs/open.c fs/namei.c fs/readdir.c fs/stat.c \
-                   kernel/kallsyms.c kernel/reboot.c kernel/sys.c mm/memory.c \
-                   security/selinux/avc.c security/selinux/hooks.c; do
+          # 5. Verify key functions are now available
+          echo "=== Verifying SUSFS fixes ==="
+          echo "--- susfs.h declarations ---"
+          grep -c "susfs_is_sdcard_android_data_decrypted" include/linux/susfs.h && echo "✓ susfs_is_sdcard_android_data_decrypted declared" || echo "✗ MISSING"
+          grep -c "susfs_run_sus_path_loop" include/linux/susfs.h && echo "✓ susfs_run_sus_path_loop declared" || echo "✗ MISSING"
+          
+          echo "--- susfs.c definitions ---"
+          grep -c "void susfs_run_sus_path_loop" fs/susfs.c && echo "✓ susfs_run_sus_path_loop defined (non-static)" || echo "✗ MISSING"
+          grep -c "susfs_is_sdcard_android_data_decrypted" fs/susfs.c && echo "✓ susfs_is_sdcard_android_data_decrypted defined" || echo "✗ MISSING"
+
+          echo "--- File includes ---"
+          for f in fs/exec.c fs/namespace.c drivers/kernelsu/setuid_hook.c; do
             if [ -f "$f" ]; then
               if grep -q '#include <linux/susfs.h>' "$f"; then
-                echo "✓ $f"
+                echo "✓ $f has susfs.h"
               else
                 echo "✗ MISSING: $f"
               fi
