@@ -584,6 +584,23 @@ void susfs_sus_ino_for_show_map_vma(unsigned long ino, dev_t *out_dev, unsigned 
 		}
 	}
 }
+
+void susfs_sus_kstat_spoof_generic_fillattr(struct inode *inode, struct kstat *stat)
+{
+	if (!inode)
+		return;
+
+	susfs_sus_ino_for_generic_fillattr(inode->i_ino, stat);
+}
+
+void susfs_sus_kstat_spoof_show_map_vma(struct inode *inode, dev_t *out_dev, unsigned long *out_ino)
+{
+	if (!inode)
+		return;
+
+	susfs_sus_ino_for_show_map_vma(inode->i_ino, out_dev, out_ino);
+}
+
 #endif // #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 
 /* spoof_uname */
@@ -799,6 +816,15 @@ struct filename* susfs_get_redirected_path(unsigned long ino) {
 	}
 	return ERR_PTR(-ENOENT);
 }
+
+struct filename *susfs_open_redirect_spoof_do_sys_openat(struct inode *inode)
+{
+	if (!inode)
+		return ERR_PTR(-ENOENT);
+
+	return susfs_get_redirected_path(inode->i_ino);
+}
+
 #endif // #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
 
 /* sus_map */

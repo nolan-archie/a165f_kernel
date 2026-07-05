@@ -178,7 +178,9 @@ void susfs_set_hide_sus_mnts_for_non_su_procs(void __user **user_info);
 void susfs_add_sus_kstat(void __user **user_info);
 void susfs_update_sus_kstat(void __user **user_info);
 void susfs_sus_ino_for_generic_fillattr(unsigned long ino, struct kstat *stat);
+void susfs_sus_kstat_spoof_generic_fillattr(struct inode *inode, struct kstat *stat);
 void susfs_sus_ino_for_show_map_vma(unsigned long ino, dev_t *out_dev, unsigned long *out_ino);
+void susfs_sus_kstat_spoof_show_map_vma(struct inode *inode, dev_t *out_dev, unsigned long *out_ino);
 #endif
 
 /* spoof_uname */
@@ -202,6 +204,7 @@ int susfs_spoof_cmdline_or_bootconfig(struct seq_file *m);
 #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
 void susfs_add_open_redirect(void __user **user_info);
 struct filename* susfs_get_redirected_path(unsigned long ino);
+struct filename *susfs_open_redirect_spoof_do_sys_openat(struct inode *inode);
 #endif
 
 /* sus_map */

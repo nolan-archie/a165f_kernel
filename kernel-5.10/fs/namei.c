@@ -3692,7 +3692,7 @@ static struct file *path_openat(struct nameidata *nd,
 }
 
 #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
-extern struct filename* susfs_get_redirected_path(unsigned long ino);
+extern struct filename *susfs_open_redirect_spoof_do_sys_openat(struct inode *inode);
 #endif
 
 struct file *do_filp_open(int dfd, struct filename *pathname,
@@ -3713,7 +3713,7 @@ struct file *do_filp_open(int dfd, struct filename *pathname,
 		filp = path_openat(&nd, op, flags | LOOKUP_REVAL);
 #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
 	if (!IS_ERR(filp) && unlikely(test_bit(AS_FLAGS_OPEN_REDIRECT, &filp->f_inode->i_mapping->flags)) && current_uid().val < 2000) {
-		fake_pathname = susfs_get_redirected_path(filp->f_inode->i_ino);
+		fake_pathname = susfs_open_redirect_spoof_do_sys_openat(filp->f_inode);
 		if (!IS_ERR(fake_pathname)) {
 			restore_nameidata();
 			filp_close(filp, NULL);
