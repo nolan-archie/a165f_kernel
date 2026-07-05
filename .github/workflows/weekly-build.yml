@@ -6,9 +6,13 @@ on:
   workflow_dispatch:
     inputs:
       sukisu_branch:
-        description: 'SukiSU branch e.g. main susfs-main'
+        description: 'SukiSU branch/tag/commit for setup.sh'
         required: false
-        default: 'main'
+        default: 'builtin'
+      susfs_branch:
+        description: 'SUSFS branch/tag/commit from gitlab.com/simonpunk/susfs4ksu'
+        required: false
+        default: 'gki-android13-5.10'
       build_version:
         description: 'Version label blank for auto commit count'
         required: false
@@ -51,7 +55,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
             build-essential rsync python3 python3-dev git \
-            tar gzip curl wget bc cpio flex bison zip unzip \
+            tar gzip curl wget bc cpio flex bison zip unzip patch \
             libssl-dev device-tree-compiler libelf-dev \
             libncurses-dev lld llvm clang ccache \
             gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi crossbuild-essential-arm64
@@ -107,6 +111,7 @@ jobs:
         env:
           INPUT_BUILD_VERSION: ${{ inputs.build_version }}
           INPUT_SUKISU_BRANCH: ${{ inputs.sukisu_branch }}
+          INPUT_SUSFS_BRANCH: ${{ inputs.susfs_branch }}
         run: |
           if [ -n "$INPUT_BUILD_VERSION" ]; then
             BUILD_VERSION="$INPUT_BUILD_VERSION"
@@ -122,20 +127,71 @@ jobs:
 
           BRANCH="$INPUT_SUKISU_BRANCH"
           if [ -z "$BRANCH" ]; then
-            BRANCH="main"
+            BRANCH="builtin"
           fi
           echo "SUKISU_BRANCH=$BRANCH" >> "$GITHUB_ENV"
 
+          SUSFS_BRANCH="$INPUT_SUSFS_BRANCH"
+          if [ -z "$SUSFS_BRANCH" ]; then
+            SUSFS_BRANCH="gki-android13-5.10"
+          fi
+          echo "SUSFS_BRANCH=$SUSFS_BRANCH" >> "$GITHUB_ENV"
+
           echo "Build Version: ${BUILD_VERSION}"
           echo "SukiSU Branch: ${BRANCH}"
+          echo "SUSFS Branch: ${SUSFS_BRANCH}"
 
       - name: Integrate SukiSU-Ultra
         run: |
+          set -euo pipefail
           cd kernel-5.10
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" \
             -o /tmp/sukisu_setup.sh
-          bash /tmp/sukisu_setup.sh "builtin"
+          bash /tmp/sukisu_setup.sh "${SUKISU_BRANCH}"
+          test -d KernelSU/kernel
           cd ..
+
+      - name: Integrate SUSFS
+        run: |
+          set -euo pipefail
+
+          rm -rf /tmp/susfs4ksu
+          git clone --depth=1 --branch "${SUSFS_BRANCH}" \
+            https://gitlab.com/simonpunk/susfs4ksu.git /tmp/susfs4ksu
+
+          cp -f /tmp/susfs4ksu/kernel_patches/fs/susfs.c \
+            kernel-5.10/fs/susfs.c
+          cp -f /tmp/susfs4ksu/kernel_patches/include/linux/susfs.h \
+            kernel-5.10/include/linux/susfs.h
+          cp -f /tmp/susfs4ksu/kernel_patches/include/linux/susfs_def.h \
+            kernel-5.10/include/linux/susfs_def.h
+
+          if ! grep -q 'obj-$(CONFIG_KSU_SUSFS) += susfs.o' kernel-5.10/fs/Makefile; then
+            printf '\nobj-$(CONFIG_KSU_SUSFS) += susfs.o\n' >> kernel-5.10/fs/Makefile
+          fi
+
+          cd kernel-5.10/KernelSU
+          if ! grep -q 'KernelSU - SUSFS' kernel/Kconfig; then
+            patch -p1 --forward < /tmp/susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch
+          else
+            echo "KernelSU SUSFS patch already present"
+          fi
+          cd "${GITHUB_WORKSPACE}"
+
+          SUSFS_VERSION=$(awk '
+            $1 == "#define" && $2 == "SUSFS_VERSION" {
+              gsub(/"/, "", $3)
+              print $3
+              exit
+            }
+          ' kernel-5.10/include/linux/susfs.h)
+
+          if [ -z "$SUSFS_VERSION" ]; then
+            echo "Could not detect SUSFS_VERSION after integration"
+            exit 1
+          fi
+          echo "SUSFS_VERSION=${SUSFS_VERSION}" >> "$GITHUB_ENV"
+          echo "SUSFS ${SUSFS_VERSION} integrated from ${SUSFS_BRANCH}"
 
       - name: Write version defconfig
         run: |
@@ -165,6 +221,23 @@ jobs:
             'CONFIG_SECURITY_SELINUX_BOOTPARAM_VALUE=0' \
             > kernel-5.10/arch/arm64/configs/permissive.config
 
+      - name: Write susfs defconfig
+        run: |
+          printf '%s\n' \
+            'CONFIG_KSU=y' \
+            'CONFIG_KSU_MANUAL_SU=y' \
+            'CONFIG_KSU_SUSFS=y' \
+            'CONFIG_KSU_SUSFS_SUS_PATH=y' \
+            'CONFIG_KSU_SUSFS_SUS_MOUNT=y' \
+            'CONFIG_KSU_SUSFS_SUS_KSTAT=y' \
+            'CONFIG_KSU_SUSFS_SPOOF_UNAME=y' \
+            'CONFIG_KSU_SUSFS_ENABLE_LOG=y' \
+            'CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y' \
+            'CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y' \
+            'CONFIG_KSU_SUSFS_OPEN_REDIRECT=y' \
+            'CONFIG_KSU_SUSFS_SUS_MAP=y' \
+            > kernel-5.10/arch/arm64/configs/susfs.config
+
       - name: Create root symlinks
         run: |
           for d in custom_defconfigs prebuilts_helio_g99 oem_prebuilt_images; do
@@ -182,7 +255,7 @@ jobs:
           cd "${GITHUB_WORKSPACE}/kernel-5.10"
           python3 scripts/gen_build_config.py \
             --kernel-defconfig a16_00_defconfig \
-            --kernel-defconfig-overlays "entry_level.config permissive.config" \
+            --kernel-defconfig-overlays "entry_level.config permissive.config susfs.config" \
             -m user \
             -o "$OUTDIR/build.config"
           cd "${GITHUB_WORKSPACE}"
@@ -367,6 +440,8 @@ jobs:
             SM-A165F / SM-A155F Auto Build
 
             SukiSU-Ultra branch: ${{ env.SUKISU_BRANCH }}
+            SUSFS branch: ${{ env.SUSFS_BRANCH }}
+            SUSFS version: ${{ env.SUSFS_VERSION }}
             Build: ${{ env.BUILD_VERSION }}
             SELinux: ENFORCING
 

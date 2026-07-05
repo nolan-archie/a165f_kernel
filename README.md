@@ -1,114 +1,185 @@
-# SukiSU Ultra Kernel — Samsung Galaxy A16 (SM-A165F)
+# Samsung Galaxy A16 Kernel
 
-A professional-grade, custom Android 13 (Platform SDK 33) kernel for the Samsung Galaxy A16 (SM-A165F) powered by the MediaTek Helio G99 (MT6789) SoC. This repository provides a complete, automated build pipeline featuring **KernelSU** with **SUSFS** integration and stripped Samsung security features (KNOX, RKP, TIMA, DEFEX).
+Custom kernel source and GitHub Actions build workflow for the Samsung Galaxy A16 LTE family, focused on the SM-A165F and compatible A15/A16 variants used by this tree.
 
----
+This repository builds a Linux 5.10 Android kernel with SukiSU Ultra and SUSFS integration. The weekly workflow is the main supported build path: it checks out this source tree, downloads the toolchain, installs SukiSU Ultra, refreshes SUSFS from upstream, builds `boot.img`, and publishes release artifacts.
 
-## Features
+## Device Scope
 
-- **KernelSU (SukiSU Ultra)**: Fully-integrated kernel-level root solution.
-- **SUSFS Support**: Spoofing and hiding capabilities integrated into the kernel virtual filesystem layer for seamless root detection evasion.
-- **Disabled Knox & Security**: Anti-root mechanisms, including Samsung Knox, RKP (Real-time Kernel Protection), DEFEX, TIMA, and UH, are disabled at the configuration level to ensure maximum system flexibility.
-- **MediaTek BT & WLAN Modules**: Built-in support for external MediaTek Bluetooth and wireless drivers.
-- **Automated Packaging**: Compiles, signs, and packages the final kernel into an Odin-flashable `.tar` archive enclosed in a standard `.zip` file.
+Target devices declared in the AnyKernel package:
 
----
+- `a16`
+- `a165f`
+- `a155f`
+- `A165F`
+- `A155F`
 
-## Directory Structure
+Primary target:
+
+- Samsung Galaxy A16 LTE, SM-A165F
+- MediaTek Helio G99 / MT6789 platform
+- Android platform version used by the workflow: `13`
+- Kernel tree: `kernel-5.10`
+
+Do not flash this on an unsupported device or bootloader variant.
+
+## Build Outputs
+
+The weekly workflow publishes these artifacts when the build succeeds:
+
+- `boot.img` - signed boot image
+- `Image.gz` - compressed kernel image
+- `SukiSU-Ultra-A165F-<version>.zip` - AnyKernel3 flashable package
+- `SukiSU-Ultra-A165F-<version>.tar` - Odin-style archive containing `boot.img` and, when present, `Image.gz`
+- `build.log` - uploaded separately as a workflow artifact for debugging
+
+Release metadata includes the SukiSU branch, SUSFS branch, detected SUSFS version, manager version, and kernel version.
+
+## Weekly Workflow
+
+Workflow file:
+
+- `.github/workflows/weekly-build.yml`
+
+Triggers:
+
+- Runs every Monday at `00:00 UTC`
+- Can be started manually from GitHub Actions using `workflow_dispatch`
+
+Manual inputs:
+
+| Input | Default | Purpose |
+| --- | --- | --- |
+| `sukisu_branch` | `builtin` | Branch, tag, or commit passed to the SukiSU Ultra setup script. |
+| `susfs_branch` | `gki-android13-5.10` | Branch, tag, or commit cloned from `simonpunk/susfs4ksu`. |
+| `build_version` | empty | Optional release/version label. Empty uses an automatic commit-count version. |
+| `manager_version` | empty | Optional manager version override. Empty resolves the latest SukiSU Ultra release when available. |
+
+The workflow refreshes SUSFS on every run by cloning the selected `susfs_branch` and copying:
+
+- `kernel_patches/fs/susfs.c`
+- `kernel_patches/include/linux/susfs.h`
+- `kernel_patches/include/linux/susfs_def.h`
+
+It then reads `SUSFS_VERSION` from `kernel-5.10/include/linux/susfs.h`. The workflow does not pin the version number; it tracks the latest commit on the selected SUSFS branch.
+
+## Kernel Features
+
+Enabled or integrated by this tree and workflow:
+
+- SukiSU Ultra kernel root support
+- SUSFS kernel-side hiding and spoofing support
+- SUSFS path, mount, kstat, uname, cmdline/bootconfig, open redirect, and map options
+- SUSFS/KSU symbol hiding option
+- AnyKernel3 packaging
+- Odin tar packaging
+- Samsung security-related config overrides for build flexibility
+- Boot image signing with the test key included in the source tree
+
+The workflow writes these generated config overlays during the build:
+
+- `permissive.config`
+- `susfs.config`
+
+SUSFS options written by the workflow:
 
 ```text
-├── build.sh                 # Main automated orchestration build script
-├── README_Kernel.txt        # Original Samsung reference documentation
-├── custom_defconfigs/       # Target configurations (custom_defconfig, droidspaces_defconfig)
-├── kernel/                  # Build orchestration tools, environments, and static analysis
-├── kernel-5.10/             # Primary Linux 5.10 GKI kernel source tree
-├── KernelSU/                # KernelSU root implementation and core files
-├── mkbootimg/               # Android command-line tools for working with boot images
-├── oem_prebuilt_images/     # OEM binary dependencies (e.g., gki-ramdisk.lz4)
-└── prebuilts_helio_g99/     # Platform-specific prebuilt compilers and tools
+CONFIG_KSU=y
+CONFIG_KSU_MANUAL_SU=y
+CONFIG_KSU_SUSFS=y
+CONFIG_KSU_SUSFS_SUS_PATH=y
+CONFIG_KSU_SUSFS_SUS_MOUNT=y
+CONFIG_KSU_SUSFS_SUS_KSTAT=y
+CONFIG_KSU_SUSFS_SPOOF_UNAME=y
+CONFIG_KSU_SUSFS_ENABLE_LOG=y
+CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y
+CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
+CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
+CONFIG_KSU_SUSFS_SUS_MAP=y
 ```
 
----
+## Repository Layout
 
-## Requirements & Dependencies
+```text
+.
+├── .github/workflows/weekly-build.yml   # Main CI build and release workflow
+├── build.sh                             # Local build helper
+├── custom_defconfigs/                   # Local defconfig overlays
+├── kernel/                              # Samsung/Android build orchestration
+├── kernel-5.10/                         # Main Linux 5.10 kernel source tree
+├── mkbootimg/                           # Android boot image tools
+├── oem_prebuilt_images/                 # Required OEM/prebuilt boot assets
+├── prebuilts_helio_g99/                 # Platform-specific prebuilt tools
+└── README_Kernel.txt                    # Original vendor kernel notes
+```
 
-The main build script `build.sh` automatically detects your system's package manager and installs all necessary packages. The following distributions are supported:
+## Local Build
 
-- **Arch Linux**: `base-devel`, `rsync`, `git`, `tar`, `gzip`, `curl`, `wget`, `bc`, `cpio`, `flex`, `bison`, `zip`, `unzip`, `openssl`, `dtc`
-- **Ubuntu/Debian**: `build-essential`, `rsync`, `python3`, `git`, `tar`, `gzip`, `curl`, `wget`, `bc`, `cpio`, `flex`, `bison`, `zip`, `unzip`, `libncurses-dev`, `libssl-dev`, `device-tree-compiler`
-- **Fedora/RHEL**: `gcc`, `gcc-c++`, `make`, `rsync`, `python3`, `git`, `tar`, `gzip`, `curl`, `wget`, `bc`, `cpio`, `flex`, `bison`, `zip`, `unzip`, `openssl-devel`, `dtc`
+The GitHub Actions workflow is the supported build path. Local builds may require root permissions for expected Samsung build-directory symlinks and a matching toolchain layout.
 
----
-
-## Build Pipeline
-
-The `build.sh` orchestrator implements a 9-stage compilation pipeline:
-
-1. **System Check**: Installs distribution-specific package requirements.
-2. **Submodule Init**: Ensures dependent submodules (e.g., KernelSU) are checked out and up to date.
-3. **Toolchain Extraction**: Downloads and extracts the pre-configured Clang/LLVM-based toolchain from AOSP/upstream repositories.
-4. **Prerequisites Verification**: Validates the presence of crucial trees (`kernel-5.10`, `kernel`, `mkbootimg`, and prebuilt RAMDISK files).
-5. **Configuration Generation**: Generates `build.config` based on the standard `a16_00_defconfig` and `entry_level.config` overlay.
-6. **Environment Formulation**: Appends Knox disabling variables, custom build versioning, and GKI kernel options (such as skipping KMI checking and generating a signed boot partition).
-7. **Symlink Creation**: Configures symbolic links for root directory structures (`/custom_defconfigs`, `/prebuilts_helio_g99`, `/oem_prebuilt_images`) which the internal Samsung build environment expects.
-8. **Kernel Compilation**: Builds the kernel binaries and generates a GKI-compliant `boot.img`.
-9. **Odin Packaging**: Moves artifacts to the `dist/` directory, packages `boot.img` as an Odin-flashable `.tar`, and wraps it in a `.zip` archive.
-
----
-
-## Quick Start
-
-### 1. Build the Kernel
-To initiate the automated build process, run the root orchestration script:
+Basic local entry point:
 
 ```bash
 ./build.sh
 ```
 
-### 2. Output Location
-Upon a successful build, the output ZIP package will be created at:
-```text
-dist/SukiSU-Ultra-SUSFS-SM-A165F-<version>-packaged.zip
-```
-Inside this ZIP, you will find `SukiSU-Ultra-SUSFS-SM-A165F-<version>.tar` containing the compiled and signed `boot.img`.
+Useful environment variables:
 
----
-
-## Advanced Options & Environment Variables
-
-You can customize the compilation by defining variables before executing the build script:
-
-### Custom Kernel Suffix/Version
-To define a custom version string to identify your build:
 ```bash
-export BUILD_KERNEL_VERSION="custom-v1.0"
-./build.sh
-```
-
-### Enable Menuconfig
-To make custom configurations directly in the Linux Kernel config menu before building:
-```bash
+export BUILD_KERNEL_VERSION="custom-v1"
 export MAKE_MENUCONFIG=1
 ./build.sh
 ```
 
----
+Local build output is expected under `dist/` when successful.
 
-## Flashing Instructions
+## Flashing
 
-> [!WARNING]
-> Flashing custom kernels requires an unlocked bootloader and carries the risk of bricking your device. Always back up your data before proceeding.
+Flashing a custom kernel requires an unlocked bootloader. Back up your data before flashing.
 
-### Method 1: Odin (Recommended for Samsung Stock)
-1. Unzip the packaged output to retrieve the `SukiSU-Ultra-SUSFS-SM-A165F-<version>.tar` archive.
-2. Boot your SM-A165F into **Download Mode**.
-3. Open **Odin** on your PC and place the `.tar` file in the **AP** slot.
-4. Disable "Auto Reboot" in Odin options.
-5. Click **Start** to flash. Once completed, reboot your device.
+Fastboot or recovery:
 
-### Method 2: TWRP / Custom Recovery
-1. Push the compiled `boot.img` (extracted from the `.tar` archive) to your phone's storage.
-2. Boot into your custom recovery.
-3. Select **Install** -> **Install Image**.
-4. Choose `boot.img` and select the **Boot** partition.
-5. Swipe to confirm flash, then reboot system.
+```bash
+fastboot flash boot boot.img
+fastboot reboot
+```
+
+Custom recovery:
+
+- Flash the generated AnyKernel3 ZIP, or
+- Flash `boot.img` directly to the boot partition.
+
+Odin:
+
+- Use the generated `.tar` package in Odin's AP slot.
+- Confirm the package is intended for your exact device variant before flashing.
+
+## Notes
+
+- The workflow currently uses `gki-android13-5.10` from SUSFS because this kernel is a 5.10 tree built with Android platform version 13.
+- Changing `susfs_branch` to a branch for another Android or kernel version can break compilation.
+- SukiSU Ultra's `builtin` branch currently includes SUSFS-aware code paths, so the workflow skips reapplying the SUSFS KernelSU patch when the SukiSU tree already contains the SUSFS Kconfig block.
+- The kernel's base VFS/proc/SELinux SUSFS hooks are maintained in this repository. The workflow updates the SUSFS source/header files and KernelSU side each run, but it does not blindly merge the large upstream kernel patch into the vendor tree.
+
+## Credits
+
+This project depends on work from the Android, Linux, Samsung, KernelSU, SukiSU, SUSFS, and Android modding communities.
+
+- Linux kernel: https://www.kernel.org/
+- Android Open Source Project: https://android.googlesource.com/
+- Samsung Open Source Release Center: https://opensource.samsung.com/
+- SukiSU Ultra: https://github.com/SukiSU-Ultra/SukiSU-Ultra
+- SUSFS for KernelSU: https://gitlab.com/simonpunk/susfs4ksu
+- AnyKernel3: https://github.com/osm0sis/AnyKernel3
+- Android boot image tools / mkbootimg: https://android.googlesource.com/platform/system/tools/mkbootimg/
+- GitHub Actions: https://docs.github.com/actions
+- ncipollo release action: https://github.com/ncipollo/release-action
+- actions/checkout: https://github.com/actions/checkout
+- actions/cache: https://github.com/actions/cache
+- actions/upload-artifact: https://github.com/actions/upload-artifact
+
+Additional credit goes to upstream kernel maintainers, Samsung's vendor kernel release, MediaTek platform contributors, and the developers maintaining the public rooting and recovery tooling used by this build.
+
+## Disclaimer
+
+This repository is for kernel development and personal device builds. You are responsible for anything you flash. A bad kernel or a mismatched boot image can bootloop or brick a device.
