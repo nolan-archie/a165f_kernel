@@ -143,7 +143,7 @@ jobs:
           bash /tmp/sukisu_setup.sh "${SUKISU_BRANCH}"
           test -d KernelSU/kernel
           cd ..
-           - name: Integrate SUSFS
+      - name: Integrate SUSFS
         run: |
           set -euo pipefail
           rm -rf /tmp/susfs4ksu
@@ -352,7 +352,6 @@ jobs:
           SUSFS_VERSION="${SUSFS_VERSION:-unknown}"
           echo "SUSFS_VERSION=${SUSFS_VERSION}" >> "$GITHUB_ENV"
           echo "SUSFS ${SUSFS_VERSION} integrated from ${SUSFS_BRANCH}"
-
       - name: Write version defconfig
         run: |
           mkdir -p kernel-5.10/arch/arm64/configs
