@@ -120,19 +120,16 @@ jobs:
           fi
           BUILD_VERSION=$(echo "$BUILD_VERSION" | tr -d ' ')
           echo "BUILD_VERSION=${BUILD_VERSION}" >> "$GITHUB_ENV"
-
           BRANCH="$INPUT_SUKISU_BRANCH"
           if [ -z "$BRANCH" ]; then
             BRANCH="builtin"
           fi
           echo "SUKISU_BRANCH=$BRANCH" >> "$GITHUB_ENV"
-
           SUSFS_BRANCH="$INPUT_SUSFS_BRANCH"
           if [ -z "$SUSFS_BRANCH" ]; then
             SUSFS_BRANCH="gki-android13-5.10"
           fi
           echo "SUSFS_BRANCH=$SUSFS_BRANCH" >> "$GITHUB_ENV"
-
           echo "Build Version: ${BUILD_VERSION}"
           echo "SukiSU Branch: ${BRANCH}"
           echo "SUSFS Branch: ${SUSFS_BRANCH}"
@@ -154,14 +151,17 @@ jobs:
           git clone --depth=1 --branch "${SUSFS_BRANCH}" \
             https://gitlab.com/simonpunk/susfs4ksu.git /tmp/susfs4ksu
 
+          # Copy SUSFS core files to kernel
           cp -f /tmp/susfs4ksu/kernel_patches/fs/susfs.c kernel-5.10/fs/susfs.c
           cp -f /tmp/susfs4ksu/kernel_patches/include/linux/susfs.h kernel-5.10/include/linux/susfs.h
           cp -f /tmp/susfs4ksu/kernel_patches/include/linux/susfs_def.h kernel-5.10/include/linux/susfs_def.h
 
+          # Add susfs.o to fs/Makefile
           if ! grep -q 'obj-$(CONFIG_KSU_SUSFS) += susfs.o' kernel-5.10/fs/Makefile; then
             printf '\nobj-$(CONFIG_KSU_SUSFS) += susfs.o\n' >> kernel-5.10/fs/Makefile
           fi
 
+          # Patch KernelSU Kconfig to enable SUSFS options
           cd kernel-5.10/KernelSU
           if ! grep -q 'config KSU_SUSFS' kernel/Kconfig 2>/dev/null; then
             patch -p1 --forward < /tmp/susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch
@@ -170,6 +170,48 @@ jobs:
           fi
           cd "${GITHUB_WORKSPACE}"
 
+          # >>>>> FIX: Apply the main SUSFS kernel integration patch <<<<<
+          # This patch hooks SUSFS functions into kernel core files (fs/exec.c, fs/namespace.c, etc.)
+          # Without it, susfs_is_sdcard_android_data_decrypted, susfs_run_sus_path_loop, etc. are undefined
+          cd kernel-5.10
+          echo "=== Available SUSFS kernel patches ==="
+          ls -la /tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel*.patch 2>/dev/null || true
+          ls -la /tmp/susfs4ksu/kernel_patches/*.patch 2>/dev/null || true
+
+          # Try multiple possible patch filenames
+          PATCH_APPLIED=false
+          for patch_file in \
+            "/tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel-${SUSFS_BRANCH}.patch" \
+            "/tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel-5.10.patch" \
+            "/tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel.patch" \
+            "/tmp/susfs4ksu/kernel_patches/50_add_susfs_in_gki-${SUSFS_BRANCH}.patch" \
+            "/tmp/susfs4ksu/kernel_patches/50_add_susfs_in_gki-android13-5.10.patch" \
+            "/tmp/susfs4ksu/kernel_patches/50_add_susfs_in_android13-5.10.patch"
+          do
+            if [ -f "$patch_file" ]; then
+              echo "Applying SUSFS kernel patch: $patch_file"
+              patch -p1 --forward < "$patch_file" && PATCH_APPLIED=true || {
+                echo "Patch command exited with code $?, checking if already applied..."
+                # Check if key function already exists in kernel source
+                if grep -q "susfs_is_sdcard_android_data_decrypted" fs/exec.c 2>/dev/null; then
+                  echo "Patch appears to already be applied (functions found in fs/exec.c)"
+                  PATCH_APPLIED=true
+                fi
+              }
+              break
+            fi
+          done
+
+          if [ "$PATCH_APPLIED" != "true" ]; then
+            echo "ERROR: Could not find or apply any SUSFS kernel patch!"
+            echo "SUSFS functions will be undefined. Build will fail."
+            echo "Available patches:"
+            find /tmp/susfs4ksu/kernel_patches/ -name "*.patch" -type f 2>/dev/null || true
+            exit 1
+          fi
+          cd "${GITHUB_WORKSPACE}"
+
+          # Extract SUSFS version for release notes
           SUSFS_VERSION=$(awk '
             $1 == "#define" && $2 == "SUSFS_VERSION" {
               gsub(/"/, "", $3)
@@ -289,23 +331,19 @@ jobs:
           OUTDIR="${WDIR}/out/target/product/a16/obj/KERNEL_OBJ"
           DIST="${WDIR}/dist"
           mkdir -p "$DIST"
-
           if [ -f "$OUTDIR/boot.img" ]; then
             cp "$OUTDIR/boot.img" "$DIST/"
             echo "boot.img collected"
           fi
-
           IMGZ="$OUTDIR/kernel-5.10/arch/arm64/boot/Image.gz"
           if [ -f "$IMGZ" ]; then
             cp "$IMGZ" "$DIST/"
             echo "Image.gz collected"
           fi
-
           git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git ak3_tmp
           if [ -f "$DIST/Image.gz" ]; then
             cp "$DIST/Image.gz" ak3_tmp/
           fi
-
           printf '%s\n' \
             'kernel.string=SukiSU-Ultra @ nolan-archie' \
             'do.devicecheck=1' \
@@ -322,13 +360,11 @@ jobs:
             'is_slot_device=0;' \
             'ramdisk_compression=auto;' \
             > ak3_tmp/anykernel.sh
-
           ZIP="SukiSU-Ultra-A165F-${BUILD_VERSION}.zip"
           cd ak3_tmp
           zip -r9 "$DIST/$ZIP" . -x ".git/*" "*.md"
           cd "${GITHUB_WORKSPACE}"
           echo "ARTIFACT_ZIP=$ZIP" >> $GITHUB_ENV
-
           TAR="SukiSU-Ultra-A165F-${BUILD_VERSION}.tar"
           cd "$DIST"
           if [ -f boot.img ] && [ -f Image.gz ]; then
@@ -356,7 +392,6 @@ jobs:
               printf "%s\n", extraversion
             }
           ' kernel-5.10/Makefile)
-
           SUSFS_VERSION=$(awk '
             $1 == "#define" && $2 == "SUSFS_VERSION" {
               gsub(/"/, "", $3)
@@ -365,7 +400,6 @@ jobs:
             }
           ' kernel-5.10/include/linux/susfs.h 2>/dev/null || true)
           SUSFS_VERSION="${SUSFS_VERSION:-unknown}"
-
           MANAGER_NAME="SukiSu Ultra"
           MANAGER_VERSION="${MANAGER_VERSION_OVERRIDE:-}"
           if [ -z "$MANAGER_VERSION" ]; then
@@ -374,7 +408,6 @@ jobs:
               | python3 -c 'import json, sys; print(json.load(sys.stdin).get("tag_name", ""))' \
               || true)
           fi
-
           if [ -z "$MANAGER_VERSION" ]; then
             for kbuild in kernel-5.10/KernelSU/kernel/Kbuild KernelSU/kernel/Kbuild; do
               if [ -f "$kbuild" ]; then
@@ -389,14 +422,12 @@ jobs:
             done
           fi
           MANAGER_VERSION="${MANAGER_VERSION:-unknown}"
-
           {
             echo "MANAGER_NAME=${MANAGER_NAME}"
             echo "MANAGER_VERSION=${MANAGER_VERSION}"
             echo "SUSFS_VERSION=${SUSFS_VERSION}"
             echo "RELEASE_KERNEL_VERSION=${RELEASE_KERNEL_VERSION}"
           } >> "$GITHUB_ENV"
-
           echo "Manager: ${MANAGER_NAME} ${MANAGER_VERSION}"
           echo "SUSFS: ${SUSFS_VERSION}"
           echo "Kernel: ${RELEASE_KERNEL_VERSION}"
@@ -417,13 +448,11 @@ jobs:
           name: "SukiSU Ultra ${{ env.BUILD_VERSION }} ${{ env.SUKISU_BRANCH }}"
           body: |
             SM-A165F / SM-A155F Auto Build
-
             SukiSU-Ultra branch: ${{ env.SUKISU_BRANCH }}
             SUSFS branch: ${{ env.SUSFS_BRANCH }}
             SUSFS version: ${{ env.SUSFS_VERSION }}
             Build: ${{ env.BUILD_VERSION }}
             SELinux: PERMISSIVE
-
             Flashing:
             boot.img - fastboot flash boot boot.img or TWRP
             zip - Flash in TWRP or OrangeFox
@@ -444,17 +473,13 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           set -euo pipefail
-
           : "${TELEGRAM_BOT_TOKEN:?Set the TELEGRAM_BOT_TOKEN repository secret}"
           : "${TELEGRAM_CHAT_ID:?Set the TELEGRAM_CHAT_ID repository secret}"
-
           if [ ! -f dist/boot.img ]; then
             echo "dist/boot.img was not produced"
             exit 1
           fi
-
           BOOT_IMG_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/${BUILD_VERSION}/boot.img"
-
           MESSAGE=$(printf '%s\n' \
             'NEW RELEASE!!!!!' \
             '' \
@@ -482,7 +507,6 @@ jobs:
             "${BOOT_IMG_URL}" \
             '' \
             'Disclaimer: I am not responsible for any bricked device...')
-
           curl --fail-with-body --show-error --silent --retry 3 --retry-delay 5 \
             -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
