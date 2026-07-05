@@ -143,7 +143,7 @@ jobs:
           bash /tmp/sukisu_setup.sh "${SUKISU_BRANCH}"
           test -d KernelSU/kernel
           cd ..
-      - name: Integrate SUSFS
+           - name: Integrate SUSFS
         run: |
           set -euo pipefail
           rm -rf /tmp/susfs4ksu
@@ -222,15 +222,18 @@ jobs:
 
           # 4. Update the variable whenever the static key is changed
           # Use Python for multiline replacement (sed can't handle \n in replacement)
-          python3 -c "
-with open('fs/susfs.c', 'r') as f:
-    content = f.read()
-old = 'static_branch_disable(&susfs_is_sdcard_android_data_not_decrypted);'
-new = 'static_branch_disable(&susfs_is_sdcard_android_data_not_decrypted);\\n\\tsusfs_is_sdcard_android_data_decrypted = true;'
-content = content.replace(old, new)
-with open('fs/susfs.c', 'w') as f:
-    f.write(content)
-"
+          # Write Python script to a temp file first to avoid YAML quote issues
+          cat > /tmp/fix_susfs.py << 'PYEOF'
+          import sys
+          with open('fs/susfs.c', 'r') as f:
+              content = f.read()
+          old = 'static_branch_disable(&susfs_is_sdcard_android_data_not_decrypted);'
+          new = 'static_branch_disable(&susfs_is_sdcard_android_data_not_decrypted);\n\tsusfs_is_sdcard_android_data_decrypted = true;'
+          content = content.replace(old, new)
+          with open('fs/susfs.c', 'w') as f:
+              f.write(content)
+          PYEOF
+          python3 /tmp/fix_susfs.py
           echo "Added variable updates after static key changes"
 
           # 5. Add #include <linux/susfs.h> to all files that need it
