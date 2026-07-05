@@ -183,14 +183,13 @@ jobs:
 
       - name: Write version defconfig
         run: |
-          mkdir -p custom_defconfigs kernel-5.10/arch/arm64/configs
+          mkdir -p kernel-5.10/arch/arm64/configs
           printf 'CONFIG_LOCALVERSION_AUTO=n\nCONFIG_LOCALVERSION="-nolanarchie-dev"\n' \
-            > custom_defconfigs/version_defconfig
-          cp custom_defconfigs/version_defconfig kernel-5.10/arch/arm64/configs/version.config
+            > kernel-5.10/arch/arm64/configs/version.config
 
       - name: Write knox defconfig
         run: |
-          mkdir -p custom_defconfigs kernel-5.10/arch/arm64/configs
+          mkdir -p kernel-5.10/arch/arm64/configs
           printf '%s\n' \
             'CONFIG_SAMSUNG_PRODUCT_SHIP=n' \
             'CONFIG_SEC_RESTRICT_FORK=n' \
@@ -200,8 +199,7 @@ jobs:
             'CONFIG_RKP_CFP=n' \
             'CONFIG_KDP=n' \
             'CONFIG_FIVE=n' \
-            > custom_defconfigs/disable_knox.config
-          cp custom_defconfigs/disable_knox.config kernel-5.10/arch/arm64/configs/disable_knox.config
+            > kernel-5.10/arch/arm64/configs/disable_knox.config
 
       - name: Write permissive defconfig
         run: |
