@@ -118,7 +118,6 @@ jobs:
             MINOR=$((COUNT % 100))
             BUILD_VERSION=$(printf 'v%d.%02d' "$MAJOR" "$MINOR")
           fi
-
           BUILD_VERSION=$(echo "$BUILD_VERSION" | tr -d ' ')
           echo "BUILD_VERSION=${BUILD_VERSION}" >> "$GITHUB_ENV"
 
@@ -151,7 +150,6 @@ jobs:
       - name: Integrate SUSFS
         run: |
           set -euo pipefail
-
           rm -rf /tmp/susfs4ksu
           git clone --depth=1 --branch "${SUSFS_BRANCH}" \
             https://gitlab.com/simonpunk/susfs4ksu.git /tmp/susfs4ksu
@@ -179,8 +177,6 @@ jobs:
           SUSFS_VERSION="${SUSFS_VERSION:-unknown}"
           echo "SUSFS_VERSION=${SUSFS_VERSION}" >> "$GITHUB_ENV"
           echo "SUSFS ${SUSFS_VERSION} integrated from ${SUSFS_BRANCH}"
-
-    
 
       - name: Write version defconfig
         run: |
