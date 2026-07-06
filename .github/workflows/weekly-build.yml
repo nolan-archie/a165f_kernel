@@ -174,10 +174,16 @@ jobs:
           fi
           cd "${GITHUB_WORKSPACE}"
 
-          # >>>>> CRITICAL FIX: Manually patch susfs.h and susfs.c <<<<<
+          # >>>>> CRITICAL FIX: Manually patch susfs.h and susfs.c <<<
           # The SUSFS kernel patch fails on Samsung's modified kernel.
           # We must add the missing declarations and definitions manually.
           cd kernel-5.10
+
+          # 0. Ensure struct kstat is fully visible before we declare prototypes
+          #    that use it below — without this, Clang's -Wvisibility (as -Werror)
+          #    fails with "declaration of 'struct kstat' will not be visible
+          #    outside of this function".
+          printf '#include <linux/stat.h>\n' >> include/linux/susfs.h
 
           # 1. Add missing declarations to susfs.h
           # NOTE: susfs_is_sdcard_android_data_decrypted is used as a VARIABLE by Samsung/SukiSU,
@@ -208,6 +214,49 @@ jobs:
           # 2. Fix susfs.c - remove 'static' from susfs_run_sus_path_loop so it can be called externally
           sed -i -E 's/^[[:space:]]*static[[:space:]]+void[[:space:]]+susfs_run_sus_path_loop[[:space:]]*\(/void susfs_run_sus_path_loop(/' fs/susfs.c
           echo "Removed 'static' from susfs_run_sus_path_loop"
+
+          # 2b. Normalize susfs_run_sus_path_loop call sites injected by SUSFS's
+          #     KernelSU patch — the injected declaration/call may still expect
+          #     an argument (e.g. new_uid) even though the real function in
+          #     fs/susfs.c takes none. Strip any argument so it matches, and
+          #     remove any conflicting local forward-declaration.
+          cat > /tmp/fix_setuid_hook.py << 'PYEOF'
+          import re, glob
+
+          candidates = glob.glob('drivers/kernelsu/setuid_hook.c') + \
+                       glob.glob('KernelSU/kernel/*.c')
+
+          for path in candidates:
+              try:
+                  with open(path, 'r') as f:
+                      src = f.read()
+              except (FileNotFoundError, IsADirectoryError):
+                  continue
+
+              orig = src
+
+              # Remove any local forward-declaration of susfs_run_sus_path_loop
+              # that takes an argument (conflicts with the 0-arg one in susfs.h).
+              src = re.sub(
+                  r'^\s*(extern\s+)?void\s+susfs_run_sus_path_loop\s*\([^)]+\)\s*;\s*\n',
+                  '',
+                  src,
+                  flags=re.MULTILINE,
+              )
+
+              # Normalize any call site that passes an argument down to zero args.
+              src = re.sub(
+                  r'susfs_run_sus_path_loop\s*\([^)]+\)',
+                  'susfs_run_sus_path_loop()',
+                  src,
+              )
+
+              if src != orig:
+                  with open(path, 'w') as f:
+                      f.write(src)
+                  print(f"Normalized susfs_run_sus_path_loop in {path}")
+          PYEOF
+          python3 /tmp/fix_setuid_hook.py
 
           # 3. Add variable definition to susfs.c (NOT a function)
           # The variable must be defined and kept in sync with the static key.
