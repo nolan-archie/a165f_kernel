@@ -191,7 +191,34 @@ jobs:
           echo "Removed 'static' from susfs_run_sus_path_loop"
 
           # 2b. Normalize susfs_run_sus_path_loop call sites
-          python3 -c "import re, glob; [(__import__('os').path.exists(p) and (lambda s, o=open(p).read(): (lambda n: n!=o and open(p,'w').write(n) and print(f'Normalized {p}'))(re.sub(r'susfs_run_sus_path_loop\s*\([^)]+\)', 'susfs_run_sus_path_loop()', re.sub(r'^\s*(extern\s+)?void\s+susfs_run_sus_path_loop\s*\([^)]+\)\s*;\s*\n', '', o, flags=re.MULTILINE))))() for p in glob.glob('drivers/kernelsu/setuid_hook.c') + glob.glob('KernelSU/kernel/*.c')]"
+          python3 - <<'PYEOF'
+          import re, glob
+
+          files = ['drivers/kernelsu/setuid_hook.c'] + glob.glob('KernelSU/kernel/*.c')
+          for p in files:
+              try:
+                  with open(p) as fh:
+                      o = fh.read()
+              except FileNotFoundError:
+                  continue
+
+              n = re.sub(
+                  r'^\s*(extern\s+)?void\s+susfs_run_sus_path_loop\s*\([^)]+\)\s*;\s*\n',
+                  '',
+                  o,
+                  flags=re.MULTILINE,
+              )
+              n = re.sub(
+                  r'susfs_run_sus_path_loop\s*\([^)]+\)',
+                  'susfs_run_sus_path_loop()',
+                  n,
+              )
+
+              if n != o:
+                  with open(p, 'w') as fh:
+                      fh.write(n)
+                  print(f'Normalized {p}')
+          PYEOF
 
           # 3. Add variable definition to susfs.c
           STATIC_KEY_LINE=$(grep -n 'DEFINE_STATIC_KEY_TRUE(susfs_is_sdcard_android_data_not_decrypted)' fs/susfs.c | head -1 | cut -d: -f1)
