@@ -404,25 +404,31 @@ jobs:
       - name: Copy custom defconfigs
         run: |
           mkdir -p kernel-5.10/arch/arm64/configs
-          # Copy everything from the repo's custom_defconfigs folder
-          cp -f custom_defconfigs/* kernel-5.10/arch/arm64/configs/ 2>/dev/null || true
-
-          # If version_defconfig wasn't provided, generate a minimal version config
-          if [ ! -f "kernel-5.10/arch/arm64/configs/version_defconfig" ] && [ ! -f "kernel-5.10/arch/arm64/configs/version.config" ]; then
-            printf 'CONFIG_LOCALVERSION_AUTO=n\nCONFIG_LOCALVERSION="-nolanarchie-dev"\n' \
-              > kernel-5.10/arch/arm64/configs/version.config
+          cp -f custom_defconfigs/custom_defconfig kernel-5.10/arch/arm64/configs/
+          if [ -f custom_defconfigs/version_defconfig ]; then
+            cp -f custom_defconfigs/version_defconfig kernel-5.10/arch/arm64/configs/
           fi
-
-          echo "=== Available defconfigs ==="
+          echo "=== Copied defconfigs ==="
           ls -la kernel-5.10/arch/arm64/configs/
-      - name: Create root symlinks
+
+      - name: Merge defconfigs
         run: |
-          for d in custom_defconfigs prebuilts_helio_g99 oem_prebuilt_images; do
-            if [ -d "${GITHUB_WORKSPACE}/$d" ] && [ ! -e "/$d" ]; then
-              sudo ln -sf "${GITHUB_WORKSPACE}/$d" "/$d"
-              echo "Symlink: /$d"
+          cd kernel-5.10/arch/arm64/configs
+          # Concatenate base + entry_level + custom + version into one file.
+          # The kernel uses the *last* occurrence of any option, so order matters.
+          {
+            cat a16_00_defconfig
+            [ -f entry_level.config ] && cat entry_level.config
+            cat custom_defconfig
+            if [ -f version_defconfig ]; then
+              cat version_defconfig
+            elif [ -f version.config ]; then
+              cat version.config
             fi
-          done
+          } > a16_00_custom_defconfig
+          cd "${GITHUB_WORKSPACE}"
+          echo "=== Merged defconfig lines ==="
+          wc -l kernel-5.10/arch/arm64/configs/a16_00_custom_defconfig
 
       - name: Generate build config
         run: |
@@ -430,22 +436,13 @@ jobs:
           mkdir -p "$OUTDIR"
           rm -f "$OUTDIR/build.config" "$OUTDIR/build.config.gki.aarch64" "$OUTDIR/build.config.mtk"
           cd "${GITHUB_WORKSPACE}/kernel-5.10"
-
-          # Build the overlay list dynamically
-          OVERLAYS="entry_level.config custom_defconfig"
-          if [ -f "arch/arm64/configs/version_defconfig" ]; then
-            OVERLAYS="$OVERLAYS version_defconfig"
-          elif [ -f "arch/arm64/configs/version.config" ]; then
-            OVERLAYS="$OVERLAYS version.config"
-          fi
-
           python3 scripts/gen_build_config.py \
-            --kernel-defconfig a16_00_defconfig \
-            --kernel-defconfig-overlays "$OVERLAYS" \
+            --kernel-defconfig a16_00_custom_defconfig \
             -m user \
             -o "$OUTDIR/build.config"
           cd "${GITHUB_WORKSPACE}"
           head -5 "$OUTDIR/build.config"
+
       - name: Build kernel
         run: |
           WDIR="${GITHUB_WORKSPACE}"
