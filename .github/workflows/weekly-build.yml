@@ -401,51 +401,20 @@ jobs:
           SUSFS_VERSION="${SUSFS_VERSION:-unknown}"
           echo "SUSFS_VERSION=${SUSFS_VERSION}" >> "$GITHUB_ENV"
           echo "SUSFS ${SUSFS_VERSION} integrated from ${SUSFS_BRANCH}"
-      - name: Write version defconfig
+      - name: Copy custom defconfigs
         run: |
           mkdir -p kernel-5.10/arch/arm64/configs
-          printf 'CONFIG_LOCALVERSION_AUTO=n\nCONFIG_LOCALVERSION="-nolanarchie-dev"\n' \
-            > kernel-5.10/arch/arm64/configs/version.config
+          # Copy everything from the repo's custom_defconfigs folder
+          cp -f custom_defconfigs/* kernel-5.10/arch/arm64/configs/ 2>/dev/null || true
 
-      - name: Write knox defconfig
-        run: |
-          mkdir -p kernel-5.10/arch/arm64/configs
-          printf '%s\n' \
-            'CONFIG_SAMSUNG_PRODUCT_SHIP=n' \
-            'CONFIG_SEC_RESTRICT_FORK=n' \
-            'CONFIG_SEC_RESTRICT_SETUID=n' \
-            'CONFIG_UH=n' \
-            'CONFIG_RKP=n' \
-            'CONFIG_RKP_CFP=n' \
-            'CONFIG_KDP=n' \
-            'CONFIG_FIVE=n' \
-            > kernel-5.10/arch/arm64/configs/disable_knox.config
+          # If version_defconfig wasn't provided, generate a minimal version config
+          if [ ! -f "kernel-5.10/arch/arm64/configs/version_defconfig" ] && [ ! -f "kernel-5.10/arch/arm64/configs/version.config" ]; then
+            printf 'CONFIG_LOCALVERSION_AUTO=n\nCONFIG_LOCALVERSION="-nolanarchie-dev"\n' \
+              > kernel-5.10/arch/arm64/configs/version.config
+          fi
 
-      - name: Write permissive defconfig
-        run: |
-          printf '%s\n' \
-            'CONFIG_SECURITY_SELINUX_DEVELOP=y' \
-            'CONFIG_SECURITY_SELINUX_BOOTPARAM=y' \
-            'CONFIG_SECURITY_SELINUX_BOOTPARAM_VALUE=0' \
-            > kernel-5.10/arch/arm64/configs/permissive.config
-
-      - name: Write susfs defconfig
-        run: |
-          printf '%s\n' \
-            'CONFIG_KSU=y' \
-            'CONFIG_KSU_MANUAL_SU=y' \
-            'CONFIG_KSU_SUSFS=y' \
-            'CONFIG_KSU_SUSFS_SUS_PATH=y' \
-            'CONFIG_KSU_SUSFS_SUS_MOUNT=y' \
-            'CONFIG_KSU_SUSFS_SUS_KSTAT=y' \
-            'CONFIG_KSU_SUSFS_SPOOF_UNAME=y' \
-            'CONFIG_KSU_SUSFS_ENABLE_LOG=y' \
-            'CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y' \
-            'CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y' \
-            'CONFIG_KSU_SUSFS_OPEN_REDIRECT=y' \
-            'CONFIG_KSU_SUSFS_SUS_MAP=y' \
-            > kernel-5.10/arch/arm64/configs/susfs.config
-
+          echo "=== Available defconfigs ==="
+          ls -la kernel-5.10/arch/arm64/configs/
       - name: Create root symlinks
         run: |
           for d in custom_defconfigs prebuilts_helio_g99 oem_prebuilt_images; do
@@ -461,14 +430,22 @@ jobs:
           mkdir -p "$OUTDIR"
           rm -f "$OUTDIR/build.config" "$OUTDIR/build.config.gki.aarch64" "$OUTDIR/build.config.mtk"
           cd "${GITHUB_WORKSPACE}/kernel-5.10"
+
+          # Build the overlay list dynamically
+          OVERLAYS="entry_level.config custom_defconfig"
+          if [ -f "arch/arm64/configs/version_defconfig" ]; then
+            OVERLAYS="$OVERLAYS version_defconfig"
+          elif [ -f "arch/arm64/configs/version.config" ]; then
+            OVERLAYS="$OVERLAYS version.config"
+          fi
+
           python3 scripts/gen_build_config.py \
             --kernel-defconfig a16_00_defconfig \
-            --kernel-defconfig-overlays "entry_level.config version.config disable_knox.config permissive.config susfs.config" \
+            --kernel-defconfig-overlays "$OVERLAYS" \
             -m user \
             -o "$OUTDIR/build.config"
           cd "${GITHUB_WORKSPACE}"
           head -5 "$OUTDIR/build.config"
-
       - name: Build kernel
         run: |
           WDIR="${GITHUB_WORKSPACE}"
@@ -630,7 +607,7 @@ jobs:
             SUSFS branch: ${{ env.SUSFS_BRANCH }}
             SUSFS version: ${{ env.SUSFS_VERSION }}
             Build: ${{ env.BUILD_VERSION }}
-            SELinux: PERMISSIVE
+            SELinux:ENFORCING
             Flashing:
             boot.img - fastboot flash boot boot.img or TWRP
             zip - Flash in TWRP or OrangeFox
@@ -675,6 +652,7 @@ jobs:
             'SUSFS SPOOF CMDLINE OR BOOTCONFIG: ✅' \
             'OPEN DIRECT: ✅' \
             'SUS MAP: ✅' \
+            'SELinux: ENFORCING' \
             '' \
             "Manager: ${MANAGER_NAME}" \
             "Manager version: ${MANAGER_VERSION}" \
