@@ -145,6 +145,7 @@ jobs:
           cd ..
 
       - name: Integrate SUSFS
+        shell: bash
         run: |
           set -euo pipefail
           rm -rf /tmp/susfs4ksu
@@ -176,91 +177,23 @@ jobs:
           cd "${GITHUB_WORKSPACE}"
 
           # >>>>> CRITICAL FIX: Manually patch susfs.h and susfs.c <<<
-          # The SUSFS kernel patch fails on Samsung's modified kernel.
-          # We must add the missing declarations and definitions manually.
           cd kernel-5.10
 
-          # 0. Ensure struct kstat is fully visible before we declare prototypes
-          #    that use it below — without this, Clang's -Wvisibility (as -Werror)
-          #    fails with "declaration of 'struct kstat' will not be visible
-          #    outside of this function".
-          printf '#include <linux/stat.h>\n' >> include/linux/susfs.h
+          # 0. Ensure struct kstat is fully visible
+          python3 -c "open('include/linux/susfs.h','a').write('\n#include <linux/stat.h>\n')"
 
           # 1. Add missing declarations to susfs.h
-          # NOTE: susfs_is_sdcard_android_data_decrypted is used as a VARIABLE by Samsung/SukiSU,
-          # not as a function. So we declare it as extern bool, not a function.
-          printf '\n/* Additional declarations for SukiSU compatibility */\n' >> include/linux/susfs.h
-          printf '#ifdef CONFIG_KSU_SUSFS_SUS_PATH\n' >> include/linux/susfs.h
-          printf 'extern bool susfs_is_sdcard_android_data_decrypted;\n' >> include/linux/susfs.h
-          printf 'void susfs_run_sus_path_loop(void);\n' >> include/linux/susfs.h
-          printf '#endif\n' >> include/linux/susfs.h
-          printf '#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT\n' >> include/linux/susfs.h
-          printf 'bool susfs_is_current_proc_umounted(void);\n' >> include/linux/susfs.h
-          printf 'bool susfs_is_current_proc_umounted_app(void);\n' >> include/linux/susfs.h
-          printf '#endif\n' >> include/linux/susfs.h
-          printf '#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT\n' >> include/linux/susfs.h
-          printf 'void susfs_sus_kstat_spoof_generic_fillattr(struct inode *inode, struct kstat *stat);\n' >> include/linux/susfs.h
-          printf 'void susfs_sus_kstat_spoof_show_map_vma(struct inode *inode, dev_t *out_dev, unsigned long *out_ino);\n' >> include/linux/susfs.h
-          printf '#endif\n' >> include/linux/susfs.h
-          printf '#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT\n' >> include/linux/susfs.h
-          printf 'struct filename *susfs_open_redirect_spoof_do_sys_openat(struct inode *inode);\n' >> include/linux/susfs.h
-          printf 'int susfs_open_redirect_spoof_vfs_readlink(struct inode *inode, char __user *buffer, int buflen);\n' >> include/linux/susfs.h
-          printf 'int susfs_open_redirect_spoof_do_proc_readlink(struct inode *inode, char *tmp_buf, int buflen);\n' >> include/linux/susfs.h
-          printf 'int susfs_open_redirect_spoof_vfs_statfs(struct inode *inode, struct kstatfs *buf);\n' >> include/linux/susfs.h
-          printf 'int susfs_open_redirect_spoof_seq_show(struct inode *inode, int *out_mnt_id, unsigned long *out_ino);\n' >> include/linux/susfs.h
-          printf 'int susfs_open_redirect_spoof_show_map_vma(struct inode *inode, unsigned long *out_ino, dev_t *out_dev, char *spoofed_name);\n' >> include/linux/susfs.h
-          printf '#endif\n' >> include/linux/susfs.h
+          python3 -c "open('include/linux/susfs.h','a').write('\n/* Additional declarations for SukiSU compatibility */\n#ifdef CONFIG_KSU_SUSFS_SUS_PATH\nextern bool susfs_is_sdcard_android_data_decrypted;\nvoid susfs_run_sus_path_loop(void);\n#endif\n#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT\nbool susfs_is_current_proc_umounted(void);\nbool susfs_is_current_proc_umounted_app(void);\n#endif\n#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT\nvoid susfs_sus_kstat_spoof_generic_fillattr(struct inode *inode, struct kstat *stat);\nvoid susfs_sus_kstat_spoof_show_map_vma(struct inode *inode, dev_t *out_dev, unsigned long *out_ino);\n#endif\n#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT\nstruct filename *susfs_open_redirect_spoof_do_sys_openat(struct inode *inode);\nint susfs_open_redirect_spoof_vfs_readlink(struct inode *inode, char __user *buffer, int buflen);\nint susfs_open_redirect_spoof_do_proc_readlink(struct inode *inode, char *tmp_buf, int buflen);\nint susfs_open_redirect_spoof_vfs_statfs(struct inode *inode, struct kstatfs *buf);\nint susfs_open_redirect_spoof_seq_show(struct inode *inode, int *out_mnt_id, unsigned long *out_ino);\nint susfs_open_redirect_spoof_show_map_vma(struct inode *inode, unsigned long *out_ino, dev_t *out_dev, char *spoofed_name);\n#endif\n')"
           echo "Added missing declarations to susfs.h"
 
-          # 2. Fix susfs.c - remove 'static' from susfs_run_sus_path_loop so it can be called externally
+          # 2. Fix susfs.c - remove 'static' from susfs_run_sus_path_loop
           sed -i -E 's/^[[:space:]]*static[[:space:]]+void[[:space:]]+susfs_run_sus_path_loop[[:space:]]*\(/void susfs_run_sus_path_loop(/' fs/susfs.c
           echo "Removed 'static' from susfs_run_sus_path_loop"
 
-          # 2b. Normalize susfs_run_sus_path_loop call sites injected by SUSFS's
-          #     KernelSU patch — the injected declaration/call may still expect
-          #     an argument (e.g. new_uid) even though the real function in
-          #     fs/susfs.c takes none. Strip any argument so it matches, and
-          #     remove any conflicting local forward-declaration.
-          cat > /tmp/fix_setuid_hook.py << 'PYEOF'
-          import re, glob
+          # 2b. Normalize susfs_run_sus_path_loop call sites
+          python3 -c "import re, glob; [(__import__('os').path.exists(p) and (lambda s, o=open(p).read(): (lambda n: n!=o and open(p,'w').write(n) and print(f'Normalized {p}'))(re.sub(r'susfs_run_sus_path_loop\s*\([^)]+\)', 'susfs_run_sus_path_loop()', re.sub(r'^\s*(extern\s+)?void\s+susfs_run_sus_path_loop\s*\([^)]+\)\s*;\s*\n', '', o, flags=re.MULTILINE))))() for p in glob.glob('drivers/kernelsu/setuid_hook.c') + glob.glob('KernelSU/kernel/*.c')]"
 
-          candidates = glob.glob('drivers/kernelsu/setuid_hook.c') + \
-                       glob.glob('KernelSU/kernel/*.c')
-
-          for path in candidates:
-              try:
-                  with open(path, 'r') as f:
-                      src = f.read()
-              except (FileNotFoundError, IsADirectoryError):
-                  continue
-
-              orig = src
-
-              # Remove any local forward-declaration of susfs_run_sus_path_loop
-              # that takes an argument (conflicts with the 0-arg one in susfs.h).
-              src = re.sub(
-                  r'^\s*(extern\s+)?void\s+susfs_run_sus_path_loop\s*\([^)]+\)\s*;\s*\n',
-                  '',
-                  src,
-                  flags=re.MULTILINE,
-              )
-
-              # Normalize any call site that passes an argument down to zero args.
-              src = re.sub(
-                  r'susfs_run_sus_path_loop\s*\([^)]+\)',
-                  'susfs_run_sus_path_loop()',
-                  src,
-              )
-
-              if src != orig:
-                  with open(path, 'w') as f:
-                      f.write(src)
-                  print(f"Normalized susfs_run_sus_path_loop in {path}")
-          PYEOF
-          python3 /tmp/fix_setuid_hook.py
-
-          # 3. Add variable definition to susfs.c (NOT a function)
-          # The variable must be defined and kept in sync with the static key.
+          # 3. Add variable definition to susfs.c
           STATIC_KEY_LINE=$(grep -n 'DEFINE_STATIC_KEY_TRUE(susfs_is_sdcard_android_data_not_decrypted)' fs/susfs.c | head -1 | cut -d: -f1)
           if [ -n "$STATIC_KEY_LINE" ]; then
             sed -i "${STATIC_KEY_LINE}a bool susfs_is_sdcard_android_data_decrypted = false;" fs/susfs.c
@@ -271,30 +204,12 @@ jobs:
           fi
 
           # 4. Update the variable whenever the static key is changed
-          # Use Python for multiline replacement (sed can't handle \n in replacement)
-          cat > /tmp/fix_susfs.py << 'PYEOF'
-          import sys
-          with open('fs/susfs.c', 'r') as f:
-              content = f.read()
-          old = 'static_branch_disable(&susfs_is_sdcard_android_data_not_decrypted);'
-          new = 'static_branch_disable(&susfs_is_sdcard_android_data_not_decrypted);\n\tsusfs_is_sdcard_android_data_decrypted = true;'
-          content = content.replace(old, new)
-          with open('fs/susfs.c', 'w') as f:
-              f.write(content)
-          PYEOF
-          python3 /tmp/fix_susfs.py
+          python3 -c "c=open('fs/susfs.c').read(); c=c.replace('static_branch_disable(&susfs_is_sdcard_android_data_not_decrypted);', 'static_branch_disable(&susfs_is_sdcard_android_data_not_decrypted);\n\\tsusfs_is_sdcard_android_data_decrypted = true;'); open('fs/susfs.c','w').write(c)"
           echo "Added variable updates after static key changes"
 
           # >>>>> LINKER FIX: add missing function that kernel patch expects <<<<<
           if ! grep -q 'susfs_hide_sus_mnts_for_non_su_procs' fs/susfs.c; then
-            cat >> fs/susfs.c << 'EOF'
-
-#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-bool susfs_hide_sus_mnts_for_non_su_procs(void) {
-    return susfs_is_current_proc_umounted();
-}
-#endif
-EOF
+            python3 -c "open('fs/susfs.c','a').write('\n#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT\nbool susfs_hide_sus_mnts_for_non_su_procs(void) {\n    return susfs_is_current_proc_umounted();\n}\n#endif\n')"
             echo "Added susfs_hide_sus_mnts_for_non_su_procs to susfs.c"
           else
             echo "susfs_hide_sus_mnts_for_non_su_procs already present"
@@ -321,32 +236,30 @@ EOF
             fi
           }
 
-          readarray -t SUSFS_FILES << 'EOF'
-drivers/input/input.c
-fs/exec.c
-fs/namei.c
-fs/namespace.c
-fs/notify/fdinfo.c
-fs/open.c
-fs/proc/base.c
-fs/proc/bootconfig.c
-fs/proc/fd.c
-fs/proc/task_mmu.c
-fs/proc_namespace.c
-fs/read_write.c
-fs/readdir.c
-fs/stat.c
-fs/statfs.c
-kernel/kallsyms.c
-kernel/reboot.c
-kernel/sys.c
-mm/memory.c
-security/selinux/avc.c
-security/selinux/hooks.c
-security/selinux/selinuxfs.c
-EOF
-
-          for f in "${SUSFS_FILES[@]}"; do
+          for f in \
+            drivers/input/input.c \
+            fs/exec.c \
+            fs/namei.c \
+            fs/namespace.c \
+            fs/notify/fdinfo.c \
+            fs/open.c \
+            fs/proc/base.c \
+            fs/proc/bootconfig.c \
+            fs/proc/fd.c \
+            fs/proc/task_mmu.c \
+            fs/proc_namespace.c \
+            fs/read_write.c \
+            fs/readdir.c \
+            fs/stat.c \
+            fs/statfs.c \
+            kernel/kallsyms.c \
+            kernel/reboot.c \
+            kernel/sys.c \
+            mm/memory.c \
+            security/selinux/avc.c \
+            security/selinux/hooks.c \
+            security/selinux/selinuxfs.c \
+          ; do
             add_susfs_include "$f"
           done
 
@@ -356,57 +269,22 @@ EOF
           fi
 
           # 6. Verify ALL changes
+          check() { grep -q "$1" "$2" && echo "✓ $3" || { echo "✗ MISSING: $3"; exit 1; }; }
+
           echo "=== Verifying SUSFS fixes ==="
           echo "--- susfs.h declarations ---"
-          if grep -q "extern bool susfs_is_sdcard_android_data_decrypted" include/linux/susfs.h; then
-            echo "✓ susfs_is_sdcard_android_data_decrypted declared as variable"
-          else
-            echo "✗ MISSING: susfs_is_sdcard_android_data_decrypted variable declaration in susfs.h"
-            exit 1
-          fi
-          if grep -q "susfs_run_sus_path_loop" include/linux/susfs.h; then
-            echo "✓ susfs_run_sus_path_loop declared"
-          else
-            echo "✗ MISSING: susfs_run_sus_path_loop in susfs.h"
-            exit 1
-          fi
+          check "extern bool susfs_is_sdcard_android_data_decrypted" include/linux/susfs.h "susfs_is_sdcard_android_data_decrypted declared as variable"
+          check "susfs_run_sus_path_loop" include/linux/susfs.h "susfs_run_sus_path_loop declared"
           
           echo "--- susfs.c definitions ---"
-          if grep -q "^void susfs_run_sus_path_loop" fs/susfs.c; then
-            echo "✓ susfs_run_sus_path_loop defined (non-static)"
-          else
-            echo "✗ MISSING: non-static susfs_run_sus_path_loop in susfs.c"
-            exit 1
-          fi
-          if grep -q "bool susfs_is_sdcard_android_data_decrypted" fs/susfs.c; then
-            echo "✓ susfs_is_sdcard_android_data_decrypted defined as variable"
-          else
-            echo "✗ MISSING: susfs_is_sdcard_android_data_decrypted variable in susfs.c"
-            exit 1
-          fi
-          if grep -q "susfs_is_sdcard_android_data_decrypted = true" fs/susfs.c; then
-            echo "✓ Variable update added after static key changes"
-          else
-            echo "✗ MISSING: variable update in susfs.c"
-            exit 1
-          fi
-          if grep -q "susfs_hide_sus_mnts_for_non_su_procs" fs/susfs.c; then
-            echo "✓ susfs_hide_sus_mnts_for_non_su_procs defined"
-          else
-            echo "✗ MISSING: susfs_hide_sus_mnts_for_non_su_procs in susfs.c"
-            exit 1
-          fi
+          check "^void susfs_run_sus_path_loop" fs/susfs.c "susfs_run_sus_path_loop defined (non-static)"
+          check "bool susfs_is_sdcard_android_data_decrypted" fs/susfs.c "susfs_is_sdcard_android_data_decrypted defined as variable"
+          check "susfs_is_sdcard_android_data_decrypted = true" fs/susfs.c "Variable update added after static key changes"
+          check "susfs_hide_sus_mnts_for_non_su_procs" fs/susfs.c "susfs_hide_sus_mnts_for_non_su_procs defined"
 
           echo "--- File includes ---"
           for f in fs/exec.c fs/namespace.c fs/proc_namespace.c drivers/kernelsu/setuid_hook.c; do
-            if [ -f "$f" ]; then
-              if grep -q '#include <linux/susfs.h>' "$f"; then
-                echo "✓ $f has susfs.h"
-              else
-                echo "✗ MISSING: $f"
-                exit 1
-              fi
-            fi
+            [ -f "$f" ] && { grep -q '#include <linux/susfs.h>' "$f" && echo "✓ $f has susfs.h" || { echo "✗ MISSING: $f"; exit 1; }; }
           done
 
           cd "${GITHUB_WORKSPACE}"
