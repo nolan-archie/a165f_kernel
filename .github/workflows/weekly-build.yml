@@ -234,12 +234,14 @@ jobs:
           python3 -c "c=open('fs/susfs.c').read(); c=c.replace('static_branch_disable(&susfs_is_sdcard_android_data_not_decrypted);', 'static_branch_disable(&susfs_is_sdcard_android_data_not_decrypted);\n\\tsusfs_is_sdcard_android_data_decrypted = true;'); open('fs/susfs.c','w').write(c)"
           echo "Added variable updates after static key changes"
 
-          # >>>>> LINKER FIX: add missing function that kernel patch expects <<<<<
-          if ! grep -q 'susfs_hide_sus_mnts_for_non_su_procs' fs/susfs.c; then
+          # >>>>> LINKER FIX: ensure susfs_hide_sus_mnts_for_non_su_procs is non-static <<<
+          sed -i -E 's/^[[:space:]]*static[[:space:]]+bool[[:space:]]+susfs_hide_sus_mnts_for_non_su_procs[[:space:]]*\(/bool susfs_hide_sus_mnts_for_non_su_procs(/' fs/susfs.c
+
+          if grep -qE '^\s*(extern\s+)?bool\s+susfs_hide_sus_mnts_for_non_su_procs\s*\(void\)\s*\{' fs/susfs.c; then
+            echo "susfs_hide_sus_mnts_for_non_su_procs already defined (non-static) — no action needed"
+          else
             python3 -c "open('fs/susfs.c','a').write('\n#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT\nbool susfs_hide_sus_mnts_for_non_su_procs(void) {\n    return susfs_is_current_proc_umounted();\n}\n#endif\n')"
             echo "Added susfs_hide_sus_mnts_for_non_su_procs to susfs.c"
-          else
-            echo "susfs_hide_sus_mnts_for_non_su_procs already present"
           fi
 
           # 5. Add #include <linux/susfs.h> to all files that need it
@@ -307,7 +309,7 @@ jobs:
           check "^void susfs_run_sus_path_loop" fs/susfs.c "susfs_run_sus_path_loop defined (non-static)"
           check "bool susfs_is_sdcard_android_data_decrypted" fs/susfs.c "susfs_is_sdcard_android_data_decrypted defined as variable"
           check "susfs_is_sdcard_android_data_decrypted = true" fs/susfs.c "Variable update added after static key changes"
-          check "susfs_hide_sus_mnts_for_non_su_procs" fs/susfs.c "susfs_hide_sus_mnts_for_non_su_procs defined"
+          check "^bool susfs_hide_sus_mnts_for_non_su_procs" fs/susfs.c "susfs_hide_sus_mnts_for_non_su_procs defined (non-static)"
 
           echo "--- File includes ---"
           for f in fs/exec.c fs/namespace.c fs/proc_namespace.c drivers/kernelsu/setuid_hook.c; do
