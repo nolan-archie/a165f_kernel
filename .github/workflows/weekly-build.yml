@@ -471,7 +471,7 @@ jobs:
           export AVB_BOOT_KEY="${WDIR}/mkbootimg/tests/data/testkey_rsa2048.pem"
           export AVB_BOOT_ALGORITHM=SHA256_RSA2048
           export AVB_BOOT_PARTITION_NAME=boot
-          export LTO=thin
+          export LTO=full
           export KCFLAGS="-Wframe-larger-than=16384"
           cd "${GITHUB_WORKSPACE}/kernel"
           ./build/build.sh 2>&1 | tee "${GITHUB_WORKSPACE}/build.log"
