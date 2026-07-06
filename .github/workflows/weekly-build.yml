@@ -143,6 +143,7 @@ jobs:
           bash /tmp/sukisu_setup.sh "${SUKISU_BRANCH}"
           test -d KernelSU/kernel
           cd ..
+
       - name: Integrate SUSFS
         run: |
           set -euo pipefail
@@ -271,7 +272,6 @@ jobs:
 
           # 4. Update the variable whenever the static key is changed
           # Use Python for multiline replacement (sed can't handle \n in replacement)
-          # Write Python script to a temp file first to avoid YAML quote issues
           cat > /tmp/fix_susfs.py << 'PYEOF'
           import sys
           with open('fs/susfs.c', 'r') as f:
@@ -284,6 +284,21 @@ jobs:
           PYEOF
           python3 /tmp/fix_susfs.py
           echo "Added variable updates after static key changes"
+
+          # >>>>> LINKER FIX: add missing function that kernel patch expects <<<<<
+          if ! grep -q 'susfs_hide_sus_mnts_for_non_su_procs' fs/susfs.c; then
+            cat >> fs/susfs.c << 'EOF'
+
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+bool susfs_hide_sus_mnts_for_non_su_procs(void) {
+    return susfs_is_current_proc_umounted();
+}
+#endif
+EOF
+            echo "Added susfs_hide_sus_mnts_for_non_su_procs to susfs.c"
+          else
+            echo "susfs_hide_sus_mnts_for_non_su_procs already present"
+          fi
 
           # 5. Add #include <linux/susfs.h> to all files that need it
           add_susfs_include() {
@@ -306,32 +321,32 @@ jobs:
             fi
           }
 
-          SUSFS_FILES="
-            drivers/input/input.c
-            fs/exec.c
-            fs/namei.c
-            fs/namespace.c
-            fs/notify/fdinfo.c
-            fs/open.c
-            fs/proc/base.c
-            fs/proc/bootconfig.c
-            fs/proc/fd.c
-            fs/proc/task_mmu.c
-            fs/proc_namespace.c
-            fs/read_write.c
-            fs/readdir.c
-            fs/stat.c
-            fs/statfs.c
-            kernel/kallsyms.c
-            kernel/reboot.c
-            kernel/sys.c
-            mm/memory.c
-            security/selinux/avc.c
-            security/selinux/hooks.c
-            security/selinux/selinuxfs.c
-          "
-          
-          for f in $SUSFS_FILES; do
+          readarray -t SUSFS_FILES << 'EOF'
+drivers/input/input.c
+fs/exec.c
+fs/namei.c
+fs/namespace.c
+fs/notify/fdinfo.c
+fs/open.c
+fs/proc/base.c
+fs/proc/bootconfig.c
+fs/proc/fd.c
+fs/proc/task_mmu.c
+fs/proc_namespace.c
+fs/read_write.c
+fs/readdir.c
+fs/stat.c
+fs/statfs.c
+kernel/kallsyms.c
+kernel/reboot.c
+kernel/sys.c
+mm/memory.c
+security/selinux/avc.c
+security/selinux/hooks.c
+security/selinux/selinuxfs.c
+EOF
+
+          for f in "${SUSFS_FILES[@]}"; do
             add_susfs_include "$f"
           done
 
@@ -375,9 +390,15 @@ jobs:
             echo "✗ MISSING: variable update in susfs.c"
             exit 1
           fi
+          if grep -q "susfs_hide_sus_mnts_for_non_su_procs" fs/susfs.c; then
+            echo "✓ susfs_hide_sus_mnts_for_non_su_procs defined"
+          else
+            echo "✗ MISSING: susfs_hide_sus_mnts_for_non_su_procs in susfs.c"
+            exit 1
+          fi
 
           echo "--- File includes ---"
-          for f in fs/exec.c fs/namespace.c drivers/kernelsu/setuid_hook.c; do
+          for f in fs/exec.c fs/namespace.c fs/proc_namespace.c drivers/kernelsu/setuid_hook.c; do
             if [ -f "$f" ]; then
               if grep -q '#include <linux/susfs.h>' "$f"; then
                 echo "✓ $f has susfs.h"
@@ -401,34 +422,19 @@ jobs:
           SUSFS_VERSION="${SUSFS_VERSION:-unknown}"
           echo "SUSFS_VERSION=${SUSFS_VERSION}" >> "$GITHUB_ENV"
           echo "SUSFS ${SUSFS_VERSION} integrated from ${SUSFS_BRANCH}"
-      - name: Copy custom defconfigs
-        run: |
-          mkdir -p kernel-5.10/arch/arm64/configs
-          cp -f custom_defconfigs/custom_defconfig kernel-5.10/arch/arm64/configs/
-          if [ -f custom_defconfigs/version_defconfig ]; then
-            cp -f custom_defconfigs/version_defconfig kernel-5.10/arch/arm64/configs/
-          fi
-          echo "=== Copied defconfigs ==="
-          ls -la kernel-5.10/arch/arm64/configs/
 
       - name: Merge defconfigs
         run: |
+          mkdir -p kernel-5.10/arch/arm64/configs
           cd kernel-5.10/arch/arm64/configs
-          # Concatenate base + entry_level + custom + version into one file.
-          # The kernel uses the *last* occurrence of any option, so order matters.
           {
             cat a16_00_defconfig
             [ -f entry_level.config ] && cat entry_level.config
-            cat custom_defconfig
-            if [ -f version_defconfig ]; then
-              cat version_defconfig
-            elif [ -f version.config ]; then
-              cat version.config
-            fi
+            cat "${GITHUB_WORKSPACE}/custom_defconfigs/custom_defconfig"
+            printf 'CONFIG_LOCALVERSION_AUTO=n\nCONFIG_LOCALVERSION="-nolanarchie-dev"\n'
           } > a16_00_custom_defconfig
+          echo "=== Merged defconfig lines: $(wc -l < a16_00_custom_defconfig) ==="
           cd "${GITHUB_WORKSPACE}"
-          echo "=== Merged defconfig lines ==="
-          wc -l kernel-5.10/arch/arm64/configs/a16_00_custom_defconfig
 
       - name: Generate build config
         run: |
@@ -442,6 +448,15 @@ jobs:
             -o "$OUTDIR/build.config"
           cd "${GITHUB_WORKSPACE}"
           head -5 "$OUTDIR/build.config"
+
+      - name: Create root symlinks
+        run: |
+          for d in custom_defconfigs prebuilts_helio_g99 oem_prebuilt_images; do
+            if [ -d "${GITHUB_WORKSPACE}/$d" ] && [ ! -e "/$d" ]; then
+              sudo ln -sf "${GITHUB_WORKSPACE}/$d" "/$d"
+              echo "Symlink: /$d"
+            fi
+          done
 
       - name: Build kernel
         run: |
@@ -471,7 +486,7 @@ jobs:
           export AVB_BOOT_KEY="${WDIR}/mkbootimg/tests/data/testkey_rsa2048.pem"
           export AVB_BOOT_ALGORITHM=SHA256_RSA2048
           export AVB_BOOT_PARTITION_NAME=boot
-          export LTO=full
+          export LTO=thin
           export KCFLAGS="-Wframe-larger-than=16384"
           cd "${GITHUB_WORKSPACE}/kernel"
           ./build/build.sh 2>&1 | tee "${GITHUB_WORKSPACE}/build.log"
@@ -604,7 +619,7 @@ jobs:
             SUSFS branch: ${{ env.SUSFS_BRANCH }}
             SUSFS version: ${{ env.SUSFS_VERSION }}
             Build: ${{ env.BUILD_VERSION }}
-            SELinux:ENFORCING
+            SELinux: ENFORCING
             Flashing:
             boot.img - fastboot flash boot boot.img or TWRP
             zip - Flash in TWRP or OrangeFox
