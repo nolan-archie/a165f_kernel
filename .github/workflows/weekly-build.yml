@@ -8,7 +8,7 @@ on:
       sukisu_branch:
         description: 'SukiSU branch e.g. main susfs-main'
         required: false
-        default: 'main'
+        default: 'susfs'
       build_version:
         description: 'Version label blank for auto date'
         required: false
