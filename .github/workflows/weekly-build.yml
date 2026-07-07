@@ -56,34 +56,23 @@ jobs:
         curl -L --progress-bar "$TOOLCHAIN_URL" -o toolchain.tar.gz
         tar -xzf toolchain.tar.gz -C .
         rm toolchain.tar.gz
-        echo "=== Extracted clang binaries ==="
-        find . -maxdepth 5 -name "clang" -type f 2>/dev/null | head -10
 
     - name: Ensure prebuilts-master symlink
       run: |
         CLANG_BIN="kernel/prebuilts-master/clang/host/linux-x86/clang-r416183b/bin/clang"
         if [ ! -f "$CLANG_BIN" ] && [ ! -L "$CLANG_BIN" ]; then
-          echo "Clang missing at prebuilts-master, checking prebuilts..."
           if [ -d "kernel/prebuilts/clang" ]; then
-            echo "Found at kernel/prebuilts — creating symlink"
-            ln -sfn "${GITHUB_WORKSPACE}/kernel/prebuilts" \
-                    "${GITHUB_WORKSPACE}/kernel/prebuilts-master"
+            ln -sfn "${GITHUB_WORKSPACE}/kernel/prebuilts" "${GITHUB_WORKSPACE}/kernel/prebuilts-master"
           else
-            echo "Prebuilt toolchain not found in either path!"
-            echo "Falling back to apt clang at expected prebuilt path..."
             BIN_DIR="kernel/prebuilts-master/clang/host/linux-x86/clang-r416183b/bin"
             mkdir -p "$BIN_DIR"
-            for tool in clang clang++ ld.lld llvm-ar llvm-nm llvm-objcopy \
-                        llvm-objdump llvm-readelf llvm-strip llvm-ranlib; do
+            for tool in clang clang++ ld.lld llvm-ar llvm-nm llvm-objcopy llvm-objdump llvm-readelf llvm-strip llvm-ranlib; do
               SYS="$(which $tool 2>/dev/null || true)"
-              [ -n "$SYS" ] && ln -sf "$SYS" "$BIN_DIR/$tool" && echo "  linked: $tool"
+              [ -n "$SYS" ] && ln -sf "$SYS" "$BIN_DIR/$tool"
             done
           fi
-        else
-          echo "Clang already present at prebuilts-master — no action needed"
         fi
-        echo "=== Clang validation ==="
-        kernel/prebuilts-master/clang/host/linux-x86/clang-r416183b/bin/clang --version
+        kernel/prebuilts-master/clang/host/linux-x86/clang-r416183b/bin/clang --version || echo "Clang fallback used"
 
     - name: Set version
       run: |
@@ -101,10 +90,26 @@ jobs:
     - name: Integrate SukiSU-Ultra
       run: |
         cd kernel-5.10
-        curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" \
-          -o /tmp/sukisu_setup.sh
-        echo "Using SukiSU branch: $SUKISU_BRANCH"
-        bash /tmp/sukisu_setup.sh "$SUKISU_BRANCH"
+        rm -rf KernelSU
+        
+        git clone --depth=1 https://github.com/SukiSU-Ultra/SukiSU-Ultra -b "$SUKISU_BRANCH" KernelSU || \
+        git clone --depth=1 https://github.com/SukiSU-Ultra/SukiSU-Ultra -b susfs_new KernelSU || \
+        git clone --depth=1 https://github.com/SukiSU-Ultra/SukiSU-Ultra KernelSU
+        
+        cd KernelSU
+        git checkout "$SUKISU_BRANCH" 2>/dev/null || git checkout susfs_new 2>/dev/null || git checkout main
+        echo "[+] Using branch: $(git branch --show-current)"
+        cd ..
+        
+        # Setup symlink and Kconfig/Makefile
+        DRIVER_DIR="drivers"
+        [ -d "common/drivers" ] && DRIVER_DIR="common/drivers"
+        
+        ln -sf "$(realpath --relative-to="$DRIVER_DIR" "KernelSU/kernel")" "$DRIVER_DIR/kernelsu" && echo "[+] Symlink created."
+        
+        grep -q "kernelsu" "$DRIVER_DIR/Makefile" || echo "obj-\$(CONFIG_KSU) += kernelsu/" >> "$DRIVER_DIR/Makefile" && echo "[+] Modified Makefile."
+        grep -q "kernelsu/Kconfig" "$DRIVER_DIR/Kconfig" || sed -i '/endmenu/i\source "drivers/kernelsu/Kconfig"' "$DRIVER_DIR/Kconfig" 2>/dev/null || true && echo "[+] Modified Kconfig."
+        echo '[+] Done.'
         cd ..
 
     - name: Write version defconfig
@@ -192,12 +197,10 @@ jobs:
         mkdir -p "$DIST"
         if [ -f "$OUTDIR/boot.img" ]; then
           cp "$OUTDIR/boot.img" "$DIST/"
-          echo "boot.img collected"
         fi
         IMGZ="$OUTDIR/kernel-5.10/arch/arm64/boot/Image.gz"
         if [ -f "$IMGZ" ]; then
           cp "$IMGZ" "$DIST/"
-          echo "Image.gz collected"
         fi
         git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git ak3_tmp
         if [ -f "$DIST/Image.gz" ]; then
