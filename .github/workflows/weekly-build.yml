@@ -97,14 +97,21 @@ jobs:
           BRANCH="main"
         fi
         echo "SUKISU_BRANCH=$BRANCH" >> $GITHUB_ENV
-
     - name: Integrate SukiSU-Ultra
-      run: |
-        cd kernel-5.10
-        curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" \
-          -o /tmp/sukisu_setup.sh
-        bash /tmp/sukisu_setup.sh "$SUKISU_BRANCH"
-        cd ..
+  run: |
+    cd kernel-5.10
+    curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" \
+      -o /tmp/sukisu_setup.sh
+    
+    # Improved branch handling
+    SUSFS_BRANCH="${{ github.event.inputs.sukisu_branch }}"
+    if [ -z "$SUSFS_BRANCH" ] || [ "$SUSFS_BRANCH" = "susfs" ]; then
+      SUSFS_BRANCH="susfs_new"   # Use the branch shown in your screenshot
+    fi
+    
+    echo "Using SukiSU branch: $SUSFS_BRANCH"
+    bash /tmp/sukisu_setup.sh "$SUSFS_BRANCH"
+    cd ..
     - name: Write version defconfig
       run: |
         mkdir -p custom_defconfigs
