@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (c) 2020 Mediatek Inc.
 
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 from argparse import ArgumentParser, FileType, ArgumentDefaultsHelpFormatter
 import os
@@ -75,7 +75,7 @@ def main(**args):
         project_defconfig_name = '%s_defconfig' % (project)
     defconfig_dir = ''
     if os.path.exists('%s/arch/arm/configs/%s' % (abs_kernel_dir, project_defconfig_name)):
-        defconfig_dir = 'arch/arm/configs'
+        defconfig_dir = 'arch/arm/comfigs'
     elif os.path.exists('%s/arch/arm64/configs/%s' % (abs_kernel_dir, project_defconfig_name)):
         defconfig_dir = 'arch/arm64/configs'
     else:

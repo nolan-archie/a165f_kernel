@@ -558,7 +558,7 @@ CC_ARG="${CC}"
 source "${ROOT_DIR}/build/_setup_env.sh"
 
 MAKE_ARGS=( "$@" )
-export MAKEFLAGS="-j$(nproc) ${MAKEFLAGS}"
+export MAKEFLAGS="-j8 ${MAKEFLAGS}"
 export MODULES_STAGING_DIR=$(readlink -m ${COMMON_OUT_DIR}/staging)
 export MODULES_PRIVATE_DIR=$(readlink -m ${COMMON_OUT_DIR}/private)
 export KERNEL_UAPI_HEADERS_DIR=$(readlink -m ${COMMON_OUT_DIR}/kernel_uapi_headers)
@@ -758,33 +758,6 @@ if [ "${SKIP_DEFCONFIG}" != "1" ] ; then
     eval ${POST_DEFCONFIG_CMDS}
     set +x
   fi
-
-     #custom defconfig
-     echo "========================================================"
-     echo " Merging custom defconfig with .config"
-     (cd ${OUT_DIR} && ${MERGE_CONFIG} -m .config ${WDIR}/custom_defconfigs/custom_defconfig ${WDIR}/custom_defconfigs/droidspaces_defconfig ${WDIR}/custom_defconfigs/version_defconfig)
-     # Force the inline SUSFS KernelSU choice after fragment merge. merge_config
-     # does not reliably preserve this choice/menu combination on this tree.
-     if [ -f "${WDIR}/custom_defconfigs/custom_defconfig" ] &&
-        grep -q "^CONFIG_KSU_NONE_HOOK=y" "${WDIR}/custom_defconfigs/custom_defconfig" &&
-        grep -q "^CONFIG_KSU_SUSFS=y" "${WDIR}/custom_defconfigs/custom_defconfig"; then
-       ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
-         -e KSU_SUSFS \
-         -d KSU_SUSFS_SUS_PATH \
-         -e KSU_SUSFS_SUS_MOUNT \
-         -e KSU_SUSFS_SUS_KSTAT \
-         -e KSU_SUSFS_SUS_MAP \
-         -e KSU_SUSFS_SPOOF_UNAME \
-         -e KSU_SUSFS_ENABLE_LOG \
-         -e KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS \
-         -e KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG \
-         -e KSU_SUSFS_OPEN_REDIRECT \
-         -e KSU_NONE_HOOK \
-         -d KSU_MANUAL_HOOK \
-         -d KSU_SYSCALL_HOOK
-     fi
-     (cd ${OUT_DIR} && make O=${OUT_DIR} ${TOOL_ARGS} olddefconfig)
-  
 fi
 
 if [ "${LTO}" = "none" -o "${LTO}" = "thin" -o "${LTO}" = "full" ]; then
@@ -911,11 +884,6 @@ echo "========================================================"
 echo " Building kernel"
 
 set -x
-
-if [ "$MAKE_MENUCONFIG" = "1" ]; then
-  (cd ${OUT_DIR} && make O=${OUT_DIR} "${TOOL_ARGS[@]}" menuconfig || true)
-fi
-
 (cd ${OUT_DIR} && make O=${OUT_DIR} "${TOOL_ARGS[@]}" "${MAKE_ARGS[@]}" ${MAKE_GOALS})
 set +x
 
@@ -1088,13 +1056,6 @@ if [ -n "${DIST_CMDS}" ]; then
   fi
   set -x
   eval ${DIST_CMDS}
-
-  # Copy the build kernel images to DIST_DIR
-  cp "${WDIR}/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10/arch/arm64/boot/Image.gz" ${DIST_DIR}/
-
-  # Copy the ramdisk to DIST_DIR
-  cp "${WDIR}/oem_prebuilt_images/gki-ramdisk.lz4" ${DIST_DIR}/
-
   set +x
 fi
 

@@ -14,11 +14,6 @@
 # Connectivity combo driver
 # If KERNELRELEASE is defined, we've been invoked from the
 # kernel build system and can use its language.
-
-ifndef TOP
-    TOP := $(srctree)/..
-endif
-
 ifneq ($(KERNELRELEASE),)
     subdir-ccflags-y += -I$(srctree)/
     subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
@@ -122,101 +117,6 @@ ifneq ($(KERNELRELEASE),)
         obj-y += wmt_drv/
         obj-y += wmt_chrdev_wifi/
         obj-y += wlan_drv_gen4m/
-    endif
-
-    # Cooking missing MTK Modules @ ravindu644
-    # WMT driver (Common dependency)
-    PATH_TO_WMT_DRV := vendor/mediatek/kernel_modules/connectivity/common
-    $(shell ln -s -f $(TOP)/$(PATH_TO_WMT_DRV) $(srctree)/$(src)/wmt_drv_ext)
-
-    obj-m += wmt_drv_ext/
-
-    # --- Mediatek Bluetooth Driver ---
-    ifeq ($(CONFIG_MTK_BT_DRV_EXTERNAL),y)
-
-        PATH_TO_BT_DRV := vendor/mediatek/kernel_modules/connectivity/bt
-
-        $(warning Building external BT module from $(PATH_TO_BT_DRV))
-        $(shell ln -s -f $(TOP)/$(PATH_TO_BT_DRV) $(srctree)/$(src)/bt_drv_ext)
-
-        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_BT_DRV)/linux_v2/include
-        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_BT_DRV)/mt66xx/include/btif
-
-        export BT_PLATFORM=connac1x
-        export MTK_PLATFORM=mt6789
-
-        obj-m += bt_drv_ext/mt66xx/wmt/
-    endif
-
-    # --- Mediatek WLAN Driver ---
-    ifeq ($(CONFIG_WLAN_DRV_MODULE),y)
-
-        PATH_TO_WLAN_CHR_DRV := vendor/mediatek/kernel_modules/connectivity/wlan/adaptor
-        PATH_TO_WLAN_DRV := vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m
-
-        WLAN_HIF_TYPE := axi
-
-        $(warning Building WLAN driver modules)
-        $(shell ln -s -f $(TOP)/$(PATH_TO_WLAN_CHR_DRV) $(srctree)/$(src)/wmt_chrdev_wifi_ext)
-        $(shell ln -s -f $(TOP)/$(PATH_TO_WLAN_DRV) $(srctree)/$(src)/wlan_drv_gen4m_ext)
-
-        # Essential WLAN include paths
-        # Note: Order matters! mgmt/include must come before adaptor/include
-        # to ensure correct wlan_ring.h is found (mgmt version, not adaptor version)
-        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/os/linux/include
-        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/os/none/include
-        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/os
-        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/os/linux/hif/$(WLAN_HIF_TYPE)/include
-        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/os/linux/hif/common/include
-        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/wlan_service/include
-        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/include
-        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/include/nic
-        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/include/mgmt
-        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/include/chips
-        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/include/wpa_supp
-        # Note: Adaptor include path is handled by adaptor's own Makefile
-        # (adaptor Makefile adds it FIRST to ensure adaptor headers are found)
-        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/wlan_service/service/include
-        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/wlan_service/glue/osal/include
-        subdir-ccflags-y += -I$(TOP)/$(PATH_TO_WLAN_DRV)/wlan_service/glue/hal/include
-        subdir-ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m_ext/include
-        subdir-ccflags-y += -I$(TOP)/vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m_ext/include/mgmt
-        # Define LIST_SEG_MAX to fix missing definition in gl_qa_agent.h
-        # (defined in net_adaption.h but not included by gl_qa_agent.h)
-        subdir-ccflags-y += -DLIST_SEG_MAX=100
-        # Redefine CONFIG_WLAN_SERVICE to enable nicCmdEventListmode function
-        # (kernel config defines it as 0, we need it as 1 - suppress redefinition warning)
-        subdir-ccflags-y += -Wno-macro-redefined -DCONFIG_WLAN_SERVICE=1
-        subdir-ccflags-y += -Wno-unused-variable
-
-        # Build wmt_chrdev_wifi.ko by pointing to the adaptor directory
-        # and exporting the variables its internal Kbuild needs.
-        # IMPORTANT: Set MODULE_NAME for adaptor BEFORE building it
-        export CONNAC_VER=1_0
-        export MODULE_NAME=wmt_chrdev_wifi
-        obj-m += wmt_chrdev_wifi_ext/
-
-        # Build wlan_drv_gen4m_6789.ko
-        # MT6789 Configuration (from Android.mk analysis):
-        # - CONNAC_VER: 1_0 (ConnAC 1.0, not 2.0)
-        # - MTK_COMBO_CHIP: SOC2_1X1 (same as MT6855, MT6765)
-        # - WLAN_CHIP_ID: 6789
-        # - HIF: axi (AXI bus interface)
-        # - Module name: wlan_drv_gen4m_6789
-        # IMPORTANT: Set MODULE_NAME for WLAN driver AFTER adaptor build
-        export CONFIG_MTK_COMBO_WIFI_HIF=axi
-        export MTK_COMBO_CHIP=SOC2_1X1
-        export WLAN_CHIP_ID=6789
-        export MTK_ANDROID_WMT=y
-        export MODULE_NAME=wlan_drv_gen4m_6789
-        # Export MTK_WLAN_SERVICE=yes to enable CONFIG_WLAN_SERVICE=1 in WLAN driver Makefile
-        # This enables nicCmdEventListmode function
-        export MTK_WLAN_SERVICE=yes
-        # Export MTK_ANDROID_EMI=y to enable CFG_MTK_ANDROID_EMI=1 in WLAN driver Makefile
-        # This enables gConEmiPhyBaseFinal, gConEmiSizeFinal, WIFI_EMI_ADDR_MASK
-        export MTK_ANDROID_EMI=y
-
-        obj-m += wlan_drv_gen4m_ext/
     endif
 
 # Otherwise we were called directly from the command line;
