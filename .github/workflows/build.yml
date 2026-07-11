@@ -123,7 +123,7 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         artifacts: "dist/*"
         body: |
-          ## SukiSU-Ultra Kernel Build
+          ##KERNEL SU NEXT BUILD!!!
 
           **Release:** ${{ github.event.inputs.tag }}
           **Commit:** ${{ github.sha }}
