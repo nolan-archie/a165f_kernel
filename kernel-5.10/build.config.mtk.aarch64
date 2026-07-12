@@ -17,7 +17,8 @@ KERNEL_DIR=kernel-5.10
 # READELF=llvm-readelf
 # OBJSIZE=llvm-size
 # STRIP=llvm-strip
-FILES="vmlinux"
+FILES="${FILES}
+vmlinux"
 ABI_OUT_TAG="mtk"
 KMI_SYMBOL_LIST=android/abi_gki_aarch64_mtk
 GKI_MODULES_LIST=android/gki_aarch64_modules
