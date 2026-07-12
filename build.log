@@ -1437,8 +1437,8 @@ WARNING: unmet direct dependencies detected for SND_SOC_MT6366
 ++ '[' -n 9 ']'
 ++ printf %s -android12-9-nolanarchie-dev
 ++ set +x
-scripts/Makefile.lib:8: 'always' is deprecated. Please use 'always-y' instead
   CALL    /home/nolan-archie/a165f_kernel/kernel-5.10/scripts/atomic/check-atomics.sh
+scripts/Makefile.lib:8: 'always' is deprecated. Please use 'always-y' instead
   CALL    /home/nolan-archie/a165f_kernel/kernel-5.10/scripts/checksyscalls.sh
   CHK     include/generated/compile.h
 /home/nolan-archie/a165f_kernel/kernel-5.10/security/samsung/defex_lsm/Makefile:34: [DEFEX] INTEGRITY_ENABLE
@@ -1505,22 +1505,48 @@ m
 -- SukiSU-Ultra: using SUSFS_INLINE_HOOK
 -- KPM is enabled
 -- SukiSU-Ultra/compat: modern static_key_interface found
+-- KernelSU Manager signature size: 0x35c
+-- KernelSU Manager signature hash: 947ae944f3de4ed4c21a7e4f7953ecf351bfa2b36239da37a34111ad29993eef
 
 -- SUSFS_VERSION: v2.2.0
+  CC      drivers/kernelsu/ksu.o
+  AR      drivers/kernelsu/built-in.a
+  AR      drivers/built-in.a
   CHK     include/generated/autoksyms.h
+  GEN     .version
+  CHK     include/generated/compile.h
+  GEN     .tmp_initcalls.lds
+  GEN     .tmp_symversions.lds
+  LTO     vmlinux.o
+  MODPOST vmlinux.symvers
+  MODINFO modules.builtin.modinfo
+  GEN     modules.builtin
+  LD      .tmp_vmlinux.kallsyms1
+  KSYMS   .tmp_vmlinux.kallsyms1.S
+  AS      .tmp_vmlinux.kallsyms1.o
+  LD      .tmp_vmlinux.kallsyms2
+  KSYMS   .tmp_vmlinux.kallsyms2.S
+  AS      .tmp_vmlinux.kallsyms2.o
+  LD      vmlinux
+  SORTTAB vmlinux
+  SYSMAP  System.map
+  OBJCOPY arch/arm64/boot/Image
+  MODPOST modules-only.symvers
+  GZIP    arch/arm64/boot/Image.gz
+  GEN     Module.symvers
 + set +x
 ========================================================
  Installing kernel modules into staging directory
   INSTALL block/blk-sec-stats.ko
-  INSTALL crypto/lzo-rle.ko
   INSTALL block/ssg.ko
+  INSTALL crypto/lzo-rle.ko
   INSTALL crypto/lzo.ko
   INSTALL drivers/base/regmap/regmap-spmi.ko
   INSTALL drivers/battery/battery_auth/ds28e30/sec-auth-ds28e30.ko
   INSTALL drivers/battery/battery_auth/sle956681/sec-auth-sle956681.ko
   INSTALL drivers/battery/charger/sm5461_charger/sm5461-charger.ko
-  INSTALL drivers/battery/common/sb_wireless.ko
   INSTALL drivers/battery/charger/sm5714_charger/sm5714-charger.ko
+  INSTALL drivers/battery/common/sb_wireless.ko
   INSTALL drivers/battery/common/sec-battery.ko
   INSTALL drivers/battery/common/sec-direct-charger.ko
   INSTALL drivers/battery/common/sec_pd.ko
@@ -1530,18 +1556,18 @@ m
   INSTALL drivers/char/hw_random/sec-rng.ko
   INSTALL drivers/char/rpmb/rpmb-mtk.ko
   INSTALL drivers/char/rpmb/rpmb.ko
-  INSTALL drivers/clk/mediatek/clk-bringup.ko
   INSTALL drivers/clk/mediatek/clk-chk-mt6789.ko
+  INSTALL drivers/clk/mediatek/clk-bringup.ko
   INSTALL drivers/clk/mediatek/clk-common.ko
   INSTALL drivers/clk/mediatek/clk-dbg-mt6789.ko
   INSTALL drivers/clk/mediatek/clk-disable-unused.ko
   INSTALL drivers/clk/mediatek/clk-fmeter-mt6789.ko
-  INSTALL drivers/clk/mediatek/clk-mt6789-bus.ko
   INSTALL drivers/clk/mediatek/clk-mt6789-audiosys.ko
+  INSTALL drivers/clk/mediatek/clk-mt6789-bus.ko
   INSTALL drivers/clk/mediatek/clk-mt6789-cam.ko
   INSTALL drivers/clk/mediatek/clk-mt6789-disp_dsc.ko
-  INSTALL drivers/clk/mediatek/clk-mt6789-img.ko
   INSTALL drivers/clk/mediatek/clk-mt6789-i2c.ko
+  INSTALL drivers/clk/mediatek/clk-mt6789-img.ko
   INSTALL drivers/clk/mediatek/clk-mt6789-impen.ko
   INSTALL drivers/clk/mediatek/clk-mt6789-mfgcfg.ko
   INSTALL drivers/clk/mediatek/clk-mt6789-mmsys.ko
@@ -1554,14 +1580,14 @@ m
   INSTALL drivers/devfreq/mtk-dvfsrc-devfreq.ko
   INSTALL drivers/dma-buf/heaps/mtk_heap_debug.ko
   INSTALL drivers/dma-buf/heaps/mtk_mm_heap.ko
-  INSTALL drivers/dma-buf/heaps/mtk_sec_heap.ko
   INSTALL drivers/dma-buf/heaps/system_heap.ko
   INSTALL drivers/dma/mediatek/mtk-cqdma.ko
-  INSTALL drivers/dma/mediatek/mtk-uart-apdma.ko
+  INSTALL drivers/dma-buf/heaps/mtk_sec_heap.ko
   INSTALL drivers/fingerprint/fingerprint.ko
+  INSTALL drivers/dma/mediatek/mtk-uart-apdma.ko
   INSTALL drivers/fingerprint/fingerprint_sysfs.ko
-  INSTALL drivers/gpu/drm/mediatek/mediatek_v2/mtk_aod_scp.ko
   INSTALL drivers/gpu/drm/mediatek/mediatek_v2/mediatek-drm.ko
+  INSTALL drivers/gpu/drm/mediatek/mediatek_v2/mtk_aod_scp.ko
   INSTALL drivers/gpu/drm/mediatek/mediatek_v2/mtk_disp_notify.ko
   INSTALL drivers/gpu/drm/mediatek/mediatek_v2/mtk_disp_sec.ko
   INSTALL drivers/gpu/drm/mediatek/mediatek_v2/mtk_panel_ext.ko
@@ -1570,35 +1596,35 @@ m
   INSTALL drivers/gpu/drm/panel/mcd_panel/mtk-mcd-panel-adapter.ko
   INSTALL drivers/gpu/drm/panel/mediatek-drm-gateic.ko
   INSTALL drivers/gpu/drm/panel/mediatek-drm-panel-drv.ko
-  INSTALL drivers/gpu/drm/samsung/panel/mcd-panel.ko
   INSTALL drivers/gpu/drm/samsung/panel/oled_common/usdm-panel-oled-common.ko
+  INSTALL drivers/gpu/drm/samsung/panel/mcd-panel.ko
   INSTALL drivers/gpu/drm/samsung/panel/s6e8fc3/mcd-panel-s6e8fc3_a16x.ko
   INSTALL drivers/gpu/mediatek/ged/ged.ko
-  INSTALL drivers/gpu/mediatek/gpueb/gpueb.ko
   INSTALL drivers/gpu/mediatek/gpu_bm/mtk_gpu_qos.ko
-  INSTALL drivers/gpu/mediatek/gpufreq/v2/mtk_gpufreq_wrapper.ko
+  INSTALL drivers/gpu/mediatek/gpueb/gpueb.ko
   INSTALL drivers/gpu/mediatek/gpufreq/v2/mtk_gpufreq_mt6789.ko
   INSTALL drivers/gpu/mediatek/hal/mtk_gpu_hal.ko
+  INSTALL drivers/gpu/mediatek/gpufreq/v2/mtk_gpufreq_wrapper.ko
   INSTALL drivers/i2c/busses/i2c-gpio.ko
   INSTALL drivers/i2c/busses/i2c-mt65xx.ko
-  INSTALL drivers/iio/adc/mt6338-auxadc.ko
   INSTALL drivers/iio/adc/mt635x-auxadc.ko
+  INSTALL drivers/iio/adc/mt6338-auxadc.ko
   INSTALL drivers/iio/adc/mt6360-adc.ko
   INSTALL drivers/iio/adc/mt6577_auxadc.ko
   INSTALL drivers/iio/adc/mtk-spmi-pmic-adc.ko
   INSTALL drivers/iio/buffer/industrialio-triggered-buffer.ko
+  INSTALL drivers/input/keyboard/mtk-kpd.ko
   INSTALL drivers/iio/buffer/kfifo_buf.ko
   INSTALL drivers/input/input_boost/input_booster_lkm.ko
-  INSTALL drivers/input/keyboard/mtk-kpd.ko
-  INSTALL drivers/input/sec_input/sec_common_fn.ko
   INSTALL drivers/input/keyboard/mtk-pmic-keys.ko
+  INSTALL drivers/input/sec_input/sec_common_fn.ko
   INSTALL drivers/input/sec_input/sec_input_notifier.ko
   INSTALL drivers/input/touchscreen/focaltech/ft3519/focaltech_ts_ft3519.ko
   INSTALL drivers/interconnect/mediatek/mmqos-common.ko
-  INSTALL drivers/interconnect/mediatek/mmqos-md.ko
   INSTALL drivers/interconnect/mediatek/mmqos-mt6789.ko
-  INSTALL drivers/iommu/mtk_iommu.ko
   INSTALL drivers/interconnect/mediatek/mtk-emi.ko
+  INSTALL drivers/interconnect/mediatek/mmqos-md.ko
+  INSTALL drivers/iommu/mtk_iommu.ko
   INSTALL drivers/knox/hdm/hdm.ko
   INSTALL drivers/leds/leds-mtk-pwm.ko
   INSTALL drivers/leds/leds-mtk.ko
@@ -1610,14 +1636,14 @@ m
   INSTALL drivers/media/platform/mtk-isp/camsys/isp7_1/cam/mtk-cam-plat-util.ko
   INSTALL drivers/media/platform/mtk-isp/imgsys/mtk_imgsys_v4l2.ko
   INSTALL drivers/media/platform/mtk-isp/mtk-hcp/mtk_hcp.ko
-  INSTALL drivers/media/platform/mtk-isp/mtk-ipesys-me/mtk-ipesys-me.ko
   INSTALL drivers/media/platform/mtk-jpeg/mtk_jpeg.ko
+  INSTALL drivers/media/platform/mtk-isp/mtk-ipesys-me/mtk-ipesys-me.ko
   INSTALL drivers/media/platform/mtk-vcodec/mtk-vcodec-common.ko
   INSTALL drivers/media/platform/mtk-vcodec/mtk-vcodec-dec-v1.ko
   INSTALL drivers/media/platform/mtk-vcodec/mtk-vcodec-dec-v2.ko
+  INSTALL drivers/media/platform/mtk-vcodec/mtk-vcodec-enc-v2.ko
   INSTALL drivers/media/platform/mtk-vcodec/mtk-vcodec-enc-v1.ko
   INSTALL drivers/media/platform/mtk-vcu/mtk-vcu.ko
-  INSTALL drivers/media/platform/mtk-vcodec/mtk-vcodec-enc-v2.ko
   INSTALL drivers/media/platform/mtk-videobuf/mtk-vb2.ko
   INSTALL drivers/media/v4l2-core/v4l2-flash-led-class.ko
   INSTALL drivers/media/v4l2-core/v4l2-fwnode.ko
@@ -1625,10 +1651,10 @@ m
   INSTALL drivers/memory/mediatek/emi-mpu-hook-v1.ko
   INSTALL drivers/memory/mediatek/emi-mpu-test-v2.ko
   INSTALL drivers/memory/mediatek/emi-mpu-test.ko
-  INSTALL drivers/memory/mediatek/emi-mpu-v2.ko
   INSTALL drivers/memory/mediatek/emi-mpu.ko
-  INSTALL drivers/memory/mediatek/emi.ko
+  INSTALL drivers/memory/mediatek/emi-mpu-v2.ko
   INSTALL drivers/memory/mediatek/emi-slb.ko
+  INSTALL drivers/memory/mediatek/emi.ko
   INSTALL drivers/memory/mediatek/mtk_dramc.ko
   INSTALL drivers/memory/mtk-smi.ko
   INSTALL drivers/mfd/mt6338-core.ko
@@ -1636,154 +1662,2013 @@ m
   INSTALL drivers/mfd/mt6397.ko
   INSTALL drivers/mfd/mt63xx-debug.ko
   INSTALL drivers/mfd/mt6685-audclk.ko
-  INSTALL drivers/mfd/mt6685-core.ko
   INSTALL drivers/mfd/mtk-spmi-pmic-debug.ko
-  INSTALL drivers/mfd/mtk-spmi-pmic.ko
   INSTALL drivers/mfd/sm/sm5714/mfd_sm5714.ko
-  INSTALL drivers/misc/drb/dev_ril_bridge.ko
+  INSTALL drivers/mfd/mt6685-core.ko
+  INSTALL drivers/mfd/mtk-spmi-pmic.ko
   INSTALL drivers/misc/mediatek/adsp/adsp.ko
+  INSTALL drivers/misc/drb/dev_ril_bridge.ko
   INSTALL drivers/misc/mediatek/adsp/v1/adsp-v1.ko
   INSTALL drivers/misc/mediatek/adsp/v2/adsp-v2.ko
-  INSTALL drivers/misc/mediatek/aee/aed/aee_aed.ko
   INSTALL drivers/misc/mediatek/aee/aed/aee_rs.ko
+  INSTALL drivers/misc/mediatek/aee/aed/aee_aed.ko
   INSTALL drivers/misc/mediatek/aee/hangdet/aee_hangdet.ko
-  INSTALL drivers/misc/mediatek/aee/mrdump/mrdump.ko
   INSTALL drivers/misc/mediatek/apusys/apusys.ko
-  INSTALL drivers/misc/mediatek/atf/atf_logger.ko
+  INSTALL drivers/misc/mediatek/aee/mrdump/mrdump.ko
   INSTALL drivers/misc/mediatek/apusys/power/apu_top.ko
+  INSTALL drivers/misc/mediatek/atf/atf_logger.ko
   INSTALL drivers/misc/mediatek/audio_ipi/audio_ipi.ko
   INSTALL drivers/misc/mediatek/blocktag/blocktag.ko
-  INSTALL drivers/misc/mediatek/c2k_usb/c2k_usb.ko
   INSTALL drivers/misc/mediatek/btif/common/btif_drv.ko
+  INSTALL drivers/misc/mediatek/c2k_usb/c2k_usb.ko
   INSTALL drivers/misc/mediatek/c2k_usb/c2k_usb_f_via_atc.ko
   INSTALL drivers/misc/mediatek/c2k_usb/c2k_usb_f_via_ets.ko
   INSTALL drivers/misc/mediatek/c2k_usb/c2k_usb_f_via_gps.ko
   INSTALL drivers/misc/mediatek/c2k_usb/c2k_usb_f_via_modem.ko
   INSTALL drivers/misc/mediatek/c2k_usb/c2k_usb_f_via_pcv.ko
-  INSTALL drivers/misc/mediatek/cache-auditor/cpuqos_v3/cpuqos_v3.ko
   INSTALL drivers/misc/mediatek/cam_cal/src/custom/camera_eeprom.ko
+  INSTALL drivers/misc/mediatek/cache-auditor/cpuqos_v3/cpuqos_v3.ko
   INSTALL drivers/misc/mediatek/cam_timesync/archcounter_timesync.ko
   INSTALL drivers/misc/mediatek/camera_mem/camera_mem.ko
   INSTALL drivers/misc/mediatek/cameraisp/dip/isp_6s/camera_dip_isp6s.ko
-  INSTALL drivers/misc/mediatek/cameraisp/dpe/camera_dpe_isp60.ko
   INSTALL drivers/misc/mediatek/cameraisp/dpe/camera_dpe_isp70.ko
+  INSTALL drivers/misc/mediatek/cameraisp/dpe/camera_dpe_isp60.ko
   INSTALL drivers/misc/mediatek/cameraisp/fdvt/camera_fdvt_isp51.ko
-  INSTALL drivers/misc/mediatek/cameraisp/mfb/camera_mfb_isp6s.ko
   INSTALL drivers/misc/mediatek/cameraisp/pda/isp_71/camera_pda.ko
   INSTALL drivers/misc/mediatek/cameraisp/rsc/camera_rsc_isp60.ko
+  INSTALL drivers/misc/mediatek/cameraisp/mfb/camera_mfb_isp6s.ko
   INSTALL drivers/misc/mediatek/cameraisp/src/isp_6s/cam_qos.ko
   INSTALL drivers/misc/mediatek/cameraisp/src/isp_6s/camera_isp.ko
-  INSTALL drivers/misc/mediatek/cameraisp/wpe/isp_6s/camera_wpe_isp6s.ko
-  INSTALL drivers/misc/mediatek/ccci_util/ccci_util_lib.ko
   INSTALL drivers/misc/mediatek/ccu/src/isp6s/ccu.ko
-  INSTALL drivers/misc/mediatek/ccmni/ccmni.ko
+  INSTALL drivers/misc/mediatek/cameraisp/wpe/isp_6s/camera_wpe_isp6s.ko
   INSTALL drivers/misc/mediatek/clkbuf/clkbuf.ko
-  INSTALL drivers/misc/mediatek/cm_mgr/mtk_cm_mgr.ko
+  INSTALL drivers/misc/mediatek/ccmni/ccmni.ko
+  INSTALL drivers/misc/mediatek/ccci_util/ccci_util_lib.ko
   INSTALL drivers/misc/mediatek/cm_mgr/mtk_cm_ipi.ko
+  INSTALL drivers/misc/mediatek/cm_mgr/mtk_cm_mgr.ko
   INSTALL drivers/misc/mediatek/cm_mgr/mtk_cm_mgr_mt6789.ko
+  INSTALL drivers/misc/mediatek/cmdq/mailbox/cmdq-platform-mt6853.ko
   INSTALL drivers/misc/mediatek/cmdq/mailbox/cmdq-platform-mt6789.ko
   INSTALL drivers/misc/mediatek/cmdq/mailbox/cmdq-platform-mt6873.ko
-  INSTALL drivers/misc/mediatek/cmdq/mailbox/cmdq-platform-mt6853.ko
+  INSTALL drivers/misc/mediatek/cmdq/mailbox/mtk-cmdq-drv-ext.ko
   INSTALL drivers/misc/mediatek/cmdq/mailbox/cmdq-sec-drv.ko
   INSTALL drivers/misc/mediatek/cmdq/mailbox/cmdq-test.ko
-  INSTALL drivers/misc/mediatek/cmdq/mailbox/mtk-cmdq-drv-ext.ko
   INSTALL drivers/misc/mediatek/conn_scp/connscp.ko
   INSTALL drivers/misc/mediatek/connectivity/connadp.ko
-  INSTALL drivers/misc/mediatek/dcm/mt6789_dcm.ko
   INSTALL drivers/misc/mediatek/cpufreq_lite/cpudvfs.ko
-  INSTALL drivers/misc/mediatek/dcm/mtk_dcm.ko
+  INSTALL drivers/misc/mediatek/dcm/mt6789_dcm.ko
   INSTALL drivers/misc/mediatek/dvfsrc/mtk-dvfsrc-helper.ko
+  INSTALL drivers/misc/mediatek/dcm/mtk_dcm.ko
   INSTALL drivers/misc/mediatek/eccci/ccci_auxadc.ko
-  INSTALL drivers/misc/mediatek/eccci/ccci_ccif.ko
   INSTALL drivers/misc/mediatek/eccci/ccci_cldma.ko
+  INSTALL drivers/misc/mediatek/eccci/ccci_ccif.ko
   INSTALL drivers/misc/mediatek/eccci/ccci_dpmaif.ko
   INSTALL drivers/misc/mediatek/eccci/ccci_fsm_scp.ko
   INSTALL drivers/misc/mediatek/eccci/ccci_md_all.ko
   INSTALL drivers/misc/mediatek/eccci/ccci_md_clk.ko
   INSTALL drivers/misc/mediatek/eccci/ccci_rtc.ko
-  INSTALL drivers/misc/mediatek/eccci/cpif.ko
   INSTALL drivers/misc/mediatek/extcon/extcon-mtk-usb.ko
+  INSTALL drivers/misc/mediatek/eccci/cpif.ko
   INSTALL drivers/misc/mediatek/flashlight/flashlight.ko
   INSTALL drivers/misc/mediatek/flashlight/flashlights-sm5714.ko
-  INSTALL drivers/misc/mediatek/flashlight/v4l2/lm3644.ko
   INSTALL drivers/misc/mediatek/flashlight/mtk-composite.ko
   INSTALL drivers/misc/mediatek/geniezone/gz-trusty/gz_ipc_mod.ko
+  INSTALL drivers/misc/mediatek/flashlight/v4l2/lm3644.ko
   INSTALL drivers/misc/mediatek/geniezone/gz-trusty/gz_irq_mod.ko
-  INSTALL drivers/misc/mediatek/geniezone/gz-trusty/gz_log_mod.ko
   INSTALL drivers/misc/mediatek/geniezone/gz-trusty/gz_trusty_mod.ko
+  INSTALL drivers/misc/mediatek/geniezone/gz-trusty/gz_log_mod.ko
   INSTALL drivers/misc/mediatek/geniezone/gz-trusty/gz_virtio_mod.ko
   INSTALL drivers/misc/mediatek/geniezone/gz_main_mod.ko
   INSTALL drivers/misc/mediatek/geniezone/gz_tz_system.ko
   INSTALL drivers/misc/mediatek/imgsensor/src-v4l2/imgsensor.ko
   INSTALL drivers/misc/mediatek/imgsensor/src-v4l2/imgsensor-glue/imgsensor-glue.ko
   INSTALL drivers/misc/mediatek/imgsensor/src/isp6s/imgsensor_isp6s.ko
-  INSTALL drivers/misc/mediatek/iommu/iommu_debug.ko
   INSTALL drivers/misc/mediatek/iommu/iommu_gz.ko
   INSTALL drivers/misc/mediatek/iommu/iommu_secure.ko
+  INSTALL drivers/misc/mediatek/iommu/iommu_debug.ko
   INSTALL drivers/misc/mediatek/iommu/iommu_test.ko
   INSTALL drivers/misc/mediatek/irtx/mtk_irtx_pwm.ko
   INSTALL drivers/misc/mediatek/jpeg/jpeg-driver.ko
-  INSTALL drivers/misc/mediatek/lens/ois/bu63169/bu63169.ko
-  INSTALL drivers/misc/mediatek/lens/vcm/proprietary/main2/main2af.ko
   INSTALL drivers/misc/mediatek/lens/vcm/proprietary/main/mainaf.ko
+  INSTALL drivers/misc/mediatek/lens/ois/bu63169/bu63169.ko
   INSTALL drivers/misc/mediatek/lens/vcm/proprietary/main3/main3af.ko
-  INSTALL drivers/misc/mediatek/lens/vcm/proprietary/sub/subaf.ko
   INSTALL drivers/misc/mediatek/lens/vcm/proprietary/sub2/sub2af.ko
-  INSTALL drivers/misc/mediatek/lens/vcm/v4l2/ak7375c/ak7375c.ko
+  INSTALL drivers/misc/mediatek/lens/vcm/proprietary/sub/subaf.ko
   INSTALL drivers/misc/mediatek/lens/vcm/v4l2/ak7377a/ak7377a.ko
+  INSTALL drivers/misc/mediatek/lens/vcm/proprietary/main2/main2af.ko
+  INSTALL drivers/misc/mediatek/lens/vcm/v4l2/ak7375c/ak7375c.ko
   INSTALL drivers/misc/mediatek/lens/vcm/v4l2/bu64253gwz/bu64253gwz.ko
   INSTALL drivers/misc/mediatek/lens/vcm/v4l2/dw9718/dw9718.ko
-  INSTALL drivers/misc/mediatek/lens/vcm/v4l2/dw9800v/dw9800v.ko
   INSTALL drivers/misc/mediatek/lens/vcm/v4l2/dw9800w/dw9800w.ko
-  INSTALL drivers/misc/mediatek/lens/vcm/v4l2/gt9772a/gt9772a.ko
+  INSTALL drivers/misc/mediatek/lens/vcm/v4l2/dw9800v/dw9800v.ko
   INSTALL drivers/misc/mediatek/lens/vcm/v4l2/gt9764/gt9764.ko
   INSTALL drivers/misc/mediatek/lens/vcm/v4l2/gt9772b/gt9772b.ko
-  INSTALL drivers/misc/mediatek/lens/vcm/v4l2/lc898229/lc898229.ko
   INSTALL drivers/misc/mediatek/lens/vcm/v4l2/media/camera_af_media.ko
+  INSTALL drivers/misc/mediatek/lens/vcm/v4l2/lc898229/lc898229.ko
+  INSTALL drivers/misc/mediatek/lens/vcm/v4l2/gt9772a/gt9772a.ko
   INSTALL drivers/misc/mediatek/log_store/log_store.ko
   INSTALL drivers/misc/mediatek/lpm/modules/debug/mt6789/mtk-lpm-dbg-mt6789.ko
-  INSTALL drivers/misc/mediatek/lpm/modules/debug/v1/mtk-lpm-dbg-common-v1.ko
   INSTALL drivers/misc/mediatek/lpm/modules/platform/v1/mtk-lpm-plat-v1.ko
+  INSTALL drivers/misc/mediatek/lpm/modules/debug/v1/mtk-lpm-dbg-common-v1.ko
   INSTALL drivers/misc/mediatek/lpm/mtk-lpm.ko
   INSTALL drivers/misc/mediatek/masp/sec.ko
   INSTALL drivers/misc/mediatek/mcupm/v2/mcupm.ko
-  INSTALL drivers/misc/mediatek/mdp/cmdq_helper_inf.ko
   INSTALL drivers/misc/mediatek/mddp/mddp.ko
+  INSTALL drivers/misc/mediatek/mdp/cmdq_helper_inf.ko
   INSTALL drivers/misc/mediatek/mdp/mdp_drv_mt6789.ko
-  INSTALL drivers/misc/mediatek/mdpm/mtk_mdpm.ko
   INSTALL drivers/misc/mediatek/mkp/mkp.ko
-  INSTALL drivers/misc/mediatek/mminfra/mtk-mminfra-debug.ko
+  INSTALL drivers/misc/mediatek/mdpm/mtk_mdpm.ko
   INSTALL drivers/misc/mediatek/mmdvfs/mtk-mmdvfs-debug.ko
+  INSTALL drivers/misc/mediatek/mminfra/mtk-mminfra-debug.ko
   INSTALL drivers/misc/mediatek/mminfra/mtk-mminfra-imax.ko
   INSTALL drivers/misc/mediatek/mmp/src/mmprofile.ko
   INSTALL drivers/misc/mediatek/mmqos/mmqos_wrapper.ko
-  INSTALL drivers/misc/mediatek/monitor_hang/monitor_hang.ko
   INSTALL drivers/misc/mediatek/mmstat/trace_mmstat.ko
-  INSTALL drivers/misc/mediatek/mtprintk/mtk_printk_ctrl.ko
+  INSTALL drivers/misc/mediatek/monitor_hang/monitor_hang.ko
   INSTALL drivers/misc/mediatek/mtk-interconnect/mtk-icc-core.ko
-  INSTALL drivers/misc/mediatek/mtprof/bootprof.ko
+  INSTALL drivers/misc/mediatek/mtprintk/mtk_printk_ctrl.ko
   INSTALL drivers/misc/mediatek/nfc/st21nfc/st21nfc.ko
+  INSTALL drivers/misc/mediatek/nfc/st54spi.ko
+  INSTALL drivers/misc/mediatek/mtprof/bootprof.ko
   INSTALL drivers/misc/mediatek/pbm/mtk_pbm.ko
   INSTALL drivers/misc/mediatek/perf_common/mtk_perf_common.ko
-  INSTALL drivers/misc/mediatek/nfc/st54spi.ko
   INSTALL drivers/misc/mediatek/performance/frs/frs.ko
-  INSTALL drivers/misc/mediatek/performance/fpsgo_v3/mtk_fpsgo.ko
   INSTALL drivers/misc/mediatek/performance/load_track/load_track.ko
-  INSTALL drivers/misc/mediatek/performance/uload_ind/uload_ind.ko
-  INSTALL drivers/misc/mediatek/pidmap/pidmap.ko
   INSTALL drivers/misc/mediatek/performance/mtk_perf_ioctl.ko
-  INSTALL drivers/misc/mediatek/pmsr/pmsr.ko
-  INSTALL drivers/misc/mediatek/pmic_protect/mtk-pmic-oc-debug.ko
+  INSTALL drivers/misc/mediatek/performance/fpsgo_v3/mtk_fpsgo.ko
+  INSTALL drivers/misc/mediatek/pidmap/pidmap.ko
+  INSTALL drivers/misc/mediatek/performance/uload_ind/uload_ind.ko
   INSTALL drivers/misc/mediatek/pmic_protect/mt63xx-oc-debug.ko
+  INSTALL drivers/misc/mediatek/pmic_protect/mtk-pmic-oc-debug.ko
+  INSTALL drivers/misc/mediatek/pmsr/pmsr.ko
   INSTALL drivers/misc/mediatek/pmsr/twam/spmtwam.ko
   INSTALL drivers/misc/mediatek/power_throttling/mtk_battery_oc_throttling.ko
   INSTALL drivers/misc/mediatek/power_throttling/mtk_bp_thl.ko
+  INSTALL drivers/misc/mediatek/power_throttling/mtk_cpu_power_throttling.ko
   INSTALL drivers/misc/mediatek/power_throttling/mtk_low_battery_throttling.ko
   INSTALL drivers/misc/mediatek/power_throttling/mtk_dynamic_loading_throttling.ko
-  INSTALL drivers/misc/mediatek/power_throttling/mtk_md_power_throttling.ko
-  INSTALL drivers/misc/mediatek/power_throttling/mtk_cpu_power_throttling.ko
-  INSTALL drivers/misc/mediatek/pwm/mtk-pwm.ko
   INSTALL drivers/misc/mediatek/power_throttling/pmic_lbat_service.ko
+  INSTALL drivers/misc/mediatek/pwm/mtk-pwm.ko
   INSTALL drivers/misc/mediatek/qos/mtk_qos.ko
+  INSTALL drivers/misc/mediatek/power_throttling/mtk_md_power_throttling.ko
   INSTALL drivers/misc/mediatek/rps/rps_perf.ko
   INSTALL drivers/misc/mediatek/sched/cpufreq_sugov_ext.ko
+  INSTALL drivers/misc/mediatek/sched/mtk_core_ctl.ko
+  INSTALL drivers/misc/mediatek/sched/scheduler.ko
+  INSTALL drivers/misc/mediatek/scp/rv/scp.ko
+  INSTALL drivers/misc/mediatek/sda/btm/bus_tracer_interface.ko
+  INSTALL drivers/misc/mediatek/sda/bus-parity.ko
+  INSTALL drivers/misc/mediatek/sda/cache-parity.ko
+  INSTALL drivers/misc/mediatek/sda/btm/v1/bus_tracer_v1.ko
+  INSTALL drivers/misc/mediatek/sda/dbgtop-drm.ko
+  INSTALL drivers/misc/mediatek/sda/irq-dbg.ko
+  INSTALL drivers/misc/mediatek/slbc/mmsram.ko
+  INSTALL drivers/misc/mediatek/slbc/slbc_ipi.ko
+  INSTALL drivers/misc/mediatek/slbc/mtk_slbc.ko
+  INSTALL drivers/misc/mediatek/smi/mtk-smi-dbg.ko
+  INSTALL drivers/misc/mediatek/ssc/debug/v1/mtk-ssc-dbg-v1.ko
+  INSTALL drivers/misc/mediatek/ssc/debug/v2/mtk-ssc-dbg-v2.ko
+  INSTALL drivers/misc/mediatek/sspm/v3/sspm_v3.ko
+  INSTALL drivers/misc/mediatek/ssc/mtk-ssc.ko
+  INSTALL drivers/misc/mediatek/subpmic/extdev_io_class.ko
+  INSTALL drivers/misc/mediatek/subpmic/mt6360-dbg.ko
+  INSTALL drivers/misc/mediatek/swpm/modules/debug/v6789/mtk-swpm-dbg-v6789.ko
+  INSTALL drivers/misc/mediatek/swpm/modules/debug/v1/mtk-swpm-dbg-common-v1.ko
+  INSTALL drivers/misc/mediatek/swpm/modules/debug/v6855/mtk-swpm-dbg-v6855.ko
+  INSTALL drivers/misc/mediatek/swpm/modules/debug/v6893/mtk-swpm-dbg-v6893.ko
+  INSTALL drivers/misc/mediatek/swpm/modules/debug/v6879/mtk-swpm-dbg-v6879.ko
+  INSTALL drivers/misc/mediatek/swpm/modules/debug/v6895/mtk-swpm-dbg-v6895.ko
+  INSTALL drivers/misc/mediatek/swpm/modules/debug/v6983/mtk-swpm-dbg-v6983.ko
+  INSTALL drivers/misc/mediatek/swpm/mtk-swpm-perf-arm-pmu.ko
+  INSTALL drivers/misc/mediatek/swpm/mtk-swpm.ko
+  INSTALL drivers/misc/mediatek/task_turbo/task_turbo.ko
+  INSTALL drivers/misc/mediatek/tinysys_scmi/tinysys-scmi.ko
+  INSTALL drivers/misc/mediatek/typec/mux/ps5169.ko
+  INSTALL drivers/misc/mediatek/trusted_mem/trusted_mem.ko
+  INSTALL drivers/misc/mediatek/typec/mux/mux_switch.ko
+  INSTALL drivers/misc/mediatek/typec/mux/fusb304.ko
+  INSTALL drivers/misc/mediatek/typec/mux/usb_dp_selector.ko
+  INSTALL drivers/misc/mediatek/typec/mux/ps5170.ko
+  INSTALL drivers/misc/mediatek/typec/mux/ptn36241g.ko
+  INSTALL drivers/misc/mediatek/typec/tcpc/pd_dbg_info.ko
+  INSTALL drivers/misc/mediatek/typec/tcpc/rt_pd_manager.ko
+  INSTALL drivers/misc/mediatek/typec/tcpc/tcpc_class.ko
+  INSTALL drivers/misc/mediatek/typec/tcpc/tcpci_late_sync.ko
+  INSTALL drivers/misc/mediatek/usb20/musb_main/musb_main.ko
+  INSTALL drivers/misc/mediatek/usb20/musb_hdrc.ko
+  INSTALL drivers/misc/mediatek/usb_boost/musb_boost.ko
+  INSTALL drivers/misc/mediatek/usb_boost/usb_boost.ko
+  INSTALL drivers/misc/mediatek/usb_rndis/mtk_u_ether.ko
+  INSTALL drivers/misc/mediatek/usb_meta/meta.ko
+  INSTALL drivers/misc/mediatek/usb_rndis/mtk_usb_f_rndis.ko
+  INSTALL drivers/misc/mediatek/vmm_dbg/mtk-vmm-dbg.ko
+  INSTALL drivers/misc/mediatek/vcp/rv/vcp.ko
+  INSTALL drivers/misc/mediatek/vdec_fmt/vdec-fmt.ko
+  INSTALL drivers/misc/mediatek/vcp/rv/vcp_status.ko
+  INSTALL drivers/misc/mediatek/vmm_spm/mtk-vmm-spm.ko
+  INSTALL drivers/misc/mediatek/widevine_drm/widevine_driver.ko
+  INSTALL drivers/misc/mediatek/vow/ver02/mtk-vow.ko
+  INSTALL drivers/misc/tui/tuihw-inf.ko
+  INSTALL drivers/misc/tui/tuihw.ko
+  INSTALL drivers/misc/tzdev/tzdev.ko
+  INSTALL drivers/mmc/host/cqhci.ko
+  INSTALL drivers/mmc/host/mtk-mmc-autok.ko
+  INSTALL drivers/mmc/host/mtk-mmc-dbg.ko
+  INSTALL drivers/mmc/host/mtk-mmc-sec.ko
+  INSTALL drivers/muic/common/common_muic.ko
+  INSTALL drivers/mmc/host/mtk-sd.ko
+  INSTALL drivers/mstdrv/mstdrv.ko
+  INSTALL drivers/muic/sm/sm5714/muic_sm5714.ko
+  INSTALL drivers/net/dropdump/dropdump.ko
+  INSTALL drivers/net/usb/ax88179_178a.ko
+  INSTALL drivers/nfc/lsi/nfc_slsi_sec.ko
+  INSTALL drivers/nfc/snvm/snvm.ko
+  INSTALL drivers/net/usb/asix.ko
+  INSTALL drivers/nvmem/nvmem-mt6338-efuse.ko
+  INSTALL drivers/nvmem/nvmem-mt635x-efuse.ko
+  INSTALL drivers/nvmem/nvmem_mtk-devinfo.ko
+  INSTALL drivers/perf/arm_dsu_pmu.ko
+  INSTALL drivers/phy/mediatek/phy-mtk-fpgaphy.ko
+  INSTALL drivers/phy/mediatek/phy-mtk-tphy.ko
+  INSTALL drivers/phy/mediatek/phy-mtk-ufs.ko
+  INSTALL drivers/phy/mediatek/phy-mtk-xsphy.ko
+  INSTALL drivers/pinctrl/mediatek/pinctrl-mt6373.ko
+  INSTALL drivers/pinctrl/mediatek/pinctrl-mtk-common-v2_debug.ko
+  INSTALL drivers/pinctrl/mediatek/pinctrl-mt6789.ko
+  INSTALL drivers/power/reset/reboot-mode.ko
+  INSTALL drivers/power/reset/syscon-reboot-mode.ko
+  INSTALL drivers/pinctrl/mediatek/pinctrl-mtk-v2.ko
+  INSTALL drivers/pwm/pwm-mtk-disp.ko
+  INSTALL drivers/power/supply/mt6359p_battery.ko
+  INSTALL drivers/power/supply/mt6360_pmu_chg.ko
+  INSTALL drivers/regulator/mt6315-regulator.ko
+  INSTALL drivers/regulator/mt6359p-regulator.ko
+  INSTALL drivers/regulator/mt6358-regulator.ko
+  INSTALL drivers/regulator/mt6360-regulator.ko
+  INSTALL drivers/regulator/mt6363-regulator.ko
+  INSTALL drivers/regulator/mt6369-regulator.ko
+  INSTALL drivers/regulator/mt6368-regulator.ko
+  INSTALL drivers/regulator/mt6373-regulator.ko
+  INSTALL drivers/regulator/mtk-extbuck-debug.ko
+  INSTALL drivers/regulator/mtk-dvfsrc-regulator.ko
+  INSTALL drivers/regulator/rt6160-regulator.ko
+  INSTALL drivers/regulator/rt5133-regulator.ko
+  INSTALL drivers/regulator/mtk-vmm-regulator.ko
+  INSTALL drivers/regulator/s2mpb03/s2mpb03.ko
+  INSTALL drivers/remoteproc/mtk_ccd_remoteproc.ko
+  INSTALL drivers/remoteproc/mtk_ccu.ko
+  INSTALL drivers/reset/reset-ti-syscon.ko
+  INSTALL drivers/rpmsg/ccd_rpmsg.ko
+  INSTALL drivers/rtc/rtc-mt6397.ko
+  INSTALL drivers/rpmsg/mtk_rpmsg_mbox.ko
+  INSTALL drivers/samsung/pm/sec_pm_debug.ko
+  INSTALL drivers/rtc/rtc-mt6685.ko
+  INSTALL drivers/samsung/debug/sec_extra_info.ko
+  INSTALL drivers/samsung/debug/sec_debug.ko
+  INSTALL drivers/samsung/pm/sec_thermistor/sec_thermistor.ko
+  INSTALL drivers/samsung/sec_ext.ko
+  INSTALL drivers/samsung/sec_reboot.ko
+  INSTALL drivers/samsung/sec_reset.ko
+  INSTALL drivers/scsi/ufs/ufs-mediatek-dbg.ko
+  INSTALL drivers/scsi/ufs/vendor/ufs-mediatek-mod.ko
+  INSTALL drivers/sensorhub/shub.ko
+  INSTALL drivers/sensors/sx9385/sx9385.ko
+  INSTALL drivers/sensorhub/utility/sensor_core.ko
+  INSTALL drivers/sec_panel_notifier_v2/sec_panel_notifier_v2.ko
+  INSTALL drivers/soc/mediatek/devapc/device-apc-common.ko
+  INSTALL drivers/soc/mediatek/devapc/device-apc-mt6789.ko
+  INSTALL drivers/soc/mediatek/devmpu/devmpu.ko
+  INSTALL drivers/soc/mediatek/mtk-dvfsrc-start.ko
+  INSTALL drivers/soc/mediatek/mtk-dvfsrc.ko
+  INSTALL drivers/soc/mediatek/mtk-mbox.ko
+  INSTALL drivers/soc/mediatek/mtk-mmdvfs.ko
+  INSTALL drivers/soc/mediatek/mtk-pm-domain-disable-unused.ko
+  INSTALL drivers/soc/mediatek/mtk-mmsys.ko
+  INSTALL drivers/soc/mediatek/mtk-scpsys-mt6789.ko
+  INSTALL drivers/soc/mediatek/mtk-pmic-wrap.ko
+  INSTALL drivers/soc/mediatek/mtk-scpsys-bringup.ko
+  INSTALL drivers/soc/mediatek/mtk-scpsys.ko
+  INSTALL drivers/soc/mediatek/mtk_tinysys_ipi.ko
+  INSTALL drivers/spi/spi-mt65xx.ko
+  INSTALL drivers/soc/mediatek/mtk-socinfo.ko
+  INSTALL drivers/spmi/spmi-mtk-pmif.ko
+  INSTALL drivers/spmi/spmi-mtk-mpu.ko
+  INSTALL drivers/staging/android/switch/sec_switch_class.ko
+  INSTALL drivers/sti/abc/abc.ko
+  INSTALL drivers/sti/abc/abc_hub.ko
+  INSTALL drivers/tee/teeperf/teeperf.ko
+  INSTALL drivers/tee/tee.ko
+  INSTALL drivers/thermal/mediatek/backlight_cooling.ko
+  INSTALL drivers/thermal/mediatek/md_cooling_all.ko
+  INSTALL drivers/thermal/mediatek/board_temp.ko
+  INSTALL drivers/thermal/mediatek/pmic_temp.ko
+  INSTALL drivers/thermal/mediatek/soc_temp_lvts.ko
+  INSTALL drivers/thermal/mediatek/thermal_jatm.ko
+  INSTALL drivers/thermal/mediatek/thermal_interface.ko
+  INSTALL drivers/thermal/thermal-generic-adc.ko
+  INSTALL drivers/tty/serial/8250/8250_mtk.ko
+  INSTALL drivers/thermal/mediatek/thermal_trace.ko
+  INSTALL drivers/usb/gadget/function/usb_f_conn_gadget.ko
+  INSTALL drivers/usb/gadget/function/usb_f_dm.ko
+  INSTALL drivers/usb/gadget/function/usb_f_ss_mon_gadget.ko
+  INSTALL drivers/usb/common/vbus_notifier/vbus_notifier.ko
+  INSTALL drivers/usb/mtu3/mtu3.ko
+  INSTALL drivers/usb/host/xhci-mtk-hcd.ko
+  INSTALL drivers/usb/notify/usb_notifier.ko
+  INSTALL drivers/usb/notify/usb_notify_layer.ko
+  INSTALL drivers/usb/phy/phy-generic.ko
+  INSTALL drivers/usb/typec/common/pdic_notifier_module.ko
+  INSTALL drivers/usb/typec/manager/usb_typec_manager.ko
+  INSTALL drivers/usb/typec/sm/sm5714/pdic_sm5714.ko
+  INSTALL drivers/usb/typec/manager/if_cb_manager.ko
+  INSTALL drivers/vibrator/common/sec_vibrator.ko
+  INSTALL drivers/vibrator/common/vib_info/vibrator_vib_info.ko
+  INSTALL drivers/vibrator/dc/dc_vibrator.ko
+  INSTALL drivers/watchdog/mtk_wdt.ko
+  INSTALL net/wireless/cfg80211.ko
+  INSTALL drivers/watchdog/softdog.ko
+  INSTALL mm/zsmalloc.ko
+  INSTALL net/mac80211/mac80211.ko
+  INSTALL sound/soc/codecs/mt6338-accdet.ko
+  INSTALL sound/soc/codecs/mt6369-accdet.ko
+  INSTALL sound/soc/codecs/mt6368-accdet.ko
+  INSTALL sound/soc/codecs/mt6359p-accdet.ko
+  INSTALL sound/soc/codecs/snd-soc-aw882xx.ko
+  INSTALL sound/soc/codecs/snd-soc-mt6338.ko
+  INSTALL sound/soc/codecs/snd-soc-mt6369.ko
+  INSTALL sound/soc/codecs/snd-soc-mt6368.ko
+  INSTALL sound/soc/codecs/snd-soc-mt6366.ko
+  INSTALL sound/soc/codecs/snd-soc-mt6359.ko
+  INSTALL sound/soc/mediatek/audio_dsp/mtk-soc-offload-common.ko
+  INSTALL sound/soc/mediatek/common/mtk-afe-external.ko
+  INSTALL sound/soc/mediatek/audio_dsp/snd-soc-audiodsp-common.ko
+  INSTALL sound/soc/mediatek/common/mtk-sp-spk-amp.ko
+  INSTALL sound/soc/mediatek/common/mtk-btcvsd.ko
+  INSTALL sound/soc/mediatek/common/snd-soc-mtk-common.ko
+  INSTALL sound/soc/mediatek/mt6789/mt6789-mt6366.ko
+  INSTALL sound/soc/mediatek/mt6789/snd-soc-mt6789-afe.ko
+  INSTALL sound/soc/mediatek/ultrasound/ultra_common/mtk-scp-ultra.ko
+  INSTALL sound/soc/mediatek/ultrasound/ultra_scp/snd-soc-mtk-scp-ultra.ko
+  INSTALL sound/soc/mediatek/vow/mtk-scp-vow.ko
+  INSTALL sound/usb/mtk-usb-audio.ko
+  INSTALL sound/soc/samsung/snd-soc-sec-audio.ko
+  DEPMOD  5.10.226-android12-9-nolanarchie-dev
+========================================================
+ Building external modules and installing them into staging directory
++ make -C ../vendor/mediatek/kernel_modules/connectivity/common M=../vendor/mediatek/kernel_modules/connectivity/common KERNEL_SRC=/home/nolan-archie/a165f_kernel/kernel/kernel-5.10 O=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10 LLVM=1 LLVM_IAS=1 DEPMOD=depmod DTC=dtc
+make: Entering directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/common'
+make -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 M=../vendor/mediatek/kernel_modules/connectivity/common modules 
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+/home/nolan-archie/a165f_kernel/kernel-5.10/../vendor/mediatek/kernel_modules/connectivity/common/Kbuild:124: wmt_drv is kernel module
+/home/nolan-archie/a165f_kernel/kernel-5.10/../vendor/mediatek/kernel_modules/connectivity/common/Kbuild:213: KERNEL_VERSION_SUPPORT_CHIPID_LIST=[6789 6833 6855]
+  MODPOST ../vendor/mediatek/kernel_modules/connectivity/common/Module.symvers
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make: Leaving directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/common'
++ make -C ../vendor/mediatek/kernel_modules/connectivity/common M=../vendor/mediatek/kernel_modules/connectivity/common KERNEL_SRC=/home/nolan-archie/a165f_kernel/kernel/kernel-5.10 O=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10 LLVM=1 LLVM_IAS=1 DEPMOD=depmod DTC=dtc INSTALL_MOD_PATH=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/staging modules_install
+make: Entering directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/common'
+make M=../vendor/mediatek/kernel_modules/connectivity/common -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 modules_install
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+  INSTALL ../vendor/mediatek/kernel_modules/connectivity/common/wmt_drv.ko
+  DEPMOD  5.10.226-android12-9-nolanarchie-dev
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make: Leaving directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/common'
++ set +x
++ make -C ../vendor/mediatek/kernel_modules/connectivity/conninfra M=../vendor/mediatek/kernel_modules/connectivity/conninfra KERNEL_SRC=/home/nolan-archie/a165f_kernel/kernel/kernel-5.10 O=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10 LLVM=1 LLVM_IAS=1 DEPMOD=depmod DTC=dtc
+make: Entering directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/conninfra'
+make -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 M=../vendor/mediatek/kernel_modules/connectivity/conninfra modules 
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+/home/nolan-archie/a165f_kernel/kernel-5.10/../vendor/mediatek/kernel_modules/connectivity/conninfra/Kbuild:41: conninfra is kernel module
+/home/nolan-archie/a165f_kernel/kernel-5.10/../vendor/mediatek/kernel_modules/connectivity/conninfra/Kbuild:74: conninfra build mt6893
+  MODPOST ../vendor/mediatek/kernel_modules/connectivity/conninfra/Module.symvers
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make: Leaving directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/conninfra'
++ make -C ../vendor/mediatek/kernel_modules/connectivity/conninfra M=../vendor/mediatek/kernel_modules/connectivity/conninfra KERNEL_SRC=/home/nolan-archie/a165f_kernel/kernel/kernel-5.10 O=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10 LLVM=1 LLVM_IAS=1 DEPMOD=depmod DTC=dtc INSTALL_MOD_PATH=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/staging modules_install
+make: Entering directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/conninfra'
+make M=../vendor/mediatek/kernel_modules/connectivity/conninfra -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 modules_install
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+  INSTALL ../vendor/mediatek/kernel_modules/connectivity/conninfra/conninfra.ko
+  DEPMOD  5.10.226-android12-9-nolanarchie-dev
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make: Leaving directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/conninfra'
++ set +x
++ make -C ../vendor/mediatek/kernel_modules/connectivity/connfem M=../vendor/mediatek/kernel_modules/connectivity/connfem KERNEL_SRC=/home/nolan-archie/a165f_kernel/kernel/kernel-5.10 O=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10 LLVM=1 LLVM_IAS=1 DEPMOD=depmod DTC=dtc
+make: Entering directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/connfem'
+make -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 M=../vendor/mediatek/kernel_modules/connectivity/connfem modules 
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+ConnFem: Customer load
+  MODPOST ../vendor/mediatek/kernel_modules/connectivity/connfem/Module.symvers
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make: Leaving directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/connfem'
++ make -C ../vendor/mediatek/kernel_modules/connectivity/connfem M=../vendor/mediatek/kernel_modules/connectivity/connfem KERNEL_SRC=/home/nolan-archie/a165f_kernel/kernel/kernel-5.10 O=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10 LLVM=1 LLVM_IAS=1 DEPMOD=depmod DTC=dtc INSTALL_MOD_PATH=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/staging modules_install
+make: Entering directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/connfem'
+make M=../vendor/mediatek/kernel_modules/connectivity/connfem -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 modules_install
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+  INSTALL ../vendor/mediatek/kernel_modules/connectivity/connfem/connfem.ko
+  DEPMOD  5.10.226-android12-9-nolanarchie-dev
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make: Leaving directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/connfem'
++ set +x
++ make -C ../vendor/mediatek/kernel_modules/connectivity/gps/gps_stp M=../vendor/mediatek/kernel_modules/connectivity/gps/gps_stp KERNEL_SRC=/home/nolan-archie/a165f_kernel/kernel/kernel-5.10 O=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10 LLVM=1 LLVM_IAS=1 DEPMOD=depmod DTC=dtc
+make: Entering directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/gps_stp'
+make -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 M=../vendor/mediatek/kernel_modules/connectivity/gps/gps_stp modules  KBUILD_EXTRA_SYMBOLS="/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/vendor/mediatek/kernel_modules/connectivity/common/Module.symvers"
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+  MODPOST ../vendor/mediatek/kernel_modules/connectivity/gps/gps_stp/Module.symvers
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make: Leaving directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/gps_stp'
++ make -C ../vendor/mediatek/kernel_modules/connectivity/gps/gps_stp M=../vendor/mediatek/kernel_modules/connectivity/gps/gps_stp KERNEL_SRC=/home/nolan-archie/a165f_kernel/kernel/kernel-5.10 O=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10 LLVM=1 LLVM_IAS=1 DEPMOD=depmod DTC=dtc INSTALL_MOD_PATH=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/staging modules_install
+make: Entering directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/gps_stp'
+make M=../vendor/mediatek/kernel_modules/connectivity/gps/gps_stp -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 modules_install
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+  INSTALL ../vendor/mediatek/kernel_modules/connectivity/gps/gps_stp/gps_drv_stp.ko
+  DEPMOD  5.10.226-android12-9-nolanarchie-dev
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make: Leaving directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/gps_stp'
++ set +x
++ make -C ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010 M=../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010 KERNEL_SRC=/home/nolan-archie/a165f_kernel/kernel/kernel-5.10 O=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10 LLVM=1 LLVM_IAS=1 DEPMOD=depmod DTC=dtc
+make: Entering directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010'
+make -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 M=../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010 modules  KBUILD_EXTRA_SYMBOLS="/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/vendor/mediatek/kernel_modules/connectivity/conninfra/Module.symvers"
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+/home/nolan-archie/a165f_kernel/kernel-5.10/../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/Kbuild:14: build in gps_dl
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../gps_dl_context.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../gps_dl_module.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../lib/gps_dl_dma_buf.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../lib/gps_dl_lib_misc.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../lib/gps_dl_hist_rec.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../lib/gps_dl_hist_rec2.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../lib/gps_dl_time_tick.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../lib/gps_dl_name_list.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../hw/gps_dl_hw_conn_infra.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../hw/gps_dl_hw_semaphore.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../hw/gps_dl_hw_bgf.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../hw/gps_dl_hw_gps.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../hw/gps_dl_hw_power_ctrl.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../hw/gps_dl_hw_usrt_apb.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../hw/gps_dl_hw_util.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../hal/gps_dl_hal.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../hal/gps_dl_hal_util.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../hal/gps_dsp_fsm.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../hal/gps_dl_power_ctrl.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../hal/gps_dl_isr.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../hal/gps_dl_dma.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../hal/gps_dl_mcub.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../hal/gps_dl_zbus.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../hal/gps_dl_conn_infra.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../hal/gps_dl_hal_met2_0.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../link/gps_dl_link_event_proc.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../link/gps_dl_link_hal_ctrl.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../link/gps_dl_link_irq_ctrl.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../link/gps_dl_link_state.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../link/gps_dl_link_sync.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../link/gps_dl_link_util.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../link/gps_dl_subsys_reset.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../gps_each_link.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../linux/gps_data_link_devices.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../linux/gps_each_device.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../linux/gps_dl_linux.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../linux/gps_dl_linux_plat_drv.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../linux/gps_dl_linux_reserved_mem.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../linux/gps_dl_emi.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../linux/gps_dl_ctrld.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../linux/gps_dl_procfs.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/../../linux/gps_dl_osal.o
+  AR [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/gps_drv_dl_v010.o
+  LTO [M] ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/gps_drv_dl_v010.lto.o
+  MODPOST ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/Module.symvers
+  LD [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/gps_drv_dl_v010.ko
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make: Leaving directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010'
++ make -C ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010 M=../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010 KERNEL_SRC=/home/nolan-archie/a165f_kernel/kernel/kernel-5.10 O=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10 LLVM=1 LLVM_IAS=1 DEPMOD=depmod DTC=dtc INSTALL_MOD_PATH=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/staging modules_install
+make: Entering directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010'
+make M=../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010 -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 modules_install
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+  INSTALL ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010/gps_drv_dl_v010.ko
+  DEPMOD  5.10.226-android12-9-nolanarchie-dev
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make: Leaving directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010'
++ set +x
++ make -C ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030 M=../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030 KERNEL_SRC=/home/nolan-archie/a165f_kernel/kernel/kernel-5.10 O=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10 LLVM=1 LLVM_IAS=1 DEPMOD=depmod DTC=dtc
+make: Entering directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030'
+make -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 M=../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030 modules  KBUILD_EXTRA_SYMBOLS="/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/vendor/mediatek/kernel_modules/connectivity/conninfra/Module.symvers"
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+/home/nolan-archie/a165f_kernel/kernel-5.10/../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/Kbuild:14: build in gps_dl
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../gps_dl_context.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../gps_dl_module.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../lib/gps_dl_dma_buf.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../lib/gps_dl_lib_misc.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../lib/gps_dl_hist_rec.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../lib/gps_dl_hist_rec2.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../lib/gps_dl_time_tick.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../lib/gps_dl_name_list.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../hw/gps_dl_hw_conn_infra.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../hw/gps_dl_hw_semaphore.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../hw/gps_dl_hw_bgf.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../hw/gps_dl_hw_gps.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../hw/gps_dl_hw_power_ctrl.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../hw/gps_dl_hw_util.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../hw/gps_dl_hw_usrt_apb.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../hal/gps_dl_hal.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../hal/gps_dl_hal_util.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../hal/gps_dsp_fsm.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../hal/gps_dl_power_ctrl.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../hal/gps_dl_isr.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../hal/gps_dl_dma.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../hal/gps_dl_mcub.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../hal/gps_dl_zbus.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../hal/gps_dl_conn_infra.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../hal/gps_dl_hal_met2_0.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../link/gps_dl_link_event_proc.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../link/gps_dl_link_hal_ctrl.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../link/gps_dl_link_irq_ctrl.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../link/gps_dl_link_state.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../link/gps_dl_link_sync.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../link/gps_dl_link_util.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../link/gps_dl_subsys_reset.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../gps_each_link.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../linux/gps_data_link_devices.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../linux/gps_each_device.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../linux/gps_dl_linux.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../linux/gps_dl_linux_plat_drv.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../linux/gps_dl_linux_reserved_mem.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../linux/gps_dl_emi.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../linux/gps_dl_ctrld.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../linux/gps_dl_procfs.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/../../linux/gps_dl_osal.o
+  AR [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/gps_drv_dl_v030.o
+  LTO [M] ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/gps_drv_dl_v030.lto.o
+  MODPOST ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/Module.symvers
+  LD [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/gps_drv_dl_v030.ko
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make: Leaving directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030'
++ make -C ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030 M=../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030 KERNEL_SRC=/home/nolan-archie/a165f_kernel/kernel/kernel-5.10 O=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10 LLVM=1 LLVM_IAS=1 DEPMOD=depmod DTC=dtc INSTALL_MOD_PATH=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/staging modules_install
+make: Entering directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030'
+make M=../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030 -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 modules_install
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+  INSTALL ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030/gps_drv_dl_v030.ko
+  DEPMOD  5.10.226-android12-9-nolanarchie-dev
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make: Leaving directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030'
++ set +x
++ make -C ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050 M=../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050 KERNEL_SRC=/home/nolan-archie/a165f_kernel/kernel/kernel-5.10 O=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10 LLVM=1 LLVM_IAS=1 DEPMOD=depmod DTC=dtc
+make: Entering directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050'
+make -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 M=../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050 modules  KBUILD_EXTRA_SYMBOLS="/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/vendor/mediatek/kernel_modules/connectivity/conninfra/Module.symvers"
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+/home/nolan-archie/a165f_kernel/kernel-5.10/../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/Kbuild:14: build in gps_dl
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../gps_dl_context.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../gps_dl_module.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../lib/gps_dl_dma_buf.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../lib/gps_dl_lib_misc.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../lib/gps_dl_hist_rec2.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../lib/gps_dl_hist_rec.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../lib/gps_dl_time_tick.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../lib/gps_dl_name_list.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../hw/gps_dl_hw_conn_infra.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../hw/gps_dl_hw_semaphore.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../hw/gps_dl_hw_bgf.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../hw/gps_dl_hw_gps.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../hw/gps_dl_hw_power_ctrl.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../hw/gps_dl_hw_usrt_apb.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../hw/gps_dl_hw_util.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../hal/gps_dl_hal.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../hal/gps_dl_hal_util.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../hal/gps_dsp_fsm.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../hal/gps_dl_power_ctrl.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../hal/gps_dl_isr.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../hal/gps_dl_dma.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../hal/gps_dl_mcub.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../hal/gps_dl_zbus.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../hal/gps_dl_conn_infra.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../hal/gps_dl_hal_met2_0.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../link/gps_dl_link_event_proc.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../link/gps_dl_link_hal_ctrl.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../link/gps_dl_link_irq_ctrl.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../link/gps_dl_link_state.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../link/gps_dl_link_sync.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../link/gps_dl_link_util.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../link/gps_dl_subsys_reset.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../gps_each_link.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../linux/gps_data_link_devices.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../linux/gps_each_device.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../linux/gps_dl_linux.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../linux/gps_dl_linux_plat_drv.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../linux/gps_dl_linux_reserved_mem.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../linux/gps_dl_emi.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../linux/gps_dl_ctrld.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../linux/gps_dl_procfs.o
+  CC [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/../../linux/gps_dl_osal.o
+  AR [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/gps_drv_dl_v050.o
+  LTO [M] ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/gps_drv_dl_v050.lto.o
+  MODPOST ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/Module.symvers
+  LD [M]  ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/gps_drv_dl_v050.ko
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make: Leaving directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050'
++ make -C ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050 M=../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050 KERNEL_SRC=/home/nolan-archie/a165f_kernel/kernel/kernel-5.10 O=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10 LLVM=1 LLVM_IAS=1 DEPMOD=depmod DTC=dtc INSTALL_MOD_PATH=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/staging modules_install
+make: Entering directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050'
+make M=../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050 -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 modules_install
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+  INSTALL ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050/gps_drv_dl_v050.ko
+  DEPMOD  5.10.226-android12-9-nolanarchie-dev
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make: Leaving directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050'
++ set +x
++ make -C ../vendor/mediatek/kernel_modules/connectivity/gps/gps_pwr M=../vendor/mediatek/kernel_modules/connectivity/gps/gps_pwr KERNEL_SRC=/home/nolan-archie/a165f_kernel/kernel/kernel-5.10 O=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10 LLVM=1 LLVM_IAS=1 DEPMOD=depmod DTC=dtc
+make: Entering directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/gps_pwr'
+make -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 M=../vendor/mediatek/kernel_modules/connectivity/gps/gps_pwr modules 
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+/home/nolan-archie/a165f_kernel/kernel-5.10/../vendor/mediatek/kernel_modules/connectivity/gps/gps_pwr/Kbuild:13: GPS_CHIP_ID != common
+/home/nolan-archie/a165f_kernel/kernel-5.10/../vendor/mediatek/kernel_modules/connectivity/gps/gps_pwr/Kbuild:42: gps_pwr has been build
+  MODPOST ../vendor/mediatek/kernel_modules/connectivity/gps/gps_pwr/Module.symvers
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make: Leaving directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/gps_pwr'
++ make -C ../vendor/mediatek/kernel_modules/connectivity/gps/gps_pwr M=../vendor/mediatek/kernel_modules/connectivity/gps/gps_pwr KERNEL_SRC=/home/nolan-archie/a165f_kernel/kernel/kernel-5.10 O=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10 LLVM=1 LLVM_IAS=1 DEPMOD=depmod DTC=dtc INSTALL_MOD_PATH=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/staging modules_install
+make: Entering directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/gps_pwr'
+make M=../vendor/mediatek/kernel_modules/connectivity/gps/gps_pwr -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 modules_install
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+  INSTALL ../vendor/mediatek/kernel_modules/connectivity/gps/gps_pwr/gps_pwr.ko
+  DEPMOD  5.10.226-android12-9-nolanarchie-dev
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make: Leaving directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/gps_pwr'
++ set +x
++ make -C ../vendor/mediatek/kernel_modules/connectivity/gps/gps_scp M=../vendor/mediatek/kernel_modules/connectivity/gps/gps_scp KERNEL_SRC=/home/nolan-archie/a165f_kernel/kernel/kernel-5.10 O=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10 LLVM=1 LLVM_IAS=1 DEPMOD=depmod DTC=dtc
+make: Entering directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/gps_scp'
+make -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 M=../vendor/mediatek/kernel_modules/connectivity/gps/gps_scp modules 
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+/home/nolan-archie/a165f_kernel/kernel-5.10/../vendor/mediatek/kernel_modules/connectivity/gps/gps_scp/Kbuild:13: GPS_CHIP_ID != common
+/home/nolan-archie/a165f_kernel/kernel-5.10/../vendor/mediatek/kernel_modules/connectivity/gps/gps_scp/Kbuild:42: gps_scp has been build
+  MODPOST ../vendor/mediatek/kernel_modules/connectivity/gps/gps_scp/Module.symvers
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make: Leaving directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/gps_scp'
++ make -C ../vendor/mediatek/kernel_modules/connectivity/gps/gps_scp M=../vendor/mediatek/kernel_modules/connectivity/gps/gps_scp KERNEL_SRC=/home/nolan-archie/a165f_kernel/kernel/kernel-5.10 O=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10 LLVM=1 LLVM_IAS=1 DEPMOD=depmod DTC=dtc INSTALL_MOD_PATH=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/staging modules_install
+make: Entering directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/gps_scp'
+make M=../vendor/mediatek/kernel_modules/connectivity/gps/gps_scp -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 modules_install
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+  INSTALL ../vendor/mediatek/kernel_modules/connectivity/gps/gps_scp/gps_scp.ko
+  DEPMOD  5.10.226-android12-9-nolanarchie-dev
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make: Leaving directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/gps/gps_scp'
++ set +x
++ make -C ../vendor/mediatek/kernel_modules/gpu M=../vendor/mediatek/kernel_modules/gpu KERNEL_SRC=/home/nolan-archie/a165f_kernel/kernel/kernel-5.10 O=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10 LLVM=1 LLVM_IAS=1 DEPMOD=depmod DTC=dtc
+make: Entering directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/gpu'
+make -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 M=../vendor/mediatek/kernel_modules/gpu/mt6789/mali_valhall/mali-r32p1/drivers/gpu/arm/midgard modules  MTK_PLATFORM_VERSION=mt6789 LOCAL_MTK_GPU_VERSION=mali_valhall_r32p1_mt6789 BUILD_RULE=OOT
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[1]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+*GPU [mtk-Kbuild] src = ../vendor/mediatek/kernel_modules/gpu/mt6789/mali_valhall/mali-r32p1/drivers/gpu/arm/midgard
+*GPU [mtk-Kbuild] srctree = /home/nolan-archie/a165f_kernel/kernel-5.10
+*GPU [mtk-Kbuild] building r32p1 DDK ...
+*GPU [mtk-Kbuild] CONFIG_DEBUG_FS = y
+*GPU [mtk-Kbuild] CONFIG_PROC_FS = y
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_SUPPORT = m
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_VERSION = ""
+*GPU [mtk-Kbuild] MTK_GPU_VERSION = mali_valhall_r32p1_mt6789
+*GPU [mtk-Kbuild] MTK_PLATFORM = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD = m
+*GPU [mtk-Kbuild] CONFIG_MALI_PLATFORM_NAME = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_CSF_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MALI_REAL_HW = y
+*GPU [mtk-Kbuild] CONFIG_MALI_NO_MALI = 
+*GPU [mtk-Kbuild] CONFIG_MALI_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD_DVFS = y
+*GPU [mtk-Kbuild] CONFIG_MALI_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_KBASE = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_EXCEPTION = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_CSFFW = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_DFD = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MEM_TRACK = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ_THERMAL = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_BM_2 = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_BRINGUP = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_NO_THERMAL = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DUMMY_CM = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_IRQ_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MFGSYS_PM = y
+*GPU [mtk-Kbuild] CONFIG_MALI_PMU_LP4 = 
+*GPU [mtk-Kbuild] CONFIG_MALI_SCMI_ENABLE = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_LOW_POWER = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_IDLE_TEST = 
+*GPU [mtk-Kbuild] building r32p1 DDK ...
+*GPU [mtk-Kbuild] CONFIG_DEBUG_FS = y
+*GPU [mtk-Kbuild] CONFIG_PROC_FS = y
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_SUPPORT = m
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_VERSION = ""
+*GPU [mtk-Kbuild] MTK_GPU_VERSION = mali_valhall_r32p1_mt6789
+*GPU [mtk-Kbuild] MTK_PLATFORM = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD = m
+*GPU [mtk-Kbuild] CONFIG_MALI_PLATFORM_NAME = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_CSF_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MALI_REAL_HW = y
+*GPU [mtk-Kbuild] CONFIG_MALI_NO_MALI = 
+*GPU [mtk-Kbuild] CONFIG_MALI_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD_DVFS = y
+*GPU [mtk-Kbuild] CONFIG_MALI_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_KBASE = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_EXCEPTION = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_CSFFW = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_DFD = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MEM_TRACK = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ_THERMAL = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_BM_2 = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_BRINGUP = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_NO_THERMAL = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DUMMY_CM = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_IRQ_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MFGSYS_PM = y
+*GPU [mtk-Kbuild] CONFIG_MALI_PMU_LP4 = 
+*GPU [mtk-Kbuild] CONFIG_MALI_SCMI_ENABLE = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_LOW_POWER = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_IDLE_TEST = 
+*GPU [mtk-Kbuild] building r32p1 DDK ...
+*GPU [mtk-Kbuild] CONFIG_DEBUG_FS = y
+*GPU [mtk-Kbuild] CONFIG_PROC_FS = y
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_SUPPORT = m
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_VERSION = ""
+*GPU [mtk-Kbuild] MTK_GPU_VERSION = mali_valhall_r32p1_mt6789
+*GPU [mtk-Kbuild] MTK_PLATFORM = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD = m
+*GPU [mtk-Kbuild] CONFIG_MALI_PLATFORM_NAME = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_CSF_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MALI_REAL_HW = y
+*GPU [mtk-Kbuild] CONFIG_MALI_NO_MALI = 
+*GPU [mtk-Kbuild] CONFIG_MALI_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD_DVFS = y
+*GPU [mtk-Kbuild] CONFIG_MALI_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_KBASE = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_EXCEPTION = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_CSFFW = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_DFD = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MEM_TRACK = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ_THERMAL = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_BM_2 = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_BRINGUP = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_NO_THERMAL = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DUMMY_CM = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_IRQ_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MFGSYS_PM = y
+*GPU [mtk-Kbuild] CONFIG_MALI_PMU_LP4 = 
+*GPU [mtk-Kbuild] CONFIG_MALI_SCMI_ENABLE = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_LOW_POWER = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_IDLE_TEST = 
+*GPU [mtk-Kbuild] src = ../vendor/mediatek/kernel_modules/gpu/mt6789/mali_valhall/mali-r32p1/drivers/gpu/arm/midgard
+*GPU [mtk-Kbuild] srctree = /home/nolan-archie/a165f_kernel/kernel-5.10
+*GPU [mtk-Kbuild] building r32p1 DDK ...
+*GPU [mtk-Kbuild] CONFIG_DEBUG_FS = y
+*GPU [mtk-Kbuild] CONFIG_PROC_FS = y
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_SUPPORT = m
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_VERSION = ""
+*GPU [mtk-Kbuild] MTK_GPU_VERSION = mali_valhall_r32p1_mt6789
+*GPU [mtk-Kbuild] MTK_PLATFORM = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD = m
+*GPU [mtk-Kbuild] CONFIG_MALI_PLATFORM_NAME = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_CSF_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MALI_REAL_HW = y
+*GPU [mtk-Kbuild] CONFIG_MALI_NO_MALI = 
+*GPU [mtk-Kbuild] CONFIG_MALI_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD_DVFS = y
+*GPU [mtk-Kbuild] CONFIG_MALI_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_KBASE = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_EXCEPTION = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_CSFFW = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_DFD = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MEM_TRACK = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ_THERMAL = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_BM_2 = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_BRINGUP = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_NO_THERMAL = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DUMMY_CM = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_IRQ_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MFGSYS_PM = y
+*GPU [mtk-Kbuild] CONFIG_MALI_PMU_LP4 = 
+*GPU [mtk-Kbuild] CONFIG_MALI_SCMI_ENABLE = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_LOW_POWER = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_IDLE_TEST = 
+*GPU [mtk-Kbuild] building r32p1 DDK ...
+*GPU [mtk-Kbuild] CONFIG_DEBUG_FS = y
+*GPU [mtk-Kbuild] CONFIG_PROC_FS = y
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_SUPPORT = m
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_VERSION = ""
+*GPU [mtk-Kbuild] MTK_GPU_VERSION = mali_valhall_r32p1_mt6789
+*GPU [mtk-Kbuild] MTK_PLATFORM = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD = m
+*GPU [mtk-Kbuild] CONFIG_MALI_PLATFORM_NAME = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_CSF_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MALI_REAL_HW = y
+*GPU [mtk-Kbuild] CONFIG_MALI_NO_MALI = 
+*GPU [mtk-Kbuild] CONFIG_MALI_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD_DVFS = y
+*GPU [mtk-Kbuild] CONFIG_MALI_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_KBASE = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_EXCEPTION = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_CSFFW = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_DFD = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MEM_TRACK = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ_THERMAL = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_BM_2 = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_BRINGUP = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_NO_THERMAL = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DUMMY_CM = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_IRQ_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MFGSYS_PM = y
+*GPU [mtk-Kbuild] CONFIG_MALI_PMU_LP4 = 
+*GPU [mtk-Kbuild] CONFIG_MALI_SCMI_ENABLE = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_LOW_POWER = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_IDLE_TEST = 
+*GPU [mtk-Kbuild] building r32p1 DDK ...
+*GPU [mtk-Kbuild] CONFIG_DEBUG_FS = y
+*GPU [mtk-Kbuild] CONFIG_PROC_FS = y
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_SUPPORT = m
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_VERSION = ""
+*GPU [mtk-Kbuild] MTK_GPU_VERSION = mali_valhall_r32p1_mt6789
+*GPU [mtk-Kbuild] MTK_PLATFORM = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD = m
+*GPU [mtk-Kbuild] CONFIG_MALI_PLATFORM_NAME = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_CSF_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MALI_REAL_HW = y
+*GPU [mtk-Kbuild] CONFIG_MALI_NO_MALI = 
+*GPU [mtk-Kbuild] CONFIG_MALI_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD_DVFS = y
+*GPU [mtk-Kbuild] CONFIG_MALI_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_KBASE = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_EXCEPTION = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_CSFFW = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_DFD = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MEM_TRACK = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ_THERMAL = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_BM_2 = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_BRINGUP = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_NO_THERMAL = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DUMMY_CM = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_IRQ_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MFGSYS_PM = y
+*GPU [mtk-Kbuild] CONFIG_MALI_PMU_LP4 = 
+*GPU [mtk-Kbuild] CONFIG_MALI_SCMI_ENABLE = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_LOW_POWER = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_IDLE_TEST = 
+  MODPOST ../vendor/mediatek/kernel_modules/gpu/mt6789/mali_valhall/mali-r32p1/drivers/gpu/arm/midgard/Module.symvers
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 M=../vendor/mediatek/kernel_modules/gpu/mt6789/mali_valhall/mali-r32p1/drivers/base/arm/memory_group_manager modules  MTK_PLATFORM_VERSION=mt6789 CONFIG_MALI_MEMORY_GROUP_MANAGER=y
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[1]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+  MODPOST ../vendor/mediatek/kernel_modules/gpu/mt6789/mali_valhall/mali-r32p1/drivers/base/arm/memory_group_manager/Module.symvers
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 M=../vendor/mediatek/kernel_modules/gpu/mt6789/mali_valhall/mali-r32p1/drivers/base/arm/protected_memory_allocator modules  MTK_PLATFORM_VERSION=mt6789 CONFIG_MALI_PROTECTED_MEMORY_ALLOCATOR=y
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[1]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+  MODPOST ../vendor/mediatek/kernel_modules/gpu/mt6789/mali_valhall/mali-r32p1/drivers/base/arm/protected_memory_allocator/Module.symvers
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make: Leaving directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/gpu'
++ make -C ../vendor/mediatek/kernel_modules/gpu M=../vendor/mediatek/kernel_modules/gpu KERNEL_SRC=/home/nolan-archie/a165f_kernel/kernel/kernel-5.10 O=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10 LLVM=1 LLVM_IAS=1 DEPMOD=depmod DTC=dtc INSTALL_MOD_PATH=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/staging modules_install
+make: Entering directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/gpu'
+make M=../vendor/mediatek/kernel_modules/gpu/mt6789/mali_valhall/mali-r32p1/drivers/gpu/arm/midgard modules -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 modules_install  MTK_PLATFORM_VERSION=mt6789 LOCAL_MTK_GPU_VERSION=mali_valhall_r32p1_mt6789 BUILD_RULE=OOT
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[1]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+*GPU [mtk-Kbuild] src = ../vendor/mediatek/kernel_modules/gpu/mt6789/mali_valhall/mali-r32p1/drivers/gpu/arm/midgard
+*GPU [mtk-Kbuild] srctree = /home/nolan-archie/a165f_kernel/kernel-5.10
+*GPU [mtk-Kbuild] building r32p1 DDK ...
+*GPU [mtk-Kbuild] CONFIG_DEBUG_FS = y
+*GPU [mtk-Kbuild] CONFIG_PROC_FS = y
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_SUPPORT = m
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_VERSION = ""
+*GPU [mtk-Kbuild] MTK_GPU_VERSION = mali_valhall_r32p1_mt6789
+*GPU [mtk-Kbuild] MTK_PLATFORM = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD = m
+*GPU [mtk-Kbuild] CONFIG_MALI_PLATFORM_NAME = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_CSF_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MALI_REAL_HW = y
+*GPU [mtk-Kbuild] CONFIG_MALI_NO_MALI = 
+*GPU [mtk-Kbuild] CONFIG_MALI_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD_DVFS = y
+*GPU [mtk-Kbuild] CONFIG_MALI_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_KBASE = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_EXCEPTION = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_CSFFW = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_DFD = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MEM_TRACK = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ_THERMAL = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_BM_2 = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_BRINGUP = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_NO_THERMAL = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DUMMY_CM = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_IRQ_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MFGSYS_PM = y
+*GPU [mtk-Kbuild] CONFIG_MALI_PMU_LP4 = 
+*GPU [mtk-Kbuild] CONFIG_MALI_SCMI_ENABLE = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_LOW_POWER = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_IDLE_TEST = 
+*GPU [mtk-Kbuild] building r32p1 DDK ...
+*GPU [mtk-Kbuild] CONFIG_DEBUG_FS = y
+*GPU [mtk-Kbuild] CONFIG_PROC_FS = y
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_SUPPORT = m
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_VERSION = ""
+*GPU [mtk-Kbuild] MTK_GPU_VERSION = mali_valhall_r32p1_mt6789
+*GPU [mtk-Kbuild] MTK_PLATFORM = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD = m
+*GPU [mtk-Kbuild] CONFIG_MALI_PLATFORM_NAME = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_CSF_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MALI_REAL_HW = y
+*GPU [mtk-Kbuild] CONFIG_MALI_NO_MALI = 
+*GPU [mtk-Kbuild] CONFIG_MALI_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD_DVFS = y
+*GPU [mtk-Kbuild] CONFIG_MALI_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_KBASE = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_EXCEPTION = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_CSFFW = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_DFD = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MEM_TRACK = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ_THERMAL = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_BM_2 = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_BRINGUP = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_NO_THERMAL = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DUMMY_CM = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_IRQ_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MFGSYS_PM = y
+*GPU [mtk-Kbuild] CONFIG_MALI_PMU_LP4 = 
+*GPU [mtk-Kbuild] CONFIG_MALI_SCMI_ENABLE = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_LOW_POWER = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_IDLE_TEST = 
+*GPU [mtk-Kbuild] building r32p1 DDK ...
+*GPU [mtk-Kbuild] CONFIG_DEBUG_FS = y
+*GPU [mtk-Kbuild] CONFIG_PROC_FS = y
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_SUPPORT = m
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_VERSION = ""
+*GPU [mtk-Kbuild] MTK_GPU_VERSION = mali_valhall_r32p1_mt6789
+*GPU [mtk-Kbuild] MTK_PLATFORM = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD = m
+*GPU [mtk-Kbuild] CONFIG_MALI_PLATFORM_NAME = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_CSF_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MALI_REAL_HW = y
+*GPU [mtk-Kbuild] CONFIG_MALI_NO_MALI = 
+*GPU [mtk-Kbuild] CONFIG_MALI_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD_DVFS = y
+*GPU [mtk-Kbuild] CONFIG_MALI_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_KBASE = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_EXCEPTION = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_CSFFW = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_DFD = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MEM_TRACK = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ_THERMAL = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_BM_2 = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_BRINGUP = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_NO_THERMAL = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DUMMY_CM = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_IRQ_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MFGSYS_PM = y
+*GPU [mtk-Kbuild] CONFIG_MALI_PMU_LP4 = 
+*GPU [mtk-Kbuild] CONFIG_MALI_SCMI_ENABLE = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_LOW_POWER = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_IDLE_TEST = 
+*GPU [mtk-Kbuild] src = ../vendor/mediatek/kernel_modules/gpu/mt6789/mali_valhall/mali-r32p1/drivers/gpu/arm/midgard
+*GPU [mtk-Kbuild] srctree = /home/nolan-archie/a165f_kernel/kernel-5.10
+*GPU [mtk-Kbuild] building r32p1 DDK ...
+*GPU [mtk-Kbuild] CONFIG_DEBUG_FS = y
+*GPU [mtk-Kbuild] CONFIG_PROC_FS = y
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_SUPPORT = m
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_VERSION = ""
+*GPU [mtk-Kbuild] MTK_GPU_VERSION = mali_valhall_r32p1_mt6789
+*GPU [mtk-Kbuild] MTK_PLATFORM = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD = m
+*GPU [mtk-Kbuild] CONFIG_MALI_PLATFORM_NAME = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_CSF_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MALI_REAL_HW = y
+*GPU [mtk-Kbuild] CONFIG_MALI_NO_MALI = 
+*GPU [mtk-Kbuild] CONFIG_MALI_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD_DVFS = y
+*GPU [mtk-Kbuild] CONFIG_MALI_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_KBASE = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_EXCEPTION = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_CSFFW = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_DFD = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MEM_TRACK = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ_THERMAL = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_BM_2 = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_BRINGUP = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_NO_THERMAL = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DUMMY_CM = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_IRQ_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MFGSYS_PM = y
+*GPU [mtk-Kbuild] CONFIG_MALI_PMU_LP4 = 
+*GPU [mtk-Kbuild] CONFIG_MALI_SCMI_ENABLE = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_LOW_POWER = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_IDLE_TEST = 
+*GPU [mtk-Kbuild] building r32p1 DDK ...
+*GPU [mtk-Kbuild] CONFIG_DEBUG_FS = y
+*GPU [mtk-Kbuild] CONFIG_PROC_FS = y
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_SUPPORT = m
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_VERSION = ""
+*GPU [mtk-Kbuild] MTK_GPU_VERSION = mali_valhall_r32p1_mt6789
+*GPU [mtk-Kbuild] MTK_PLATFORM = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD = m
+*GPU [mtk-Kbuild] CONFIG_MALI_PLATFORM_NAME = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_CSF_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MALI_REAL_HW = y
+*GPU [mtk-Kbuild] CONFIG_MALI_NO_MALI = 
+*GPU [mtk-Kbuild] CONFIG_MALI_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD_DVFS = y
+*GPU [mtk-Kbuild] CONFIG_MALI_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_KBASE = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_EXCEPTION = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_CSFFW = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_DFD = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MEM_TRACK = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ_THERMAL = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_BM_2 = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_BRINGUP = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_NO_THERMAL = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DUMMY_CM = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_IRQ_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MFGSYS_PM = y
+*GPU [mtk-Kbuild] CONFIG_MALI_PMU_LP4 = 
+*GPU [mtk-Kbuild] CONFIG_MALI_SCMI_ENABLE = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_LOW_POWER = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_IDLE_TEST = 
+*GPU [mtk-Kbuild] building r32p1 DDK ...
+*GPU [mtk-Kbuild] CONFIG_DEBUG_FS = y
+*GPU [mtk-Kbuild] CONFIG_PROC_FS = y
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_SUPPORT = m
+*GPU [mtk-Kbuild] CONFIG_MTK_GPU_VERSION = ""
+*GPU [mtk-Kbuild] MTK_GPU_VERSION = mali_valhall_r32p1_mt6789
+*GPU [mtk-Kbuild] MTK_PLATFORM = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD = m
+*GPU [mtk-Kbuild] CONFIG_MALI_PLATFORM_NAME = mt6789
+*GPU [mtk-Kbuild] CONFIG_MALI_CSF_SUPPORT = 
+*GPU [mtk-Kbuild] CONFIG_MALI_REAL_HW = y
+*GPU [mtk-Kbuild] CONFIG_MALI_NO_MALI = 
+*GPU [mtk-Kbuild] CONFIG_MALI_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MIDGARD_DVFS = y
+*GPU [mtk-Kbuild] CONFIG_MALI_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_KBASE = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_EXCEPTION = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_LOGBUF_CSFFW = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEBUG_DFD = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MEM_TRACK = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DEVFREQ_THERMAL = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_BM_2 = y
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_BRINGUP = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_NO_THERMAL = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_DUMMY_CM = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_FENCE_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_IRQ_DEBUG = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_MFGSYS_PM = y
+*GPU [mtk-Kbuild] CONFIG_MALI_PMU_LP4 = 
+*GPU [mtk-Kbuild] CONFIG_MALI_SCMI_ENABLE = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_LOW_POWER = 
+*GPU [mtk-Kbuild] CONFIG_MALI_MTK_GPU_IDLE_TEST = 
+  INSTALL ../vendor/mediatek/kernel_modules/gpu/mt6789/mali_valhall/mali-r32p1/drivers/gpu/arm/midgard/mali_kbase_mt6789.ko
+  DEPMOD  5.10.226-android12-9-nolanarchie-dev
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make M=../vendor/mediatek/kernel_modules/gpu/mt6789/mali_valhall/mali-r32p1/drivers/base/arm/memory_group_manager modules -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 modules_install  CONFIG_MALI_MEMORY_GROUP_MANAGER=y
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[1]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+  INSTALL ../vendor/mediatek/kernel_modules/gpu/mt6789/mali_valhall/mali-r32p1/drivers/base/arm/memory_group_manager/mali_mgm.ko
+  DEPMOD  5.10.226-android12-9-nolanarchie-dev
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make M=../vendor/mediatek/kernel_modules/gpu/mt6789/mali_valhall/mali-r32p1/drivers/base/arm/protected_memory_allocator -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 modules_install  CONFIG_MALI_PROTECTED_MEMORY_ALLOCATOR=y
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[1]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+  INSTALL ../vendor/mediatek/kernel_modules/gpu/mt6789/mali_valhall/mali-r32p1/drivers/base/arm/protected_memory_allocator/mali_prot_alloc.ko
+  DEPMOD  5.10.226-android12-9-nolanarchie-dev
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make: Leaving directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/gpu'
++ set +x
++ make -C ../vendor/mediatek/kernel_modules/connectivity/fmradio M=../vendor/mediatek/kernel_modules/connectivity/fmradio KERNEL_SRC=/home/nolan-archie/a165f_kernel/kernel/kernel-5.10 O=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10 LLVM=1 LLVM_IAS=1 DEPMOD=depmod DTC=dtc
+make: Entering directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/fmradio'
+[fm_drv:Makefile] M = ../vendor/mediatek/kernel_modules/connectivity/fmradio
+[fm_drv:Makefile] FM_CHIP_ID = 
+[fm_drv:Makefile] FM_CHIP = 
+[fm_drv:Makefile] FM_PLAT = 
+[fm_drv:Makefile] CFG_FM_PLAT = 
+[fm_drv:Makefile] CFG_BUILD_CONNAC2 = 
+[fm_drv:Makefile] CFG_FM_CHIP_ID = 
+[fm_drv:Makefile] CFG_FM_CHIP = 
+[fm_drv:Makefile] wmt ready
+[fm_drv:Makefile] conninfra ready
+[fm_drv:Makefile] make LD = 2.0
+[fm_drv:Makefile:build] CFG_FM_PLAT = connac2x
+[fm_drv:Makefile:build] CFG_BUILD_CONNAC2 = true
+[fm_drv:Makefile:build] CFG_FM_CHIP_ID = 
+[fm_drv:Makefile:build] CFG_FM_CHIP = mt6635
+[fm_drv:Makefile:build] CFG_FM_PLAT = mt6631_6635
+[fm_drv:Makefile:build] CFG_BUILD_CONNAC2 = false
+[fm_drv:Makefile:build] CFG_FM_CHIP_ID = 
+[fm_drv:Makefile:build] CFG_FM_CHIP = 
+[fm_drv:Makefile:build] CFG_FM_PLAT = mt6631
+[fm_drv:Makefile:build] CFG_BUILD_CONNAC2 = false
+[fm_drv:Makefile:build] CFG_FM_CHIP_ID = 
+[fm_drv:Makefile:build] CFG_FM_CHIP = mt6631
+[fm_drv:Makefile:build] CFG_FM_PLAT = mt6635
+[fm_drv:Makefile:build] CFG_BUILD_CONNAC2 = false
+[fm_drv:Makefile:build] CFG_FM_CHIP_ID = 
+[fm_drv:Makefile:build] CFG_FM_CHIP = mt6635
+[fm_drv:Makefile:build] CFG_FM_PLAT = soc
+[fm_drv:Makefile:build] CFG_BUILD_CONNAC2 = false
+[fm_drv:Makefile:build] CFG_FM_CHIP_ID = 
+[fm_drv:Makefile:build] CFG_FM_CHIP = mt6580
+[fm_drv:Makefile:build] CFG_FM_PLAT = mt6625
+[fm_drv:Makefile:build] CFG_BUILD_CONNAC2 = false
+[fm_drv:Makefile:build] CFG_FM_CHIP_ID = 
+[fm_drv:Makefile:build] CFG_FM_CHIP = mt6625
+[fm_drv:Makefile:build] CFG_FM_PLAT = mt6627
+[fm_drv:Makefile:build] CFG_BUILD_CONNAC2 = false
+[fm_drv:Makefile:build] CFG_FM_CHIP_ID = 
+[fm_drv:Makefile:build] CFG_FM_CHIP = mt6627
+[fm_drv:Makefile:build] CFG_FM_PLAT = mt6630
+[fm_drv:Makefile:build] CFG_BUILD_CONNAC2 = false
+[fm_drv:Makefile:build] CFG_FM_CHIP_ID = 
+[fm_drv:Makefile:build] CFG_FM_CHIP = mt6630
+make -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 M=../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/connac2x modules  CFG_FM_PLAT=connac2x CFG_BUILD_CONNAC2=true CFG_FM_CHIP_ID= CFG_FM_CHIP=mt6635 KBUILD_EXTRA_SYMBOLS="/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/vendor/mediatek/kernel_modules/connectivity/common/Module.symvers /home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/vendor/mediatek/kernel_modules/connectivity/conninfra/Module.symvers"
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[1]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+[fm_drv:Kbuild] M = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/connac2x
+[fm_drv:Kbuild] CFG_FM_PLAT = connac2x
+[fm_drv:Kbuild] CFG_BUILD_CONNAC2 = true
+[fm_drv:Kbuild] CFG_FM_CHIP_ID = 
+[fm_drv:Kbuild] CFG_FM_CHIP = mt6635
+[fm_drv:Kbuild] fmradio_drv_connac2x is kernel module
+[fm_drv:Kbuild] src = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/connac2x
+[fm_drv:Kbuild] KO_CODE_PATH = /home/nolan-archie/a165f_kernel/kernel-5.10/../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/connac2x
+[fm_drv:Makefile] M = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/connac2x
+[fm_drv:Makefile] FM_CHIP_ID = 
+[fm_drv:Makefile] FM_CHIP = 
+[fm_drv:Makefile] FM_PLAT = 
+[fm_drv:Makefile] CFG_FM_PLAT = connac2x
+[fm_drv:Makefile] CFG_BUILD_CONNAC2 = true
+[fm_drv:Makefile] CFG_FM_CHIP_ID = 
+[fm_drv:Makefile] CFG_FM_CHIP = mt6635
+[fm_drv:Makefile] wmt ready
+[fm_drv:Makefile] conninfra ready
+  MODPOST ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/connac2x/Module.symvers
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 M=../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6631_6635 modules  CFG_FM_PLAT=mt6631_6635 CFG_BUILD_CONNAC2=false CFG_FM_CHIP_ID= CFG_FM_CHIP= KBUILD_EXTRA_SYMBOLS="/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/vendor/mediatek/kernel_modules/connectivity/common/Module.symvers /home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/vendor/mediatek/kernel_modules/connectivity/conninfra/Module.symvers"
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[1]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+[fm_drv:Kbuild] M = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6631_6635
+[fm_drv:Kbuild] CFG_FM_PLAT = mt6631_6635
+[fm_drv:Kbuild] CFG_BUILD_CONNAC2 = false
+[fm_drv:Kbuild] CFG_FM_CHIP_ID = 
+[fm_drv:Kbuild] CFG_FM_CHIP = 
+[fm_drv:Kbuild] fmradio_drv_mt6631_6635 is kernel module
+[fm_drv:Kbuild] src = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6631_6635
+[fm_drv:Kbuild] KO_CODE_PATH = /home/nolan-archie/a165f_kernel/kernel-5.10/../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6631_6635
+[fm_drv:Makefile] M = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6631_6635
+[fm_drv:Makefile] FM_CHIP_ID = 
+[fm_drv:Makefile] FM_CHIP = 
+[fm_drv:Makefile] FM_PLAT = 
+[fm_drv:Makefile] CFG_FM_PLAT = mt6631_6635
+[fm_drv:Makefile] CFG_BUILD_CONNAC2 = false
+[fm_drv:Makefile] CFG_FM_CHIP_ID = 
+[fm_drv:Makefile] CFG_FM_CHIP = 
+[fm_drv:Makefile] wmt ready
+[fm_drv:Makefile] conninfra ready
+  MODPOST ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6631_6635/Module.symvers
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 M=../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6631 modules  CFG_FM_PLAT=mt6631 CFG_BUILD_CONNAC2=false CFG_FM_CHIP_ID= CFG_FM_CHIP=mt6631 KBUILD_EXTRA_SYMBOLS="/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/vendor/mediatek/kernel_modules/connectivity/common/Module.symvers /home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/vendor/mediatek/kernel_modules/connectivity/conninfra/Module.symvers"
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[1]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+[fm_drv:Kbuild] M = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6631
+[fm_drv:Kbuild] CFG_FM_PLAT = mt6631
+[fm_drv:Kbuild] CFG_BUILD_CONNAC2 = false
+[fm_drv:Kbuild] CFG_FM_CHIP_ID = 
+[fm_drv:Kbuild] CFG_FM_CHIP = mt6631
+[fm_drv:Kbuild] fmradio_drv_mt6631 is kernel module
+[fm_drv:Kbuild] src = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6631
+[fm_drv:Kbuild] KO_CODE_PATH = /home/nolan-archie/a165f_kernel/kernel-5.10/../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6631
+[fm_drv:Makefile] M = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6631
+[fm_drv:Makefile] FM_CHIP_ID = 
+[fm_drv:Makefile] FM_CHIP = 
+[fm_drv:Makefile] FM_PLAT = 
+[fm_drv:Makefile] CFG_FM_PLAT = mt6631
+[fm_drv:Makefile] CFG_BUILD_CONNAC2 = false
+[fm_drv:Makefile] CFG_FM_CHIP_ID = 
+[fm_drv:Makefile] CFG_FM_CHIP = mt6631
+[fm_drv:Makefile] wmt ready
+[fm_drv:Makefile] conninfra ready
+  MODPOST ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6631/Module.symvers
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 M=../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6635 modules  CFG_FM_PLAT=mt6635 CFG_BUILD_CONNAC2=false CFG_FM_CHIP_ID= CFG_FM_CHIP=mt6635 KBUILD_EXTRA_SYMBOLS="/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/vendor/mediatek/kernel_modules/connectivity/common/Module.symvers /home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/vendor/mediatek/kernel_modules/connectivity/conninfra/Module.symvers"
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[1]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+[fm_drv:Kbuild] M = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6635
+[fm_drv:Kbuild] CFG_FM_PLAT = mt6635
+[fm_drv:Kbuild] CFG_BUILD_CONNAC2 = false
+[fm_drv:Kbuild] CFG_FM_CHIP_ID = 
+[fm_drv:Kbuild] CFG_FM_CHIP = mt6635
+[fm_drv:Kbuild] fmradio_drv_mt6635 is kernel module
+[fm_drv:Kbuild] src = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6635
+[fm_drv:Kbuild] KO_CODE_PATH = /home/nolan-archie/a165f_kernel/kernel-5.10/../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6635
+[fm_drv:Makefile] M = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6635
+[fm_drv:Makefile] FM_CHIP_ID = 
+[fm_drv:Makefile] FM_CHIP = 
+[fm_drv:Makefile] FM_PLAT = 
+[fm_drv:Makefile] CFG_FM_PLAT = mt6635
+[fm_drv:Makefile] CFG_BUILD_CONNAC2 = false
+[fm_drv:Makefile] CFG_FM_CHIP_ID = 
+[fm_drv:Makefile] CFG_FM_CHIP = mt6635
+[fm_drv:Makefile] wmt ready
+[fm_drv:Makefile] conninfra ready
+  MODPOST ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6635/Module.symvers
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+# legacy chip
+make -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 M=../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/soc modules  CFG_FM_PLAT=soc CFG_BUILD_CONNAC2=false CFG_FM_CHIP_ID= CFG_FM_CHIP=mt6580 KBUILD_EXTRA_SYMBOLS="/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/vendor/mediatek/kernel_modules/connectivity/common/Module.symvers /home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/vendor/mediatek/kernel_modules/connectivity/conninfra/Module.symvers"
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[1]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+[fm_drv:Kbuild] M = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/soc
+[fm_drv:Kbuild] CFG_FM_PLAT = soc
+[fm_drv:Kbuild] CFG_BUILD_CONNAC2 = false
+[fm_drv:Kbuild] CFG_FM_CHIP_ID = 
+[fm_drv:Kbuild] CFG_FM_CHIP = mt6580
+[fm_drv:Kbuild] fmradio_drv_soc is kernel module
+[fm_drv:Kbuild] src = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/soc
+[fm_drv:Kbuild] KO_CODE_PATH = /home/nolan-archie/a165f_kernel/kernel-5.10/../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/soc
+[fm_drv:Makefile] M = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/soc
+[fm_drv:Makefile] FM_CHIP_ID = 
+[fm_drv:Makefile] FM_CHIP = 
+[fm_drv:Makefile] FM_PLAT = 
+[fm_drv:Makefile] CFG_FM_PLAT = soc
+[fm_drv:Makefile] CFG_BUILD_CONNAC2 = false
+[fm_drv:Makefile] CFG_FM_CHIP_ID = 
+[fm_drv:Makefile] CFG_FM_CHIP = mt6580
+[fm_drv:Makefile] wmt ready
+[fm_drv:Makefile] conninfra ready
+  MODPOST ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/soc/Module.symvers
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 M=../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6625 modules  CFG_FM_PLAT=mt6625 CFG_BUILD_CONNAC2=false CFG_FM_CHIP_ID= CFG_FM_CHIP=mt6625 KBUILD_EXTRA_SYMBOLS="/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/vendor/mediatek/kernel_modules/connectivity/common/Module.symvers /home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/vendor/mediatek/kernel_modules/connectivity/conninfra/Module.symvers"
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[1]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+[fm_drv:Kbuild] M = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6625
+[fm_drv:Kbuild] CFG_FM_PLAT = mt6625
+[fm_drv:Kbuild] CFG_BUILD_CONNAC2 = false
+[fm_drv:Kbuild] CFG_FM_CHIP_ID = 
+[fm_drv:Kbuild] CFG_FM_CHIP = mt6625
+[fm_drv:Kbuild] fmradio_drv_mt6625 is kernel module
+[fm_drv:Kbuild] src = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6625
+[fm_drv:Kbuild] KO_CODE_PATH = /home/nolan-archie/a165f_kernel/kernel-5.10/../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6625
+[fm_drv:Makefile] M = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6625
+[fm_drv:Makefile] FM_CHIP_ID = 
+[fm_drv:Makefile] FM_CHIP = 
+[fm_drv:Makefile] FM_PLAT = 
+[fm_drv:Makefile] CFG_FM_PLAT = mt6625
+[fm_drv:Makefile] CFG_BUILD_CONNAC2 = false
+[fm_drv:Makefile] CFG_FM_CHIP_ID = 
+[fm_drv:Makefile] CFG_FM_CHIP = mt6625
+[fm_drv:Makefile] wmt ready
+[fm_drv:Makefile] conninfra ready
+  MODPOST ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6625/Module.symvers
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 M=../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6627 modules  CFG_FM_PLAT=mt6627 CFG_BUILD_CONNAC2=false CFG_FM_CHIP_ID= CFG_FM_CHIP=mt6627 KBUILD_EXTRA_SYMBOLS="/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/vendor/mediatek/kernel_modules/connectivity/common/Module.symvers /home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/vendor/mediatek/kernel_modules/connectivity/conninfra/Module.symvers"
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[1]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+[fm_drv:Kbuild] M = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6627
+[fm_drv:Kbuild] CFG_FM_PLAT = mt6627
+[fm_drv:Kbuild] CFG_BUILD_CONNAC2 = false
+[fm_drv:Kbuild] CFG_FM_CHIP_ID = 
+[fm_drv:Kbuild] CFG_FM_CHIP = mt6627
+[fm_drv:Kbuild] fmradio_drv_mt6627 is kernel module
+[fm_drv:Kbuild] src = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6627
+[fm_drv:Kbuild] KO_CODE_PATH = /home/nolan-archie/a165f_kernel/kernel-5.10/../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6627
+[fm_drv:Makefile] M = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6627
+[fm_drv:Makefile] FM_CHIP_ID = 
+[fm_drv:Makefile] FM_CHIP = 
+[fm_drv:Makefile] FM_PLAT = 
+[fm_drv:Makefile] CFG_FM_PLAT = mt6627
+[fm_drv:Makefile] CFG_BUILD_CONNAC2 = false
+[fm_drv:Makefile] CFG_FM_CHIP_ID = 
+[fm_drv:Makefile] CFG_FM_CHIP = mt6627
+[fm_drv:Makefile] wmt ready
+[fm_drv:Makefile] conninfra ready
+  MODPOST ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6627/Module.symvers
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 M=../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6630 modules  CFG_FM_PLAT=mt6630 CFG_BUILD_CONNAC2=false CFG_FM_CHIP_ID= CFG_FM_CHIP=mt6630 KBUILD_EXTRA_SYMBOLS="/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/vendor/mediatek/kernel_modules/connectivity/common/Module.symvers /home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/vendor/mediatek/kernel_modules/connectivity/conninfra/Module.symvers"
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[1]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+[fm_drv:Kbuild] M = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6630
+[fm_drv:Kbuild] CFG_FM_PLAT = mt6630
+[fm_drv:Kbuild] CFG_BUILD_CONNAC2 = false
+[fm_drv:Kbuild] CFG_FM_CHIP_ID = 
+[fm_drv:Kbuild] CFG_FM_CHIP = mt6630
+[fm_drv:Kbuild] fmradio_drv_mt6630 is kernel module
+[fm_drv:Kbuild] src = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6630
+[fm_drv:Kbuild] KO_CODE_PATH = /home/nolan-archie/a165f_kernel/kernel-5.10/../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6630
+[fm_drv:Makefile] M = ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6630
+[fm_drv:Makefile] FM_CHIP_ID = 
+[fm_drv:Makefile] FM_CHIP = 
+[fm_drv:Makefile] FM_PLAT = 
+[fm_drv:Makefile] CFG_FM_PLAT = mt6630
+[fm_drv:Makefile] CFG_BUILD_CONNAC2 = false
+[fm_drv:Makefile] CFG_FM_CHIP_ID = 
+[fm_drv:Makefile] CFG_FM_CHIP = mt6630
+[fm_drv:Makefile] wmt ready
+[fm_drv:Makefile] conninfra ready
+  MODPOST ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6630/Module.symvers
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make: Leaving directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/fmradio'
++ make -C ../vendor/mediatek/kernel_modules/connectivity/fmradio M=../vendor/mediatek/kernel_modules/connectivity/fmradio KERNEL_SRC=/home/nolan-archie/a165f_kernel/kernel/kernel-5.10 O=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10 LLVM=1 LLVM_IAS=1 DEPMOD=depmod DTC=dtc INSTALL_MOD_PATH=/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/staging modules_install
+make: Entering directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/fmradio'
+[fm_drv:Makefile] M = ../vendor/mediatek/kernel_modules/connectivity/fmradio
+[fm_drv:Makefile] FM_CHIP_ID = 
+[fm_drv:Makefile] FM_CHIP = 
+[fm_drv:Makefile] FM_PLAT = 
+[fm_drv:Makefile] CFG_FM_PLAT = 
+[fm_drv:Makefile] CFG_BUILD_CONNAC2 = 
+[fm_drv:Makefile] CFG_FM_CHIP_ID = 
+[fm_drv:Makefile] CFG_FM_CHIP = 
+[fm_drv:Makefile] wmt ready
+[fm_drv:Makefile] conninfra ready
+[fm_drv:Makefile] install LD = 2.0
+make M=../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/connac2x -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 modules_install
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[1]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+  INSTALL ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/connac2x/fmradio_drv_connac2x.ko
+  DEPMOD  5.10.226-android12-9-nolanarchie-dev
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make M=../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6631_6635 -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 modules_install
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[1]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+  INSTALL ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6631_6635/fmradio_drv_mt6631_6635.ko
+  DEPMOD  5.10.226-android12-9-nolanarchie-dev
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make M=../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6631 -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 modules_install
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[1]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+  INSTALL ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6631/fmradio_drv_mt6631.ko
+  DEPMOD  5.10.226-android12-9-nolanarchie-dev
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make M=../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6635 -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 modules_install
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[1]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+  INSTALL ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6635/fmradio_drv_mt6635.ko
+  DEPMOD  5.10.226-android12-9-nolanarchie-dev
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+# legacy chip
+make M=../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/soc -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 modules_install
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[1]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+  INSTALL ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/soc/fmradio_drv_soc.ko
+  DEPMOD  5.10.226-android12-9-nolanarchie-dev
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make M=../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6625 -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 modules_install
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[1]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+  INSTALL ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6625/fmradio_drv_mt6625.ko
+  DEPMOD  5.10.226-android12-9-nolanarchie-dev
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make M=../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6627 -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 modules_install
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[1]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+  INSTALL ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6627/fmradio_drv_mt6627.ko
+  DEPMOD  5.10.226-android12-9-nolanarchie-dev
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make M=../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6630 -C /home/nolan-archie/a165f_kernel/kernel/kernel-5.10 modules_install
+make[1]: Entering directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make[1]: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
+make[2]: Entering directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+  INSTALL ../vendor/mediatek/kernel_modules/connectivity/fmradio/Build/mt6630/fmradio_drv_mt6630.ko
+  DEPMOD  5.10.226-android12-9-nolanarchie-dev
+make[2]: Leaving directory '/home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10'
+make[1]: Leaving directory '/home/nolan-archie/a165f_kernel/kernel-5.10'
+make: Leaving directory '/home/nolan-archie/a165f_kernel/vendor/mediatek/kernel_modules/connectivity/fmradio'
++ set +x
+========================================================
+ Copying files
+ls: arch/arm64/boot/Image.lz4: No such file or directory
+  vmlinux
+========================================================
+ Running extra dist command(s):
+WARN: running without UAPI headers
++ eval cp -p '${OUT_DIR}/.config' '${DIST_DIR}'
+++ cp -p /home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10/.config /home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ
++ set +x
+========================================================
+ Copying modules files
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/block/ssg.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/block/blk-sec-stats.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/crypto/lzo.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/crypto/lzo-rle.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/base/regmap/regmap-spmi.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/battery/battery_auth/ds28e30/sec-auth-ds28e30.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/battery/battery_auth/sle956681/sec-auth-sle956681.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/battery/charger/sm5461_charger/sm5461-charger.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/battery/charger/sm5714_charger/sm5714-charger.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/battery/common/sb_wireless.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/battery/common/sec-direct-charger.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/battery/common/sec-battery.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/battery/common/sec_pd.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/battery/core/sb-core.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/battery/fuelgauge/sm5714_fuelgauge/sm5714_fuelgauge.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/block/zram/zram.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/char/hw_random/sec-rng.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/char/rpmb/rpmb-mtk.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/char/rpmb/rpmb.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/clk/mediatek/clk-bringup.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/clk/mediatek/clk-chk-mt6789.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/clk/mediatek/clk-dbg-mt6789.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/clk/mediatek/clk-common.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/clk/mediatek/clk-disable-unused.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/clk/mediatek/clk-mt6789-bus.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/clk/mediatek/clk-fmeter-mt6789.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/clk/mediatek/clk-mt6789-audiosys.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/clk/mediatek/clk-mt6789-cam.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/clk/mediatek/clk-mt6789-disp_dsc.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/clk/mediatek/clk-mt6789-i2c.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/clk/mediatek/clk-mt6789-img.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/clk/mediatek/clk-mt6789-impen.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/clk/mediatek/clk-mt6789-mfgcfg.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/clk/mediatek/clk-mt6789-mmsys.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/clk/mediatek/clk-mt6789.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/clk/mediatek/clk-mt6789-vcodec.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/clk/mediatek/fhctl.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/clk/mediatek/pd-chk-mt6789.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/cpufreq/cpufreq_limit.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/cpufreq/mediatek-cpufreq-hw.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/dma-buf/heaps/mtk_heap_debug.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/dma-buf/heaps/mtk_mm_heap.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/dma-buf/heaps/system_heap.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/dma-buf/heaps/mtk_sec_heap.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/devfreq/mtk-dvfsrc-devfreq.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/dma/mediatek/mtk-cqdma.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/dma/mediatek/mtk-uart-apdma.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/fingerprint/fingerprint.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/fingerprint/fingerprint_sysfs.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/gpu/drm/mediatek/mediatek_v2/mediatek-drm.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/gpu/drm/mediatek/mediatek_v2/mtk_aod_scp.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/gpu/drm/mediatek/mediatek_v2/mtk_disp_notify.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/gpu/drm/mediatek/mediatek_v2/mtk_disp_sec.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/gpu/drm/mediatek/mediatek_v2/mtk_panel_ext.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/gpu/drm/mediatek/mediatek_v2/mtk_sync.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/gpu/drm/mediatek/mml/mtk-mml.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/gpu/drm/panel/mcd_panel/mtk-mcd-panel-adapter.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/gpu/drm/panel/mediatek-drm-gateic.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/gpu/drm/panel/mediatek-drm-panel-drv.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/gpu/drm/samsung/panel/oled_common/usdm-panel-oled-common.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/gpu/drm/samsung/panel/s6e8fc3/mcd-panel-s6e8fc3_a16x.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/gpu/drm/samsung/panel/mcd-panel.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/gpu/mediatek/gpu_bm/mtk_gpu_qos.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/gpu/mediatek/ged/ged.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/gpu/mediatek/gpueb/gpueb.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/gpu/mediatek/gpufreq/v2/mtk_gpufreq_mt6789.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/gpu/mediatek/gpufreq/v2/mtk_gpufreq_wrapper.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/gpu/mediatek/hal/mtk_gpu_hal.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/i2c/busses/i2c-gpio.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/i2c/busses/i2c-mt65xx.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/iio/adc/mt635x-auxadc.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/iio/adc/mt6360-adc.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/iio/adc/mt6577_auxadc.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/iio/adc/mtk-spmi-pmic-adc.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/iio/adc/mt6338-auxadc.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/iio/buffer/industrialio-triggered-buffer.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/iio/buffer/kfifo_buf.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/input/keyboard/mtk-kpd.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/input/keyboard/mtk-pmic-keys.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/input/input_boost/input_booster_lkm.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/input/sec_input/sec_common_fn.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/input/sec_input/sec_input_notifier.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/input/touchscreen/focaltech/ft3519/focaltech_ts_ft3519.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/interconnect/mediatek/mmqos-common.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/interconnect/mediatek/mmqos-mt6789.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/interconnect/mediatek/mtk-emi.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/interconnect/mediatek/mmqos-md.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/iommu/mtk_iommu.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/knox/hdm/hdm.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/leds/leds-mtk-pwm.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/leds/leds-mtk.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/leds/leds-pwm.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/leds/leds-sm5714-fled.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/mailbox/mtk-mbox-mailbox.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/media/platform/mtk-aie/mtk_aie.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/media/platform/mtk-isp/camsys/isp7_1/cam/mtk-cam-isp.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/media/platform/mtk-isp/camsys/isp7_1/cam/mtk-cam-plat-util.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/media/platform/mtk-isp/imgsys/mtk_imgsys_v4l2.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/media/platform/mtk-isp/mtk-hcp/mtk_hcp.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/media/platform/mtk-isp/mtk-ipesys-me/mtk-ipesys-me.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/media/platform/mtk-jpeg/mtk_jpeg.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/media/platform/mtk-vcodec/mtk-vcodec-common.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/media/platform/mtk-vcodec/mtk-vcodec-dec-v1.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/media/platform/mtk-vcodec/mtk-vcodec-dec-v2.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/media/platform/mtk-vcodec/mtk-vcodec-enc-v2.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/media/platform/mtk-vcodec/mtk-vcodec-enc-v1.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/media/platform/mtk-vcu/mtk-vcu.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/media/platform/mtk-videobuf/mtk-vb2.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/media/v4l2-core/v4l2-flash-led-class.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/media/v4l2-core/v4l2-fwnode.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/memory/mediatek/emi-fake-eng.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/memory/mediatek/emi-mpu-hook-v1.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/memory/mediatek/emi-mpu-test-v2.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/memory/mediatek/emi-mpu-test.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/memory/mediatek/emi-mpu.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/memory/mediatek/emi-mpu-v2.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/memory/mediatek/emi-slb.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/memory/mediatek/emi.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/memory/mediatek/mtk_dramc.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/memory/mtk-smi.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/mfd/mt6338-core.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/mfd/mt6360-core.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/mfd/mt6397.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/mfd/mt63xx-debug.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/mfd/mt6685-audclk.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/mfd/sm/sm5714/mfd_sm5714.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/mfd/mtk-spmi-pmic-debug.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/mfd/mt6685-core.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/mfd/mtk-spmi-pmic.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/adsp/adsp.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/adsp/v1/adsp-v1.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/adsp/v2/adsp-v2.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/aee/aed/aee_rs.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/aee/aed/aee_aed.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/aee/hangdet/aee_hangdet.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/aee/mrdump/mrdump.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/apusys/apusys.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/apusys/power/apu_top.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/atf/atf_logger.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/audio_ipi/audio_ipi.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/blocktag/blocktag.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/c2k_usb/c2k_usb.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/c2k_usb/c2k_usb_f_via_atc.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/c2k_usb/c2k_usb_f_via_ets.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/c2k_usb/c2k_usb_f_via_gps.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/c2k_usb/c2k_usb_f_via_modem.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/c2k_usb/c2k_usb_f_via_pcv.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/btif/common/btif_drv.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/cam_cal/src/custom/camera_eeprom.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/cam_timesync/archcounter_timesync.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/cache-auditor/cpuqos_v3/cpuqos_v3.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/camera_mem/camera_mem.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/cameraisp/dip/isp_6s/camera_dip_isp6s.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/cameraisp/dpe/camera_dpe_isp60.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/cameraisp/dpe/camera_dpe_isp70.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/cameraisp/fdvt/camera_fdvt_isp51.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/cameraisp/pda/isp_71/camera_pda.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/cameraisp/rsc/camera_rsc_isp60.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/cameraisp/mfb/camera_mfb_isp6s.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/cameraisp/src/isp_6s/cam_qos.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/cameraisp/src/isp_6s/camera_isp.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/cameraisp/wpe/isp_6s/camera_wpe_isp6s.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/ccu/src/isp6s/ccu.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/ccmni/ccmni.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/clkbuf/clkbuf.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/ccci_util/ccci_util_lib.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/cm_mgr/mtk_cm_ipi.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/cm_mgr/mtk_cm_mgr.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/cm_mgr/mtk_cm_mgr_mt6789.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/cmdq/mailbox/cmdq-platform-mt6789.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/cmdq/mailbox/cmdq-platform-mt6873.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/cmdq/mailbox/cmdq-platform-mt6853.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/cmdq/mailbox/mtk-cmdq-drv-ext.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/cmdq/mailbox/cmdq-sec-drv.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/cmdq/mailbox/cmdq-test.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/conn_scp/connscp.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/connectivity/connadp.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/cpufreq_lite/cpudvfs.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/dcm/mt6789_dcm.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/dcm/mtk_dcm.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/dvfsrc/mtk-dvfsrc-helper.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/eccci/ccci_auxadc.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/eccci/ccci_cldma.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/eccci/ccci_ccif.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/eccci/ccci_fsm_scp.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/eccci/ccci_md_all.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/eccci/ccci_dpmaif.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/eccci/ccci_rtc.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/eccci/ccci_md_clk.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/eccci/cpif.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/extcon/extcon-mtk-usb.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/flashlight/flashlight.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/flashlight/v4l2/lm3644.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/flashlight/mtk-composite.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/flashlight/flashlights-sm5714.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/geniezone/gz-trusty/gz_ipc_mod.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/geniezone/gz-trusty/gz_irq_mod.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/geniezone/gz-trusty/gz_trusty_mod.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/geniezone/gz-trusty/gz_virtio_mod.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/geniezone/gz-trusty/gz_log_mod.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/geniezone/gz_main_mod.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/geniezone/gz_tz_system.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/imgsensor/src-v4l2/imgsensor-glue/imgsensor-glue.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/imgsensor/src-v4l2/imgsensor.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/imgsensor/src/isp6s/imgsensor_isp6s.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/iommu/iommu_gz.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/iommu/iommu_secure.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/iommu/iommu_debug.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/iommu/iommu_test.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/irtx/mtk_irtx_pwm.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/jpeg/jpeg-driver.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/lens/vcm/proprietary/main/mainaf.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/lens/vcm/proprietary/sub2/sub2af.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/lens/vcm/proprietary/sub/subaf.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/lens/vcm/proprietary/main3/main3af.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/lens/vcm/proprietary/main2/main2af.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/lens/vcm/v4l2/ak7377a/ak7377a.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/lens/vcm/v4l2/ak7375c/ak7375c.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/lens/vcm/v4l2/dw9718/dw9718.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/lens/vcm/v4l2/bu64253gwz/bu64253gwz.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/lens/vcm/v4l2/dw9800w/dw9800w.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/lens/vcm/v4l2/dw9800v/dw9800v.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/lens/vcm/v4l2/gt9764/gt9764.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/lens/vcm/v4l2/gt9772b/gt9772b.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/lens/vcm/v4l2/media/camera_af_media.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/lens/vcm/v4l2/lc898229/lc898229.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/lens/vcm/v4l2/gt9772a/gt9772a.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/lens/ois/bu63169/bu63169.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/log_store/log_store.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/lpm/modules/platform/v1/mtk-lpm-plat-v1.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/lpm/modules/debug/mt6789/mtk-lpm-dbg-mt6789.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/lpm/modules/debug/v1/mtk-lpm-dbg-common-v1.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/lpm/mtk-lpm.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/masp/sec.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/mcupm/v2/mcupm.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/mddp/mddp.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/mkp/mkp.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/mdpm/mtk_mdpm.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/mdp/cmdq_helper_inf.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/mdp/mdp_drv_mt6789.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/mminfra/mtk-mminfra-debug.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/mminfra/mtk-mminfra-imax.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/mmdvfs/mtk-mmdvfs-debug.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/mmqos/mmqos_wrapper.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/mmp/src/mmprofile.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/mmstat/trace_mmstat.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/monitor_hang/monitor_hang.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/mtk-interconnect/mtk-icc-core.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/mtprintk/mtk_printk_ctrl.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/nfc/st21nfc/st21nfc.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/nfc/st54spi.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/pbm/mtk_pbm.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/mtprof/bootprof.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/perf_common/mtk_perf_common.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/performance/frs/frs.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/performance/load_track/load_track.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/performance/fpsgo_v3/mtk_fpsgo.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/performance/mtk_perf_ioctl.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/performance/uload_ind/uload_ind.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/pidmap/pidmap.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/pmic_protect/mtk-pmic-oc-debug.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/pmic_protect/mt63xx-oc-debug.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/pmsr/twam/spmtwam.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/pmsr/pmsr.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/power_throttling/mtk_battery_oc_throttling.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/power_throttling/mtk_bp_thl.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/power_throttling/mtk_cpu_power_throttling.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/power_throttling/mtk_dynamic_loading_throttling.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/power_throttling/pmic_lbat_service.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/power_throttling/mtk_md_power_throttling.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/power_throttling/mtk_low_battery_throttling.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/pwm/mtk-pwm.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/qos/mtk_qos.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/rps/rps_perf.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/sched/cpufreq_sugov_ext.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/sched/scheduler.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/sched/mtk_core_ctl.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/scp/rv/scp.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/sda/btm/bus_tracer_interface.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/sda/btm/v1/bus_tracer_v1.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/sda/dbgtop-drm.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/sda/cache-parity.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/sda/bus-parity.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/sda/irq-dbg.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/slbc/mmsram.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/slbc/mtk_slbc.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/slbc/slbc_ipi.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/smi/mtk-smi-dbg.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/ssc/debug/v1/mtk-ssc-dbg-v1.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/ssc/debug/v2/mtk-ssc-dbg-v2.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/ssc/mtk-ssc.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/sspm/v3/sspm_v3.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/subpmic/extdev_io_class.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/subpmic/mt6360-dbg.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/swpm/modules/debug/v6789/mtk-swpm-dbg-v6789.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/swpm/modules/debug/v1/mtk-swpm-dbg-common-v1.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/swpm/modules/debug/v6855/mtk-swpm-dbg-v6855.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/swpm/modules/debug/v6895/mtk-swpm-dbg-v6895.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/swpm/modules/debug/v6893/mtk-swpm-dbg-v6893.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/swpm/modules/debug/v6879/mtk-swpm-dbg-v6879.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/swpm/modules/debug/v6983/mtk-swpm-dbg-v6983.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/swpm/mtk-swpm-perf-arm-pmu.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/swpm/mtk-swpm.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/task_turbo/task_turbo.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/tinysys_scmi/tinysys-scmi.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/typec/mux/ps5169.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/typec/mux/mux_switch.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/typec/mux/fusb304.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/typec/mux/usb_dp_selector.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/typec/mux/ptn36241g.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/typec/mux/ps5170.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/typec/tcpc/pd_dbg_info.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/typec/tcpc/rt_pd_manager.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/typec/tcpc/tcpc_class.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/typec/tcpc/tcpci_late_sync.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/trusted_mem/trusted_mem.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/usb20/musb_main/musb_main.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/usb20/musb_hdrc.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/usb_boost/musb_boost.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/usb_boost/usb_boost.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/usb_rndis/mtk_u_ether.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/usb_rndis/mtk_usb_f_rndis.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/usb_meta/meta.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/vmm_dbg/mtk-vmm-dbg.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/vcp/rv/vcp_status.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/vcp/rv/vcp.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/vdec_fmt/vdec-fmt.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/vmm_spm/mtk-vmm-spm.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/widevine_drm/widevine_driver.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/mediatek/vow/ver02/mtk-vow.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/drb/dev_ril_bridge.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/tui/tuihw.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/tui/tuihw-inf.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/misc/tzdev/tzdev.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/mmc/host/cqhci.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/mmc/host/mtk-mmc-dbg.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/mmc/host/mtk-mmc-autok.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/mmc/host/mtk-mmc-sec.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/mmc/host/mtk-sd.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/muic/common/common_muic.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/muic/sm/sm5714/muic_sm5714.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/mstdrv/mstdrv.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/net/dropdump/dropdump.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/net/usb/ax88179_178a.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/net/usb/asix.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/nfc/lsi/nfc_slsi_sec.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/nfc/snvm/snvm.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/nvmem/nvmem-mt6338-efuse.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/nvmem/nvmem-mt635x-efuse.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/nvmem/nvmem_mtk-devinfo.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/perf/arm_dsu_pmu.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/phy/mediatek/phy-mtk-fpgaphy.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/phy/mediatek/phy-mtk-ufs.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/phy/mediatek/phy-mtk-tphy.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/phy/mediatek/phy-mtk-xsphy.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/pinctrl/mediatek/pinctrl-mt6373.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/pinctrl/mediatek/pinctrl-mtk-common-v2_debug.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/pinctrl/mediatek/pinctrl-mt6789.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/pinctrl/mediatek/pinctrl-mtk-v2.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/power/reset/syscon-reboot-mode.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/power/reset/reboot-mode.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/power/supply/mt6359p_battery.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/power/supply/mt6360_pmu_chg.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/pwm/pwm-mtk-disp.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/regulator/mt6358-regulator.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/regulator/mt6315-regulator.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/regulator/mt6359p-regulator.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/regulator/mt6360-regulator.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/regulator/mt6363-regulator.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/regulator/mt6368-regulator.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/regulator/mt6369-regulator.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/regulator/mt6373-regulator.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/regulator/mtk-extbuck-debug.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/regulator/rt6160-regulator.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/regulator/mtk-dvfsrc-regulator.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/regulator/rt5133-regulator.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/regulator/s2mpb03/s2mpb03.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/regulator/mtk-vmm-regulator.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/remoteproc/mtk_ccd_remoteproc.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/remoteproc/mtk_ccu.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/reset/reset-ti-syscon.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/rpmsg/ccd_rpmsg.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/rpmsg/mtk_rpmsg_mbox.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/rtc/rtc-mt6397.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/rtc/rtc-mt6685.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/samsung/pm/sec_thermistor/sec_thermistor.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/samsung/pm/sec_pm_debug.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/samsung/debug/sec_debug.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/samsung/debug/sec_extra_info.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/samsung/sec_ext.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/samsung/sec_reboot.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/samsung/sec_reset.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/scsi/ufs/vendor/ufs-mediatek-mod.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/scsi/ufs/ufs-mediatek-dbg.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/sensorhub/shub.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/sensorhub/utility/sensor_core.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/sec_panel_notifier_v2/sec_panel_notifier_v2.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/sensors/sx9385/sx9385.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/soc/mediatek/devapc/device-apc-common.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/soc/mediatek/devapc/device-apc-mt6789.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/soc/mediatek/devmpu/devmpu.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/soc/mediatek/mtk-dvfsrc-start.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/soc/mediatek/mtk-dvfsrc.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/soc/mediatek/mtk-mbox.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/soc/mediatek/mtk-mmdvfs.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/soc/mediatek/mtk-scpsys-mt6789.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/soc/mediatek/mtk-pmic-wrap.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/soc/mediatek/mtk-pm-domain-disable-unused.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/soc/mediatek/mtk-mmsys.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/soc/mediatek/mtk-scpsys.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/soc/mediatek/mtk_tinysys_ipi.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/soc/mediatek/mtk-scpsys-bringup.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/soc/mediatek/mtk-socinfo.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/spi/spi-mt65xx.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/spmi/spmi-mtk-pmif.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/spmi/spmi-mtk-mpu.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/sti/abc/abc.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/sti/abc/abc_hub.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/staging/android/switch/sec_switch_class.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/tee/teeperf/teeperf.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/tee/tee.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/thermal/mediatek/board_temp.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/thermal/mediatek/backlight_cooling.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/thermal/mediatek/thermal_jatm.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/thermal/mediatek/md_cooling_all.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/thermal/mediatek/pmic_temp.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/thermal/mediatek/thermal_interface.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/thermal/mediatek/thermal_trace.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/thermal/mediatek/soc_temp_lvts.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/thermal/thermal-generic-adc.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/tty/serial/8250/8250_mtk.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/usb/gadget/function/usb_f_conn_gadget.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/usb/gadget/function/usb_f_dm.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/usb/gadget/function/usb_f_ss_mon_gadget.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/usb/common/vbus_notifier/vbus_notifier.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/usb/notify/usb_notifier.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/usb/notify/usb_notify_layer.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/usb/mtu3/mtu3.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/usb/host/xhci-mtk-hcd.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/usb/phy/phy-generic.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/usb/typec/common/pdic_notifier_module.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/usb/typec/manager/usb_typec_manager.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/usb/typec/manager/if_cb_manager.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/usb/typec/sm/sm5714/pdic_sm5714.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/vibrator/common/sec_vibrator.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/vibrator/common/vib_info/vibrator_vib_info.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/vibrator/dc/dc_vibrator.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/watchdog/mtk_wdt.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/drivers/watchdog/softdog.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/net/wireless/cfg80211.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/net/mac80211/mac80211.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/sound/soc/codecs/mt6338-accdet.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/sound/soc/codecs/mt6368-accdet.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/sound/soc/codecs/mt6359p-accdet.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/sound/soc/codecs/mt6369-accdet.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/sound/soc/codecs/snd-soc-aw882xx.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/sound/soc/codecs/snd-soc-mt6369.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/sound/soc/codecs/snd-soc-mt6338.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/sound/soc/codecs/snd-soc-mt6366.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/sound/soc/codecs/snd-soc-mt6368.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/sound/soc/codecs/snd-soc-mt6359.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/sound/soc/mediatek/audio_dsp/mtk-soc-offload-common.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/sound/soc/mediatek/audio_dsp/snd-soc-audiodsp-common.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/sound/soc/mediatek/common/mtk-afe-external.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/sound/soc/mediatek/common/mtk-sp-spk-amp.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/sound/soc/mediatek/common/mtk-btcvsd.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/sound/soc/mediatek/common/snd-soc-mtk-common.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/sound/soc/mediatek/mt6789/mt6789-mt6366.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/sound/soc/mediatek/mt6789/snd-soc-mt6789-afe.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/sound/soc/mediatek/ultrasound/ultra_common/mtk-scp-ultra.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/sound/soc/mediatek/ultrasound/ultra_scp/snd-soc-mtk-scp-ultra.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/sound/soc/mediatek/vow/mtk-scp-vow.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/sound/soc/samsung/snd-soc-sec-audio.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/sound/usb/mtk-usb-audio.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/kernel/mm/zsmalloc.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/extra/wmt_drv.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/extra/conninfra.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/extra/connfem.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/extra/gps_drv_stp.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/extra/gps_drv_dl_v010.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/extra/gps_drv_dl_v030.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/extra/gps_drv_dl_v050.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/extra/gps_pwr.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/extra/gps_scp.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/extra/mali_kbase_mt6789.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/extra/mali_mgm.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/extra/mali_prot_alloc.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/extra/fmradio_drv_connac2x.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/extra/fmradio_drv_mt6631_6635.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/extra/fmradio_drv_mt6631.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/extra/fmradio_drv_mt6635.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/extra/fmradio_drv_soc.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/extra/fmradio_drv_mt6625.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/extra/fmradio_drv_mt6627.ko
+  lib/modules/5.10.226-android12-9-nolanarchie-dev/extra/fmradio_drv_mt6630.ko
+========================================================
+ Files copied to /home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ
+boot image created at /home/nolan-archie/a165f_kernel/out/target/product/a16/obj/KERNEL_OBJ/boot.img
+Signing the boot.img...
