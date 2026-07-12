@@ -1,11 +1,24 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PRODUCT_NAME="${PRODUCT_NAME:-a16}"
+BUILD_VARIANT="${BUILD_VARIANT:-user}"
+BUILD_KERNEL_VERSION="${BUILD_KERNEL_VERSION:-dev}"
+
 REQUIREMENTS_FILE="${SCRIPT_DIR}/.requirements"
 TOOLCHAIN_MARKER="${SCRIPT_DIR}/.toolchain_installed"
 TOOLCHAIN_URL="https://github.com/ravindu644/android_kernel_a165f/releases/download/toolchain/toolchain.tar.gz"
 TOOLCHAIN_ARCHIVE="toolchain.tar.gz"
+
+KERNEL_ROOT="${SCRIPT_DIR}/kernel"
+KERNEL_SRC_DIR="${SCRIPT_DIR}/kernel-5.10"
+DIST_DIR="${SCRIPT_DIR}/dist"
+OUT_DIR_ABS="${SCRIPT_DIR}/out/target/product/${PRODUCT_NAME}/obj/KERNEL_OBJ"
+
+KERNEL_IMAGE_SRC="${OUT_DIR_ABS}/kernel-5.10/arch/arm64/boot/Image.gz"
+KERNEL_IMAGE_STAGE="${OUT_DIR_ABS}/Image.gz"
+BOOT_IMAGE_STAGE="${OUT_DIR_ABS}/boot.img"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -56,6 +69,11 @@ install_dependencies() {
         dnf)
             sudo dnf install -y \
                 gcc gcc-c++ make rsync python3 git tar gzip curl wget bc cpio flex bison zip unzip openssl-devel dtc \
+                || die "Dependency install failed"
+            ;;
+        zypper)
+            sudo zypper --non-interactive install \
+                gcc gcc-c++ make rsync python3 git tar gzip curl wget bc cpio flex bison zip unzip libopenssl-devel dtc \
                 || die "Dependency install failed"
             ;;
         *)
@@ -112,18 +130,18 @@ setup_toolchain() {
 fix_gen_build_config() {
     local py="${SCRIPT_DIR}/kernel-5.10/scripts/gen_build_config.py"
 
-    if [[ ! -f "$py" ]]; then
+    if [[ ! -f "${py}" ]]; then
         log_warn "gen_build_config.py not found, skipping fix"
         return 0
     fi
 
-    if grep -q '^print(' "$py" 2>/dev/null && ! grep -q '^print ' "$py" 2>/dev/null; then
+    if grep -q '^print(' "${py}" 2>/dev/null && ! grep -q '^print ' "${py}" 2>/dev/null; then
         log_info "gen_build_config.py already fixed, skipping"
         return 0
     fi
 
     log_info "Fixing gen_build_config.py for Python 3"
-    python3 - "$py" <<'PYEOF'
+    python3 - "${py}" <<'PYEOF'
 import sys
 
 py = sys.argv[1]
@@ -136,7 +154,7 @@ for line in lines:
     if stripped.startswith('print ') and not stripped.startswith('print('):
         new_line = line.replace('print ', 'print(', 1)
         if new_line.endswith('\n'):
-            new_line = new_line[:-1] + ')' + '\n'
+            new_line = new_line[:-1] + ')\n'
         else:
             new_line = new_line + ')'
         new_lines.append(new_line)
@@ -147,7 +165,7 @@ with open(py, 'w', encoding='utf-8') as f:
     f.writelines(new_lines)
 PYEOF
 
-    if python3 -m py_compile "$py"; then
+    if python3 -m py_compile "${py}"; then
         log_success "gen_build_config.py syntax OK"
     else
         log_warn "Syntax check failed"
@@ -169,18 +187,17 @@ generate_build_config() {
 
     log_info "Merged defconfig lines: $(wc -l < a16_00_custom_defconfig)"
 
-    local abs_out_dir="${SCRIPT_DIR}/out/target/product/a16/obj/KERNEL_OBJ"
-    mkdir -p "${abs_out_dir}"
-    rm -f "${abs_out_dir}/build.config" \
-          "${abs_out_dir}/build.config.gki.aarch64" \
-          "${abs_out_dir}/build.config.mtk"
+    mkdir -p "${OUT_DIR_ABS}"
+    rm -f "${OUT_DIR_ABS}/build.config" \
+          "${OUT_DIR_ABS}/build.config.gki.aarch64" \
+          "${OUT_DIR_ABS}/build.config.mtk"
 
     cd "${SCRIPT_DIR}/kernel-5.10" || die "Cannot access kernel-5.10"
 
     python3 scripts/gen_build_config.py \
         --kernel-defconfig a16_00_custom_defconfig \
-        -m user \
-        -o "${abs_out_dir}/build.config" \
+        -m "${BUILD_VARIANT}" \
+        -o "${OUT_DIR_ABS}/build.config" \
         || die "Build config generation failed"
 
     cd "${SCRIPT_DIR}" || die "Cannot return to script directory"
@@ -202,20 +219,30 @@ create_symlinks() {
     done
 }
 
-setup_environment() {
-    export BUILD_KERNEL_VERSION="${BUILD_KERNEL_VERSION:-dev}"
-    log_info "Kernel version: ${BUILD_KERNEL_VERSION}"
+prepare_boot_staging() {
+    log_info "Preparing boot image staging"
 
+    mkdir -p "${OUT_DIR_ABS}" "${DIST_DIR}"
+
+    rm -f "${OUT_DIR_ABS}/boot.img" \
+          "${DIST_DIR}/boot.img" \
+          "${DIST_DIR}/Image.gz" \
+          "${DIST_DIR}/manifest.txt" \
+          "${DIST_DIR}/checksums.sha256"
+
+    log_info "Not pre-touching ${OUT_DIR_ABS}/Image.gz; build.sh writes it there directly after compiling ${KERNEL_IMAGE_SRC}"
+}
+
+setup_environment() {
     export ARCH=arm64
     export PLATFORM_VERSION=13
-    export TARGET_BUILD_VARIANT=user
+    export TARGET_BUILD_VARIANT="${BUILD_VARIANT}"
     export CROSS_COMPILE="aarch64-linux-gnu-"
     export CROSS_COMPILE_COMPAT="arm-linux-gnueabi-"
 
-    # These must be relative to kernel/ because build.sh runs from there
-    export OUT_DIR="../out/target/product/a16/obj/KERNEL_OBJ"
-    export DIST_DIR="../out/target/product/a16/obj/KERNEL_OBJ"
-    export BUILD_CONFIG="../out/target/product/a16/obj/KERNEL_OBJ/build.config"
+    export OUT_DIR="../out/target/product/${PRODUCT_NAME}/obj/KERNEL_OBJ"
+    export DIST_DIR="../out/target/product/${PRODUCT_NAME}/obj/KERNEL_OBJ"
+    export BUILD_CONFIG="../out/target/product/${PRODUCT_NAME}/obj/KERNEL_OBJ/build.config"
 
     export MERGE_CONFIG="${SCRIPT_DIR}/kernel-5.10/scripts/kconfig/merge_config.sh"
 
@@ -262,7 +289,7 @@ verify_prerequisites() {
 
 build_kernel() {
     log_info "Building kernel"
-    cd "${SCRIPT_DIR}/kernel" || die "Cannot access kernel directory"
+    cd "${KERNEL_ROOT}" || die "Cannot access kernel directory"
 
     ./build/build.sh 2>&1 | tee "${SCRIPT_DIR}/build.log"
     local build_result=${PIPESTATUS[0]}
@@ -271,43 +298,115 @@ build_kernel() {
 
     if [[ ${build_result} -ne 0 ]]; then
         log_warn "Build script returned error ${build_result}, checking outputs"
-        local boot_img="${SCRIPT_DIR}/out/target/product/a16/obj/KERNEL_OBJ/boot.img"
-        local kernel_img_gz="${SCRIPT_DIR}/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10/arch/arm64/boot/Image.gz"
-
-        if [[ -f "${boot_img}" || -f "${kernel_img_gz}" ]]; then
-            log_success "Build artifacts found, continuing"
+        if [[ -f "${BOOT_IMAGE_STAGE}" || -f "${KERNEL_IMAGE_SRC}" || -f "${KERNEL_IMAGE_STAGE}" ]]; then
+            log_warn "Some build artifacts exist; continuing to validate them"
         else
-            die "Build failed, no artifacts found"
+            die "Build failed and no artifacts were produced"
         fi
     fi
-
-    mkdir -p "${SCRIPT_DIR}/dist"
-    local boot_img="${SCRIPT_DIR}/out/target/product/a16/obj/KERNEL_OBJ/boot.img"
-    local kernel_img_gz="${SCRIPT_DIR}/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10/arch/arm64/boot/Image.gz"
-
-    [[ -f "${boot_img}" ]] && cp "${boot_img}" "${SCRIPT_DIR}/dist/" && log_success "Copied boot.img"
-    [[ -f "${kernel_img_gz}" ]] && cp "${kernel_img_gz}" "${SCRIPT_DIR}/dist/" && log_success "Copied Image.gz"
 
     log_success "Kernel build complete"
 }
 
+sync_artifacts() {
+    log_info "Syncing final artifacts"
+
+    if [[ ! -f "${KERNEL_IMAGE_SRC}" ]]; then
+        die "Expected kernel image missing: ${KERNEL_IMAGE_SRC}"
+    fi
+
+    if [[ -L "${KERNEL_IMAGE_STAGE}" ]]; then
+        :
+    elif [[ -f "${KERNEL_IMAGE_STAGE}" ]]; then
+        if ! cmp -s "${KERNEL_IMAGE_SRC}" "${KERNEL_IMAGE_STAGE}"; then
+            log_warn "Staged Image.gz differs from source; refreshing it"
+            cp -f "${KERNEL_IMAGE_SRC}" "${KERNEL_IMAGE_STAGE}"
+        fi
+    else
+        cp -f "${KERNEL_IMAGE_SRC}" "${KERNEL_IMAGE_STAGE}"
+    fi
+
+    if [[ ! -f "${BOOT_IMAGE_STAGE}" ]]; then
+        die "boot.img not found in ${OUT_DIR_ABS}"
+    fi
+
+    cp -f "${BOOT_IMAGE_STAGE}" "${DIST_DIR}/boot.img"
+    cp -f "${KERNEL_IMAGE_SRC}" "${DIST_DIR}/Image.gz"
+
+    log_success "Copied boot.img and Image.gz to dist"
+}
+
+verify_boot_image_if_possible() {
+    if check_command magiskboot; then
+        local tmpdir
+        tmpdir=$(mktemp -d)
+        cp -f "${DIST_DIR}/boot.img" "${tmpdir}/boot.img"
+
+        (
+            cd "${tmpdir}"
+            magiskboot unpack boot.img >/dev/null 2>&1
+        ) || {
+            rm -rf "${tmpdir}"
+            die "magiskboot could not unpack boot.img"
+        }
+
+        if [[ -f "${tmpdir}/kernel" ]]; then
+            if cmp -s "${tmpdir}/kernel" "${DIST_DIR}/Image.gz"; then
+                log_success "boot.img kernel matches Image.gz"
+            else
+                rm -rf "${tmpdir}"
+                die "boot.img kernel does not match the built Image.gz"
+            fi
+        else
+            log_warn "magiskboot unpacked boot.img but kernel file was not found"
+        fi
+
+        rm -rf "${tmpdir}"
+    else
+        log_warn "magiskboot not found; skipping boot.img kernel verification"
+    fi
+}
+
+write_manifest() {
+    log_info "Writing manifest"
+
+    {
+        echo "build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        echo "product=${PRODUCT_NAME}"
+        echo "variant=${BUILD_VARIANT}"
+        echo "kernel_version=${BUILD_KERNEL_VERSION}"
+        echo "kernel_image=${DIST_DIR}/Image.gz"
+        echo "boot_image=${DIST_DIR}/boot.img"
+        echo "kernel_sha256=$(sha256sum "${DIST_DIR}/Image.gz" | awk '{print $1}')"
+        echo "boot_sha256=$(sha256sum "${DIST_DIR}/boot.img" | awk '{print $1}')"
+    } > "${DIST_DIR}/manifest.txt"
+
+    sha256sum "${DIST_DIR}/boot.img" "${DIST_DIR}/Image.gz" > "${DIST_DIR}/checksums.sha256"
+    log_success "Manifest written"
+}
+
 package_artifacts() {
     log_info "Packaging artifacts"
-    cd "${SCRIPT_DIR}/dist" || die "Cannot access dist directory"
+    cd "${DIST_DIR}" || die "Cannot access dist directory"
 
     if [[ ! -f "boot.img" ]]; then
         die "boot.img not found in dist directory"
     fi
 
+    if [[ ! -f "Image.gz" ]]; then
+        die "Image.gz not found in dist directory"
+    fi
+
     local package_name="SukiSU-Ultra-A165F-${BUILD_KERNEL_VERSION}"
-    log_info "Creating package with boot.img"
+    log_info "Creating package"
 
-    tar -cvf "${package_name}.tar" boot.img || die "Tar creation failed"
-    zip -9 "${package_name}-packaged.zip" "${package_name}.tar" || die "Zip creation failed"
-    rm -f "${package_name}.tar" boot.img
+    tar -cvf "${package_name}.tar" boot.img Image.gz manifest.txt checksums.sha256 >/dev/null \
+        || die "Tar creation failed"
 
-    cd "${SCRIPT_DIR}" || die "Cannot return to script directory"
-    log_success "Package created: ${SCRIPT_DIR}/dist/${package_name}-packaged.zip"
+    zip -9 "${package_name}-packaged.zip" "${package_name}.tar" >/dev/null \
+        || die "Zip creation failed"
+
+    log_success "Package created: ${DIST_DIR}/${package_name}-packaged.zip"
 }
 
 main() {
@@ -318,7 +417,8 @@ main() {
     log_info "SukiSU-Ultra Build Script"
     log_info "====================================================================="
 
-    mkdir -p "${SCRIPT_DIR}/dist"
+    mkdir -p "${DIST_DIR}"
+
     check_and_install_requirements
     setup_toolchain
     fix_gen_build_config
@@ -326,7 +426,11 @@ main() {
     generate_build_config
     create_symlinks
     setup_environment
+    prepare_boot_staging
     build_kernel
+    sync_artifacts
+    verify_boot_image_if_possible
+    write_manifest
     package_artifacts
 
     end_time=$(date +%s)
@@ -335,7 +439,8 @@ main() {
     log_info "====================================================================="
     log_success "Build completed in ${duration} seconds"
     log_info "====================================================================="
-    log_info "Output: ${SCRIPT_DIR}/dist/SukiSU-Ultra-A165F-${BUILD_KERNEL_VERSION}-packaged.zip"
+    log_info "Output: ${DIST_DIR}/SukiSU-Ultra-A165F-${BUILD_KERNEL_VERSION}-packaged.zip"
+    log_info "Flashable boot image: ${DIST_DIR}/boot.img"
 }
 
 trap 'log_error "Build failed at line $LINENO"' ERR
