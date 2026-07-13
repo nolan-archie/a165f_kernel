@@ -28,10 +28,20 @@ GITHUB_REPO="${GITHUB_REPOSITORY:-nolan-archie/a165f_kernel}"
 
 # select-kernelsu's symlink is normally created by a local git post-checkout
 # hook, which does NOT run on a fresh Actions checkout. Create it ourselves.
-if [ ! -e "$KSU_DIR" ] && [ -d "$KERNEL_SRC_DIR/KernelSU/kernel" ]; then
-  echo "[update] KSU_DIR missing — creating symlink drivers/kernelsu -> ../KernelSU/kernel"
-  ln -sfn "$(realpath --relative-to="$KERNEL_SRC_DIR/drivers" "$KERNEL_SRC_DIR/KernelSU/kernel")" \
-    "$KERNEL_SRC_DIR/drivers/kernelsu"
+if [ ! -e "$KSU_DIR" ]; then
+  echo "[update] KSU_DIR missing, searching for real source under $KERNEL_SRC_DIR ..."
+  CANDIDATE="$(find "$KERNEL_SRC_DIR" -maxdepth 3 -type d -iname "kernel" \
+    -path "*ukisu*" -o -maxdepth 3 -type d -iname "kernel" -path "*ernelsu*" 2>/dev/null | head -n1)"
+  if [ -z "$CANDIDATE" ]; then
+    CANDIDATE="$(find "$KERNEL_SRC_DIR" -maxdepth 2 -type f -iname "Kconfig" \
+      -exec grep -lm1 "KSU\|KernelSU\|SukiSU" {} \; 2>/dev/null | head -n1 | xargs -r dirname)"
+  fi
+  echo "[update] Candidate source dir found: ${CANDIDATE:-none}"
+  find "$KERNEL_SRC_DIR" -maxdepth 2 -type d | sort >&2
+  if [ -n "$CANDIDATE" ]; then
+    ln -sfn "$(realpath --relative-to="$KERNEL_SRC_DIR/drivers" "$CANDIDATE")" "$KERNEL_SRC_DIR/drivers/kernelsu"
+    echo "[update] Symlinked drivers/kernelsu -> $CANDIDATE"
+  fi
 fi
 
 # ============================= Telegram helper ===============================
