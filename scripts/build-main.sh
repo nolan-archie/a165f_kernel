@@ -73,29 +73,43 @@ send_build_card() {
 }
 
 # ============================ Step 1: update KSU ==============================
-echo "[update] Running upstream setup.sh for branch: $KSU_BRANCH"
+echo "[update] Ensuring KernelSU-Next is on branch: $KSU_BRANCH"
 cd "$KERNEL_SRC_DIR"
 PRE_SHA="none"
 [ -d "KernelSU-Next/.git" ] && PRE_SHA="$(git -C KernelSU-Next rev-parse HEAD 2>/dev/null || echo none)"
 
-curl -LSs "$KSU_SETUP_URL" | bash -s "$KSU_BRANCH"
-
-# Don't trust setup.sh's internal `git checkout "$1"` to have landed on the
-# right branch — it relies on git's DWIM auto-tracking-branch behavior, which
-# can silently fail and fall back to the fork's default branch even when the
-# target branch genuinely exists remotely (seen in practice on the Actions
-# runner's git version). Force it explicitly here instead.
-if [ -d "KernelSU-Next/.git" ]; then
-  echo "[update] Forcing explicit checkout of $KSU_BRANCH (not trusting setup.sh's DWIM checkout)..."
+if [ ! -d "KernelSU-Next/.git" ]; then
+  echo "[update] Cloning fresh (branch: $KSU_BRANCH)..."
+  git clone --branch "$KSU_BRANCH" "https://github.com/pershoot/KernelSU-Next.git" KernelSU-Next
+else
+  echo "[update] Repo exists, fetching + forcing checkout of $KSU_BRANCH..."
   git -C KernelSU-Next fetch origin "$KSU_BRANCH"
   git -C KernelSU-Next checkout -B "$KSU_BRANCH" "origin/$KSU_BRANCH"
   git -C KernelSU-Next pull origin "$KSU_BRANCH"
 fi
 
 if [ ! -d "KernelSU-Next/.git" ]; then
-  echo "[ERROR] KernelSU-Next missing after setup.sh — setup failed." >&2
+  echo "[ERROR] KernelSU-Next missing after clone/checkout." >&2
   exit 1
 fi
+
+# Wire it into the tree ourselves (same 3 things upstream's setup.sh does:
+# symlink + Makefile obj line + Kconfig source line), so we don't depend on
+# their script's fragile internal checkout succeeding.
+DRIVER_DIR=""
+for d in "$KERNEL_SRC_DIR/common/drivers" "$KERNEL_SRC_DIR/aosp/drivers" "$KERNEL_SRC_DIR/drivers"; do
+  [ -d "$d" ] && DRIVER_DIR="$d" && break
+done
+if [ -z "$DRIVER_DIR" ]; then
+  echo "[ERROR] Could not find a drivers/ directory under $KERNEL_SRC_DIR" >&2
+  exit 1
+fi
+
+ln -sfn "$(realpath --relative-to="$DRIVER_DIR" "$KERNEL_SRC_DIR/KernelSU-Next/kernel")" "$DRIVER_DIR/kernelsu"
+grep -q "kernelsu" "$DRIVER_DIR/Makefile" || printf '\nobj-$(CONFIG_KSU) += kernelsu/\n' >> "$DRIVER_DIR/Makefile"
+grep -q 'source "drivers/kernelsu/Kconfig"' "$DRIVER_DIR/Kconfig" || \
+  sed -i '/endmenu/i\source "drivers/kernelsu/Kconfig"' "$DRIVER_DIR/Kconfig"
+echo "[update] Symlink + Makefile + Kconfig wired."
 POST_SHA="$(git -C KernelSU-Next rev-parse HEAD)"
 CHANGED=0
 [ "$PRE_SHA" != "$POST_SHA" ] && CHANGED=1
