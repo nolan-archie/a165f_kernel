@@ -26,6 +26,14 @@ DEVICE="A165F"
 GITHUB_REPO="${GITHUB_REPOSITORY:-nolan-archie/a165f_kernel}"
 # ------------------------------------------------------------------------------
 
+# select-kernelsu's symlink is normally created by a local git post-checkout
+# hook, which does NOT run on a fresh Actions checkout. Create it ourselves.
+if [ ! -e "$KSU_DIR" ] && [ -d "$KERNEL_SRC_DIR/KernelSU/kernel" ]; then
+  echo "[update] KSU_DIR missing — creating symlink drivers/kernelsu -> ../KernelSU/kernel"
+  ln -sfn "$(realpath --relative-to="$KERNEL_SRC_DIR/drivers" "$KERNEL_SRC_DIR/KernelSU/kernel")" \
+    "$KERNEL_SRC_DIR/drivers/kernelsu"
+fi
+
 # ============================= Telegram helper ===============================
 send_telegram_html() {
   local text="$1"
