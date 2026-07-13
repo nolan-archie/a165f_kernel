@@ -2,8 +2,11 @@ name: Weekly Kernel Build
 
 on:
   schedule:
-    - cron: '0 0 * * 1'   # every Monday 00:00 UTC
-  workflow_dispatch: {}
+    - cron: '0 0 * * 1' # every Monday 00:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -28,18 +31,22 @@ jobs:
           token: ${{ secrets.PAT_TOKEN }}
 
       - name: Configure git identity
+        shell: bash
         run: |
+          set -euo pipefail
           git config user.name "Nolan's Kernel Pusher"
           git config user.email "actions@users.noreply.github.com"
 
       - name: Build and notify
         id: build
+        shell: bash
         env:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          chmod +x ${{ matrix.script }}
-          ${{ matrix.script }} "$GITHUB_WORKSPACE"
+          set -euo pipefail
+          chmod +x "${{ matrix.script }}"
+          "${{ matrix.script }}" "$GITHUB_WORKSPACE" |& tee build.log
 
       - name: Create GitHub Release
         if: steps.build.outputs.status == 'success'
@@ -47,7 +54,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.build.outputs.run_tag }}
-          name: "${{ matrix.branch }} build ${{ steps.build.outputs.run_tag }}"
+          name: ${{ matrix.branch }} build ${{ steps.build.outputs.run_tag }}
           body_path: ${{ steps.build.outputs.info_file }}
           files: ${{ steps.build.outputs.artifact_path }}
           target_commitish: ${{ matrix.branch }}
@@ -56,18 +63,24 @@ jobs:
 
       - name: Send final Telegram ping with real download link
         if: steps.build.outputs.status == 'success'
+        shell: bash
         env:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          TEXT="<b>Release published</b>
-Branch: ${{ matrix.branch }}
-<a href=\"${{ steps.release.outputs.url }}\">Download build</a>"
+          set -euo pipefail
+
+          RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/${{ steps.build.outputs.run_tag }}"
+
+          TEXT=$(printf '<b>Release published</b>\nBranch: %s\n<a href="%s">Download build</a>' \
+            "${{ matrix.branch }}" \
+            "${RELEASE_URL}")
+
           curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
             -d chat_id="${CHAT_ID}" \
             -d parse_mode="HTML" \
             -d disable_web_page_preview="true" \
-            --data-urlencode text="$TEXT" >/dev/null
+            --data-urlencode "text=${TEXT}" >/dev/null
 
       - name: Upload build log as workflow artifact
         if: always()
