@@ -21,7 +21,7 @@ KERNEL_SRC_DIR="${KERNEL_SRC_DIR:-$REPO_ROOT/kernel-5.10}"
 KSU_DIR="$KERNEL_SRC_DIR/KernelSU-Next"
 KSU_BRANCH="dev-susfs"
 KSU_SETUP_URL="https://raw.githubusercontent.com/pershoot/KernelSU-Next/refs/heads/${KSU_BRANCH}/kernel/setup.sh"
-KSU_SOURCE_LABEL="KernelSU-Next (pershoot/${KSU_BRANCH})"
+KSU_SOURCE_LABEL="KernelSU-Next (pershoot/dev-susfs)"
 DEVICE="A165F"
 GITHUB_REPO="${GITHUB_REPOSITORY:-nolan-archie/a165f_kernel}"
 # ------------------------------------------------------------------------------
@@ -79,6 +79,18 @@ PRE_SHA="none"
 [ -d "KernelSU-Next/.git" ] && PRE_SHA="$(git -C KernelSU-Next rev-parse HEAD 2>/dev/null || echo none)"
 
 curl -LSs "$KSU_SETUP_URL" | bash -s "$KSU_BRANCH"
+
+# Don't trust setup.sh's internal `git checkout "$1"` to have landed on the
+# right branch — it relies on git's DWIM auto-tracking-branch behavior, which
+# can silently fail and fall back to the fork's default branch even when the
+# target branch genuinely exists remotely (seen in practice on the Actions
+# runner's git version). Force it explicitly here instead.
+if [ -d "KernelSU-Next/.git" ]; then
+  echo "[update] Forcing explicit checkout of $KSU_BRANCH (not trusting setup.sh's DWIM checkout)..."
+  git -C KernelSU-Next fetch origin "$KSU_BRANCH"
+  git -C KernelSU-Next checkout -B "$KSU_BRANCH" "origin/$KSU_BRANCH"
+  git -C KernelSU-Next pull origin "$KSU_BRANCH"
+fi
 
 if [ ! -d "KernelSU-Next/.git" ]; then
   echo "[ERROR] KernelSU-Next missing after setup.sh — setup failed." >&2
