@@ -1,8 +1,8 @@
-name: Weekly Kernel Builder
+name: Weekly Kernel Build
 
 on:
   schedule:
-    - cron: '0 0 * * 1'
+    - cron: '0 0 * * 1' # every Monday 00:00 UTC
   workflow_dispatch:
 
 permissions:
@@ -10,116 +10,83 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
     strategy:
-      matrix:
-        branch: [suki-su-latest, suki-su-latest-permissive]
       fail-fast: false
+      matrix:
+        include:
+          - branch: main
+            script: scripts/build-main.sh
+          - branch: susfs-dev
+            script: scripts/build-susfs-dev.sh
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
 
     steps:
-      - name: Checkout
+      - name: Checkout ${{ matrix.branch }}
         uses: actions/checkout@v4
         with:
+          ref: ${{ matrix.branch }}
           fetch-depth: 0
+          token: ${{ secrets.PAT_TOKEN }}
 
-      - name: Maximize Build Space
+      - name: Configure git identity
+        shell: bash
         run: |
-          chmod +x scripts/maximize_space.sh
-          ./scripts/maximize_space.sh
+          set -euo pipefail
+          git config user.name "Nolan's Kernel Pusher"
+          git config user.email "actions@users.noreply.github.com"
 
-      - name: Install Build Dependencies
+      - name: Build and notify
+        id: build
+        shell: bash
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y software-properties-common
-          sudo add-apt-repository -y ppa:deadsnakes/ppa
-          sudo apt-get update
-          sudo apt-get install -y build-essential rsync bc bison flex libssl-dev libelf-dev python2.7 python2.7-dev
-          sudo ln -sf /usr/bin/python2.7 /usr/bin/python
-          sudo ln -sf /usr/bin/python2.7 /usr/bin/python2
+          set -euo pipefail
+          chmod +x "${{ matrix.script }}"
+          "${{ matrix.script }}" "$GITHUB_WORKSPACE" |& tee build.log
 
-      - name: Setup Git
+      - name: Create GitHub Release
+        if: steps.build.outputs.status == 'success'
+        id: release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.build.outputs.run_tag }}
+          name: ${{ matrix.branch }} build ${{ steps.build.outputs.run_tag }}
+          body_path: ${{ steps.build.outputs.info_file }}
+          files: ${{ steps.build.outputs.artifact_path }}
+          target_commitish: ${{ matrix.branch }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+
+      - name: Send final Telegram ping with real download link
+        if: steps.build.outputs.status == 'success'
+        shell: bash
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          set -euo pipefail
 
-      - name: Prepare Build Workspace
-        run: |
-          git worktree add build-workspace ${{ matrix.branch }}
-          cd build-workspace
-          if git config --get submodule.susfs4ksu.url >/dev/null; then
-            git submodule deinit -f susfs4ksu || true
-            git rm --cached susfs4ksu 2>/dev/null || true
-          fi
+          RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/${{ steps.build.outputs.run_tag }}"
 
-      - name: Update and Patch
-        id: updates
-        run: |
-          cd build-workspace
-          ../scripts/automate_updates.sh
+          TEXT=$(printf '<b>Release published</b>\nBranch: %s\n<a href="%s">Download build</a>' \
+            "${{ matrix.branch }}" \
+            "${RELEASE_URL}")
 
-          git status
-          git add -A
+          curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+            -d chat_id="${CHAT_ID}" \
+            -d parse_mode="HTML" \
+            -d disable_web_page_preview="true" \
+            --data-urlencode "text=${TEXT}" >/dev/null
 
-          if ! git diff-index --quiet HEAD --; then
-            git commit -m "Auto-update KernelSU and SUSFS to latest commits"
-            git push origin ${{ matrix.branch }} || echo "Push failed, but continuing build"
-            echo "updated=true" >> $GITHUB_OUTPUT
-          else
-            echo "No changes detected. Dependencies are already up to date."
-            echo "updated=false" >> $GITHUB_OUTPUT
-          fi
-
-          if [ -f changelog.md ]; then
-            cp changelog.md ../changelog_${{ matrix.branch }}.md
-          else
-            echo "No new updates this week." > ../changelog_${{ matrix.branch }}.md
-          fi
-
-      - name: Verify KernelSU Consistency
-        run: |
-          cd build-workspace
-          if grep -R -n "ksu_no_custom_rc" drivers/kernelsu >/tmp/ksu_hits.txt 2>/dev/null; then
-            echo "KernelSU symbol usage found:"
-            cat /tmp/ksu_hits.txt
-          else
-            echo "No ksu_no_custom_rc usage found."
-          fi
-
-          if grep -R -n "ksu_no_custom_rc" drivers/kernelsu/runtime/ksud_integration.c >/dev/null 2>&1; then
-            if ! grep -R -n "ksu_no_custom_rc" drivers/kernelsu | grep -v "ksud_integration.c" >/dev/null 2>&1; then
-              echo "KernelSU mismatch detected: ksud_integration.c references ksu_no_custom_rc but no declaration was found."
-              exit 1
-            fi
-          fi
-
-      - name: Build Kernel
-        run: |
-          cd build-workspace
-          chmod +x build.sh
-          ./build.sh
-
-      - name: Upload Artifacts
+      - name: Upload build log as workflow artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: kernel-${{ matrix.branch }}
-          path: build-workspace/dist/*
-
-      - name: Create Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG_NAME="build-$(date +'%Y.%m.%d')-${{ matrix.branch }}"
-          RELEASE_NAME="Weekly Build - $(date +'%Y-%m-%d') (${{ matrix.branch }})"
-
-          if [ -f "changelog_${{ matrix.branch }}.md" ]; then
-            BODY_FILE="changelog_${{ matrix.branch }}.md"
-          else
-            echo "Weekly automated build for branch ${{ matrix.branch }}" > release_body.txt
-            BODY_FILE="release_body.txt"
-          fi
-
-          gh release create "$TAG_NAME" \
-            --title "$RELEASE_NAME" \
-            --notes-file "$BODY_FILE" \
-            --clobber \
-            build-workspace/dist/*
+          name: build-log-${{ matrix.branch }}-${{ github.run_id }}
+          path: build.log
+          if-no-files-found: ignore
+          retention-days: 14
