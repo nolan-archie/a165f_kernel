@@ -28,7 +28,6 @@ jobs:
         with:
           ref: ${{ matrix.branch }}
           fetch-depth: 0
-          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Configure git identity
         shell: bash
@@ -40,9 +39,6 @@ jobs:
       - name: Build and notify
         id: build
         shell: bash
-        env:
-          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           set -euo pipefail
           chmod +x "${{ matrix.script }}"
@@ -59,7 +55,7 @@ jobs:
           files: ${{ steps.build.outputs.artifact_path }}
           target_commitish: ${{ matrix.branch }}
         env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Send final Telegram ping with real download link
         if: steps.build.outputs.status == 'success'
