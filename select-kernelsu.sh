@@ -49,7 +49,7 @@ ensure_kernelsu_next() {
 }
 
 case "$BRANCH" in
-  sukisu-ultra)
+  susfs-dev)
     ensure_sukisu
     ;;
   main)
