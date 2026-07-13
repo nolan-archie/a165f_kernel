@@ -42,6 +42,17 @@ if [ ! -e "$KSU_DIR" ]; then
       \( -ipath "*sukisu*" -o -ipath "*kernelsu*" \) 2>/dev/null | head -n1)"
   fi
   echo "[update] Candidate source dir: ${CANDIDATE:-none found}"
+  if [ -n "$CANDIDATE" ] && [ ! -f "$CANDIDATE/Makefile" ]; then
+    echo "[update] $CANDIDATE has no Makefile at its root, searching deeper..."
+    DEEPER="$(find "$CANDIDATE" -maxdepth 3 -type f -iname "Makefile" 2>/dev/null | head -n1)"
+    if [ -n "$DEEPER" ]; then
+      CANDIDATE="$(dirname "$DEEPER")"
+      echo "[update] Found Makefile, using: $CANDIDATE"
+    else
+      echo "[update] No Makefile found anywhere under candidate — listing its contents:" >&2
+      find "$CANDIDATE" -maxdepth 2 | sort >&2
+    fi
+  fi
   if [ -z "$CANDIDATE" ]; then
     echo "[update] Top-level dirs under $KERNEL_SRC_DIR for diagnosis:" >&2
     find "$KERNEL_SRC_DIR" -maxdepth 1 -type d | sort >&2
