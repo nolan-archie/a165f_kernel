@@ -153,3 +153,4 @@ vendor/mediatek/kernel_modules/
 build.log
 **/__pycache__/
 *.pyc
+kernel-5.10/KernelSU/
