@@ -5,7 +5,7 @@ CONFIG_PROCA=n
 CONFIG_FIVE=n
 
 # SukiSU Ultra (KernelSU)
-CONFIG_KSU=n 
+CONFIG_KSU=y
 
 # SUSFS (for KernelSU)
 CONFIG_KSU_SUSFS=y
