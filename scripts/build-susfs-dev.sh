@@ -26,6 +26,9 @@ DEVICE="A165F"
 GITHUB_REPO="${GITHUB_REPOSITORY:-nolan-archie/a165f_kernel}"
 # ------------------------------------------------------------------------------
 
+echo "[update] Ensuring git submodules are initialized (KernelSU checks out empty otherwise)..."
+git -C "$REPO_ROOT" submodule update --init --recursive || echo "[update] submodule update returned non-zero (continuing, may be non-fatal)"
+
 # select-kernelsu's symlink is normally created by a local git post-checkout
 # hook, which does NOT run on a fresh Actions checkout. Create it ourselves.
 if [ ! -e "$KSU_DIR" ]; then
