@@ -29,16 +29,23 @@ GITHUB_REPO="${GITHUB_REPOSITORY:-nolan-archie/a165f_kernel}"
 # select-kernelsu's symlink is normally created by a local git post-checkout
 # hook, which does NOT run on a fresh Actions checkout. Create it ourselves.
 if [ ! -e "$KSU_DIR" ]; then
-  echo "[update] KSU_DIR missing, searching for real source under $KERNEL_SRC_DIR ..."
-  CANDIDATE="$(find "$KERNEL_SRC_DIR" -maxdepth 3 -type d -iname "kernel" \
-    -path "*ukisu*" -o -maxdepth 3 -type d -iname "kernel" -path "*ernelsu*" 2>/dev/null | head -n1)"
+  echo "[update] KSU_DIR missing, resolving real source under $KERNEL_SRC_DIR ..."
+  CANDIDATE=""
+  # Confirmed path: we saw `kernel-5.10/KernelSU` tracked as a real dir earlier
+  # (it showed up as an accidental embedded gitlink when switching off this branch).
+  [ -d "$KERNEL_SRC_DIR/KernelSU/kernel" ] && CANDIDATE="$KERNEL_SRC_DIR/KernelSU/kernel"
+  [ -z "$CANDIDATE" ] && [ -d "$KERNEL_SRC_DIR/KernelSU" ] && CANDIDATE="$KERNEL_SRC_DIR/KernelSU"
   if [ -z "$CANDIDATE" ]; then
-    CANDIDATE="$(find "$KERNEL_SRC_DIR" -maxdepth 2 -type f -iname "Kconfig" \
-      -exec grep -lm1 "KSU\|KernelSU\|SukiSU" {} \; 2>/dev/null | head -n1 | xargs -r dirname)"
+    # Fallback: case-INSENSITIVE path search (previous run's bug: -path is
+    # case-sensitive, missed "KernelSU"/"SukiSU" with capitals)
+    CANDIDATE="$(find "$KERNEL_SRC_DIR" -maxdepth 3 -type d -iname "kernel" \
+      \( -ipath "*sukisu*" -o -ipath "*kernelsu*" \) 2>/dev/null | head -n1)"
   fi
-  echo "[update] Candidate source dir found: ${CANDIDATE:-none}"
-  find "$KERNEL_SRC_DIR" -maxdepth 2 -type d | sort >&2
-  if [ -n "$CANDIDATE" ]; then
+  echo "[update] Candidate source dir: ${CANDIDATE:-none found}"
+  if [ -z "$CANDIDATE" ]; then
+    echo "[update] Top-level dirs under $KERNEL_SRC_DIR for diagnosis:" >&2
+    find "$KERNEL_SRC_DIR" -maxdepth 1 -type d | sort >&2
+  else
     ln -sfn "$(realpath --relative-to="$KERNEL_SRC_DIR/drivers" "$CANDIDATE")" "$KERNEL_SRC_DIR/drivers/kernelsu"
     echo "[update] Symlinked drivers/kernelsu -> $CANDIDATE"
   fi
