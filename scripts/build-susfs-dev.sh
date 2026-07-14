@@ -23,10 +23,11 @@ SYNC_SCRIPT="$REPO_ROOT/sync-manager-detection.sh"
 KSU_SOURCE_LABEL="SukiSU-Ultra"
 DEVICE="A165F"
 GITHUB_REPO="${GITHUB_REPOSITORY:-nolan-archie/a165f_kernel}"
-_SAVED_BOT_TOKEN="${BOT_TOKEN:-}"
-_SAVED_CHAT_ID="${CHAT_ID:-}"
+# Snapshot these NOW — build.sh may reset/scrub the environment internally
+_SAVED_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
+_SAVED_CHAT_ID="${TELEGRAM_CHAT_ID:-}"
 if [ -z "$_SAVED_BOT_TOKEN" ] || [ -z "$_SAVED_CHAT_ID" ]; then
-  echo "[telegram] WARNING: BOT_TOKEN/CHAT_ID empty at script start" >&2
+  echo "[telegram] WARNING: TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID empty at script start — check workflow secrets" >&2
 fi
 # -----------------------------------------------------------------------------
 
