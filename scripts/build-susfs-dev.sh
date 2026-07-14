@@ -3,63 +3,48 @@
 #
 # Everything for the `susfs-dev` branch in one file:
 #   1. Update manager-detection code via YOUR existing sync-manager-detection.sh
-#      (untouched — only kernel/manager/* + EXPECTED_HASH/SIZE block change)
 #   2. Run your existing build.sh (unchanged)
-#   3. Read the REAL .config/Makefile it produced — no hardcoded feature claims
+#   3. Read the REAL .config/Makefile it produced
 #   4. Send a Telegram build card (pass or fail)
 #   5. Write GITHUB_OUTPUT values so the workflow can create the Release
 #
 # Usage: ./scripts/build-susfs-dev.sh <repo-root>
 # Requires env: BOT_TOKEN, CHAT_ID (Telegram). Optional: KERNEL_SRC_DIR, KSU_DIR, DOT_CONFIG_OVERRIDE
 
-set -uo pipefail   # not -e: a failed build must still reach the notify step
+set -uo pipefail
 
 REPO_ROOT="${1:?Usage: $0 <repo-root>}"
 BRANCH="susfs-dev"
 
-# ---- CONFIG: confirm once against your actual tree -------------------------
+# ---- CONFIG -----------------------------------------------------------------
 KERNEL_SRC_DIR="${KERNEL_SRC_DIR:-$REPO_ROOT/kernel-5.10}"
 KSU_DIR="${KSU_DIR:-$KERNEL_SRC_DIR/drivers/kernelsu}"
 SYNC_SCRIPT="$REPO_ROOT/sync-manager-detection.sh"
-KSU_SOURCE_LABEL="SukiSU-Ultra (nolan-archie fork, manager synced from upstream/main)"
+KSU_SOURCE_LABEL="SukiSU-Ultra"
 DEVICE="A165F"
 GITHUB_REPO="${GITHUB_REPOSITORY:-nolan-archie/a165f_kernel}"
-# ------------------------------------------------------------------------------
+_SAVED_BOT_TOKEN="${BOT_TOKEN:-}"
+_SAVED_CHAT_ID="${CHAT_ID:-}"
+if [ -z "$_SAVED_BOT_TOKEN" ] || [ -z "$_SAVED_CHAT_ID" ]; then
+  echo "[telegram] WARNING: BOT_TOKEN/CHAT_ID empty at script start" >&2
+fi
+# -----------------------------------------------------------------------------
 
-echo "[update] Ensuring git submodules are initialized (KernelSU checks out empty otherwise)..."
-git -C "$REPO_ROOT" submodule update --init --recursive || echo "[update] submodule update returned non-zero (continuing, may be non-fatal)"
+echo "[update] Ensuring git submodules are initialized..."
+git -C "$REPO_ROOT" submodule update --init --recursive 2>/dev/null || true
 
-# select-kernelsu's symlink is normally created by a local git post-checkout
-# hook, which does NOT run on a fresh Actions checkout. Create it ourselves.
+# Symlink handling (same as before)
 if [ ! -e "$KSU_DIR" ]; then
-  echo "[update] KSU_DIR missing, resolving real source under $KERNEL_SRC_DIR ..."
+  echo "[update] KSU_DIR missing, resolving real source..."
   CANDIDATE=""
-  # Confirmed path: we saw `kernel-5.10/KernelSU` tracked as a real dir earlier
-  # (it showed up as an accidental embedded gitlink when switching off this branch).
   [ -d "$KERNEL_SRC_DIR/KernelSU/kernel" ] && CANDIDATE="$KERNEL_SRC_DIR/KernelSU/kernel"
   [ -z "$CANDIDATE" ] && [ -d "$KERNEL_SRC_DIR/KernelSU" ] && CANDIDATE="$KERNEL_SRC_DIR/KernelSU"
   if [ -z "$CANDIDATE" ]; then
-    # Fallback: case-INSENSITIVE path search (previous run's bug: -path is
-    # case-sensitive, missed "KernelSU"/"SukiSU" with capitals)
     CANDIDATE="$(find "$KERNEL_SRC_DIR" -maxdepth 3 -type d -iname "kernel" \
       \( -ipath "*sukisu*" -o -ipath "*kernelsu*" \) 2>/dev/null | head -n1)"
   fi
-  echo "[update] Candidate source dir: ${CANDIDATE:-none found}"
-  if [ -n "$CANDIDATE" ] && [ ! -f "$CANDIDATE/Makefile" ]; then
-    echo "[update] $CANDIDATE has no Makefile at its root, searching deeper..."
-    DEEPER="$(find "$CANDIDATE" -maxdepth 3 -type f -iname "Makefile" 2>/dev/null | head -n1)"
-    if [ -n "$DEEPER" ]; then
-      CANDIDATE="$(dirname "$DEEPER")"
-      echo "[update] Found Makefile, using: $CANDIDATE"
-    else
-      echo "[update] No Makefile found anywhere under candidate — listing its contents:" >&2
-      find "$CANDIDATE" -maxdepth 2 | sort >&2
-    fi
-  fi
-  if [ -z "$CANDIDATE" ]; then
-    echo "[update] Top-level dirs under $KERNEL_SRC_DIR for diagnosis:" >&2
-    find "$KERNEL_SRC_DIR" -maxdepth 1 -type d | sort >&2
-  else
+  if [ -n "$CANDIDATE" ]; then
+    [ ! -f "$CANDIDATE/Makefile" ] && CANDIDATE="$(dirname "$(find "$CANDIDATE" -maxdepth 3 -type f -iname "Makefile" 2>/dev/null | head -n1)")"
     ln -sfn "$(realpath --relative-to="$KERNEL_SRC_DIR/drivers" "$CANDIDATE")" "$KERNEL_SRC_DIR/drivers/kernelsu"
     echo "[update] Symlinked drivers/kernelsu -> $CANDIDATE"
   fi
@@ -68,44 +53,87 @@ fi
 # ============================= Telegram helper ===============================
 send_telegram_html() {
   local text="$1"
-  if [ -z "${BOT_TOKEN:-}" ] || [ -z "${CHAT_ID:-}" ]; then
+  if [ -z "$_SAVED_BOT_TOKEN" ] || [ -z "$_SAVED_CHAT_ID" ]; then
     echo "[telegram] BOT_TOKEN/CHAT_ID not set, skipping" >&2
     return 0
   fi
-  curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
-    -d chat_id="${CHAT_ID}" \
+  curl -s -X POST "https://api.telegram.org/bot${_SAVED_BOT_TOKEN}/sendMessage" \
+    -d chat_id="${_SAVED_CHAT_ID}" \
     -d parse_mode="HTML" \
     -d disable_web_page_preview="true" \
     --data-urlencode text="${text}" >/dev/null
 }
 
+# Build a clean, compact info block
+build_info_block() {
+  local out=""
+  local kver="${KERNEL_FULL_VERSION:-unknown}"
+  local ksu_ver="${KSU_VERSION_DISPLAY:-unknown}"
+  local hook="${HOOK_TYPE:-unknown}"
+  local susfs="${SUSFS_VERSION:-unknown}"
+  local hash="${MANAGER_EXPECTED_HASH:-unknown}"
+  local size="${MANAGER_EXPECTED_SIZE:-unknown}"
+
+  # Kernel version (shortened)
+  if [ "$kver" != "unknown" ]; then
+    kver="$(echo "$kver" | sed 's/Linux version //; s/ (.*//')"
+  fi
+
+  out="<b>Device:</b> $DEVICE
+<b>Branch:</b> $BRANCH
+<b>Kernel:</b> <code>$kver</code>"
+
+  [ "$ksu_ver" != "unknown" ] && out="$out
+<b>KSU Version:</b> <code>$ksu_ver</code>"
+  [ "$hook" != "unknown" ] && out="$out
+<b>Hook:</b> $hook"
+  [ "$susfs" != "unknown" ] && out="$out
+<b>SuSFS:</b> <code>$susfs</code>"
+  [ "$hash" != "unknown" ] && out="$out
+<b>Manager Hash:</b> <code>${hash:0:16}...</code>"
+  [ "$size" != "unknown" ] && out="$out
+<b>Manager Size:</b> <code>$size</code>"
+
+  # Features: only show enabled ones, as compact tags
+  local enabled=""
+  if [ -n "${FEATURES_BLOCK:-}" ] && [ "$FEATURES_BLOCK" != "(.config not found — features unverifiable)" ]; then
+    enabled="$(echo "$FEATURES_BLOCK" | grep '= true' | sed 's/ = true//' | tr '\n' ', ' | sed 's/, $//')"
+  fi
+  [ -n "$enabled" ] && out="$out
+
+<b>Features:</b> <code>$enabled</code>"
+
+  out="$out
+
+<b>Built:</b> $(date -u '+%Y-%m-%d %H:%M UTC')"
+
+  printf '%s' "$out"
+}
+
 send_build_card() {
   local status="$1" download_url="${2:-}"
-  local header
-  [ "$status" = "success" ] && header="Kernel Build Succeeded" || header="Kernel Build Failed"
-
-  local body
-  body=$(printf '<b>%s</b>\n\n<pre>Repo: %s\nBranch: %s\nDevice: %s\nKernel version: %s\nKSU source: %s\nKSU version: %s\nManager hook: %s\nSuSFS version: %s\nManager EXPECTED_HASH: %s\nManager EXPECTED_SIZE: %s\nBuild date: %s</pre>' \
-    "$header" "$GITHUB_REPO" "$BRANCH" "$DEVICE" \
-    "${KERNEL_FULL_VERSION:-unknown}" "$KSU_SOURCE_LABEL" "${KSU_VERSION_DISPLAY:-unknown}" \
-    "${HOOK_TYPE:-unknown}" "${SUSFS_VERSION:-unknown}" \
-    "${MANAGER_EXPECTED_HASH:-unknown}" "${MANAGER_EXPECTED_SIZE:-unknown}" \
-    "$(date -u '+%Y-%m-%d %H:%M UTC')")
-
-  if [ -n "${FEATURES_BLOCK:-}" ]; then
-    body="${body}
-<pre>${FEATURES_BLOCK}</pre>"
+  local header icon
+  if [ "$status" = "success" ]; then
+    header="Build Succeeded"
+    icon=""
+  else
+    header="Build Failed"
+    icon=""
   fi
+
+  local body="<b>$icon $header</b>
+
+$(build_info_block)"
 
   if [ "$status" = "success" ] && [ -n "$download_url" ]; then
-    body="${body}
+    body="$body
 
-<a href=\"${download_url}\">Download build</a>"
+<a href=\"${download_url}\">Download Build</a>"
   fi
   if [ "$status" = "failure" ] && [ -n "${LOG_URL:-}" ]; then
-    body="${body}
+    body="$body
 
-<a href=\"${LOG_URL}\">View build log</a>"
+<a href=\"${LOG_URL}\">View Logs</a>"
   fi
 
   send_telegram_html "$body"
@@ -117,14 +145,14 @@ if [ ! -f "$SYNC_SCRIPT" ]; then
   exit 1
 fi
 if [ ! -d "$KSU_DIR" ]; then
-  echo "[ERROR] KSU_DIR '$KSU_DIR' does not exist. Set KSU_DIR env var and re-run." >&2
+  echo "[ERROR] KSU_DIR '$KSU_DIR' does not exist." >&2
   exit 1
 fi
 
 echo "[update] Snapshotting manager files..."
 BEFORE_HASH="$(find "$KSU_DIR/manager" -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum || echo none)"
 
-echo "[update] Running sync-manager-detection.sh against SukiSU-Ultra/main..."
+echo "[update] Running sync-manager-detection.sh..."
 bash "$SYNC_SCRIPT" "$KSU_DIR"
 
 AFTER_HASH="$(find "$KSU_DIR/manager" -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum || echo none)"
@@ -136,8 +164,8 @@ echo "CHANGED=$CHANGED" >> "${GITHUB_OUTPUT:-/dev/stdout}"
 if [ "$CHANGED" -eq 1 ]; then
   cd "$REPO_ROOT"
   git add -A
-  git commit -m "Weekly sync: update manager-detection from SukiSU-Ultra/main [skip ci]" || true
-  git push origin HEAD:"$BRANCH" || echo "[update] push skipped/failed (non-fatal)" >&2
+  git commit -m "Weekly sync: update manager-detection [skip ci]" || true
+  git push origin HEAD:"$BRANCH" 2>/dev/null || true
 fi
 
 # ============================ Step 2: build ====================================
@@ -151,7 +179,7 @@ set +e
 BUILD_EXIT=$?
 set -e
 
-# ============================ Step 3: verify (read reality, don't assume) =====
+# ============================ Step 3: verify =================================
 DOT_CONFIG="${DOT_CONFIG_OVERRIDE:-}"
 if [ -z "$DOT_CONFIG" ]; then
   for candidate in \
@@ -164,39 +192,58 @@ if [ -z "$DOT_CONFIG" ]; then
 fi
 echo "[verify] Using .config: ${DOT_CONFIG:-none found}"
 
+# KSU version
 KSU_VERSION_DISPLAY="unknown"
 if git -C "$KSU_DIR" rev-parse --git-dir >/dev/null 2>&1; then
-  DESCRIBE="$(git -C "$KSU_DIR" describe --tags --always --dirty 2>/dev/null || echo "")"
-  COUNT="$(git -C "$KSU_DIR" rev-list --count HEAD 2>/dev/null || echo "")"
-  SHORT_SHA="$(git -C "$KSU_DIR" rev-parse --short HEAD 2>/dev/null || echo "")"
-  if [ -n "$DESCRIBE" ]; then KSU_VERSION_DISPLAY="$DESCRIBE"
-  elif [ -n "$COUNT" ]; then KSU_VERSION_DISPLAY="commit-count:${COUNT} (${SHORT_SHA})"; fi
+  DESCRIBE="$(git -C "$KSU_DIR" describe --tags --always --dirty 2>/dev/null || true)"
+  COUNT="$(git -C "$KSU_DIR" rev-list --count HEAD 2>/dev/null || true)"
+  SHORT_SHA="$(git -C "$KSU_DIR" rev-parse --short HEAD 2>/dev/null || true)"
+  if [ -n "$DESCRIBE" ]; then
+    KSU_VERSION_DISPLAY="$DESCRIBE"
+  elif [ -n "$COUNT" ]; then
+    KSU_VERSION_DISPLAY="r${COUNT} (${SHORT_SHA})"
+  fi
 else
-  # susfs-dev's kernelsu dir may not be its own git repo (in-tree, not a submodule) —
-  # fall back to the repo's own commit for traceability.
-  KSU_VERSION_DISPLAY="repo-commit:$(git -C "$REPO_ROOT" rev-parse --short HEAD)"
+  KSU_VERSION_DISPLAY="$(git -C "$REPO_ROOT" rev-parse --short HEAD)"
 fi
 
-# This is the exact block your sync-manager-detection.sh writes into the
-# Makefile — read only, never modified here.
-MANAGER_EXPECTED_HASH="unknown"; MANAGER_EXPECTED_SIZE="unknown"
-HASH_MATCH="$(grep -hoE 'KSU_EXPECTED_HASH[[:space:]]*:?=[[:space:]]*[A-Za-z0-9]+' "$KSU_DIR/Makefile" 2>/dev/null | head -n1 || true)"
-SIZE_MATCH="$(grep -hoE 'KSU_EXPECTED_SIZE[[:space:]]*:?=[[:space:]]*[A-Za-z0-9x]+' "$KSU_DIR/Makefile" 2>/dev/null | head -n1 || true)"
-[ -n "$HASH_MATCH" ] && MANAGER_EXPECTED_HASH="${HASH_MATCH##*[:=] }"
-[ -n "$SIZE_MATCH" ] && MANAGER_EXPECTED_SIZE="${SIZE_MATCH##*[:=] }"
+# EXPECTED_HASH / EXPECTED_SIZE — robust parsing
+MANAGER_EXPECTED_HASH="unknown"
+MANAGER_EXPECTED_SIZE="unknown"
+if [ -f "$KSU_DIR/Makefile" ]; then
+  # Try multiple patterns: :=, =, ?=, +=
+  HASH_MATCH="$(grep -hoE 'KSU_EXPECTED_HASH[[:space:]]*[:+]?=[[:space:]]*[a-fA-F0-9]+' "$KSU_DIR/Makefile" 2>/dev/null | head -n1 || true)"
+  SIZE_MATCH="$(grep -hoE 'KSU_EXPECTED_SIZE[[:space:]]*[:+]?=[[:space:]]*(0x)?[0-9a-fA-F]+' "$KSU_DIR/Makefile" 2>/dev/null | head -n1 || true)"
+  [ -n "$HASH_MATCH" ] && MANAGER_EXPECTED_HASH="$(echo "$HASH_MATCH" | sed -E 's/.*[=:][[:space:]]*//')"
+  [ -n "$SIZE_MATCH" ] && MANAGER_EXPECTED_SIZE="$(echo "$SIZE_MATCH" | sed -E 's/.*[=:][[:space:]]*//')"
+fi
 
+# Also check in manager/ subdir if not found in Makefile
+if [ "$MANAGER_EXPECTED_HASH" = "unknown" ]; then
+  HASH_MATCH="$(grep -rhoE 'EXPECTED_HASH[[:space:]]*[=:][[:space:]]*"?[a-fA-F0-9]+"?' "$KSU_DIR" 2>/dev/null | head -n1 || true)"
+  [ -n "$HASH_MATCH" ] && MANAGER_EXPECTED_HASH="$(echo "$HASH_MATCH" | sed -E 's/.*[=:][[:space:]]*//; s/"//g')"
+fi
+if [ "$MANAGER_EXPECTED_SIZE" = "unknown" ]; then
+  SIZE_MATCH="$(grep -rhoE 'EXPECTED_SIZE[[:space:]]*[=:][[:space:]]*(0x)?[0-9a-fA-F]+' "$KSU_DIR" 2>/dev/null | head -n1 || true)"
+  [ -n "$SIZE_MATCH" ] && MANAGER_EXPECTED_SIZE="$(echo "$SIZE_MATCH" | sed -E 's/.*[=:][[:space:]]*//')"
+fi
+
+# SuSFS version — handle #define and string variations
 SUSFS_VERSION="unknown"
 SUSFS_MATCH="$(grep -rhoE 'SUSFS_VERSION[[:space:]]+"[^"]+"' "$KSU_DIR" 2>/dev/null | head -n1 || true)"
-[ -n "$SUSFS_MATCH" ] && SUSFS_VERSION="$(echo "$SUSFS_MATCH" | sed -E 's/.*"([^"]+)"/\1/')"
+[ -z "$SUSFS_MATCH" ] && SUSFS_MATCH="$(grep -rhoE 'SUSFS_VERSION[[:space:]]+[vV][0-9.]+' "$KSU_DIR" 2>/dev/null | head -n1 || true)"
+[ -n "$SUSFS_MATCH" ] && SUSFS_VERSION="$(echo "$SUSFS_MATCH" | sed -E 's/.*"([^"]+)".*/\1/; s/.*[[:space:]]+([vV][0-9.]+).*/\1/')"
 
+# Hook type
 HOOK_TYPE="unknown"
 if [ -f "$DOT_CONFIG" ]; then
-  if grep -q '^CONFIG_KSU_MANUAL_HOOK=y' "$DOT_CONFIG"; then HOOK_TYPE="Manual syscall hook"
-  elif grep -q '^CONFIG_KPROBES=y' "$DOT_CONFIG"; then HOOK_TYPE="Kprobes hook"
+  if grep -q '^CONFIG_KSU_MANUAL_HOOK=y' "$DOT_CONFIG"; then HOOK_TYPE="Manual"
+  elif grep -q '^CONFIG_KPROBES=y' "$DOT_CONFIG"; then HOOK_TYPE="Kprobes"
   elif grep -q '^CONFIG_MODULES=y' "$DOT_CONFIG"; then HOOK_TYPE="LKM"
   fi
 fi
 
+# Features — compact, only show enabled
 declare -A FEATURE_CHECKS=(
   ["SuSFS"]="CONFIG_KSU_SUSFS"
   ["Manual Hooks"]="CONFIG_KSU_MANUAL_HOOK"
@@ -210,35 +257,54 @@ FEATURES_BLOCK=""
 if [ -f "$DOT_CONFIG" ]; then
   for label in "${!FEATURE_CHECKS[@]}"; do
     symbol="${FEATURE_CHECKS[$label]}"
-    if grep -q "^${symbol}=y" "$DOT_CONFIG"; then val="true"
-    elif grep -q "^# ${symbol} is not set" "$DOT_CONFIG"; then val="false"
-    else val="unknown"; fi
-    FEATURES_BLOCK="${FEATURES_BLOCK}${label} = ${val}
+    if grep -q "^${symbol}=y" "$DOT_CONFIG"; then
+      FEATURES_BLOCK="${FEATURES_BLOCK}${label} = true
 "
+    fi
   done
+  [ -z "$FEATURES_BLOCK" ] && FEATURES_BLOCK="(none enabled)"
 else
-  FEATURES_BLOCK="(.config not found — features unverifiable)"
+  FEATURES_BLOCK="(.config not found)"
 fi
 
+# Kernel version
 KERNEL_FULL_VERSION="unknown"
 IMAGE_PATH="$REPO_ROOT/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10/arch/arm64/boot/Image.gz"
-[ -f "$IMAGE_PATH" ] && KERNEL_FULL_VERSION="$(zcat "$IMAGE_PATH" 2>/dev/null | strings | grep -m1 'Linux version' || echo unknown)"
+if [ -f "$IMAGE_PATH" ]; then
+  KERNEL_FULL_VERSION="$(zcat "$IMAGE_PATH" 2>/dev/null | strings | grep -m1 'Linux version' || echo unknown)"
+fi
 
+# Write clean info file for GitHub Release
 INFO_FILE="$REPO_ROOT/build-info.env"
 {
-  echo "Repo: $GITHUB_REPO"
-  echo "Branch: $BRANCH"
-  echo "Device: $DEVICE"
-  echo "Kernel version: $KERNEL_FULL_VERSION"
-  echo "KSU source: $KSU_SOURCE_LABEL"
-  echo "KSU version: $KSU_VERSION_DISPLAY"
-  echo "Manager hook: $HOOK_TYPE"
-  echo "SuSFS version: $SUSFS_VERSION"
-  echo "Manager EXPECTED_HASH: $MANAGER_EXPECTED_HASH"
-  echo "Manager EXPECTED_SIZE: $MANAGER_EXPECTED_SIZE"
+  echo "## Build Info"
   echo ""
-  echo "Features:"
-  echo "$FEATURES_BLOCK"
+  echo "| Field | Value |"
+  echo "|-------|-------|"
+  echo "| **Device** | $DEVICE |"
+  echo "| **Branch** | $BRANCH |"
+
+  kver_short="${KERNEL_FULL_VERSION:-unknown}"
+  [ "$kver_short" != "unknown" ] && kver_short="$(echo "$kver_short" | sed 's/Linux version //; s/ (.*//')"
+  echo "| **Kernel** | $kver_short |"
+
+  [ "${KSU_VERSION_DISPLAY:-unknown}" != "unknown" ] && echo "| **KSU Version** | $KSU_VERSION_DISPLAY |"
+  [ "$HOOK_TYPE" != "unknown" ] && echo "| **Hook** | $HOOK_TYPE |"
+  [ "$SUSFS_VERSION" != "unknown" ] && echo "| **SuSFS** | $SUSFS_VERSION |"
+  [ "$MANAGER_EXPECTED_HASH" != "unknown" ] && echo "| **Manager Hash** | \`${MANAGER_EXPECTED_HASH:0:16}...\` |"
+  [ "$MANAGER_EXPECTED_SIZE" != "unknown" ] && echo "| **Manager Size** | $MANAGER_EXPECTED_SIZE |"
+
+  echo ""
+  echo "### Enabled Features"
+  echo ""
+  if [ "$FEATURES_BLOCK" != "(.config not found)" ] && [ "$FEATURES_BLOCK" != "(none enabled)" ]; then
+    echo "$(echo "$FEATURES_BLOCK" | grep '= true' | sed 's/ = true//' | sed 's/^/- /')"
+  else
+    echo "$FEATURES_BLOCK"
+  fi
+  echo ""
+  echo "---"
+  echo "Built: $(date -u '+%Y-%m-%d %H:%M UTC')"
 } > "$INFO_FILE"
 
 # ============================ Step 4: notify + outputs =========================
