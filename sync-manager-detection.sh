@@ -41,6 +41,7 @@ MANAGER_FILES=(
   pkg_observer.c
   throne_tracker.c
   throne_tracker.h
+  pkg_observer.h
 )
 
 echo "[+] Diffing against your current tree..."
