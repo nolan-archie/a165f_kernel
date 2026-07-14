@@ -98,7 +98,7 @@ check_and_install_requirements() {
 download_toolchain() {
     local temp_dir
     temp_dir=$(mktemp -d) || die "Cannot create temp directory"
-    trap 'rm -rf "${temp_dir}"' EXIT
+    trap 'rm -rf "${temp_dir:-}"' EXIT
 
     log_info "Downloading toolchain"
     curl -L --progress-bar -o "${temp_dir}/${TOOLCHAIN_ARCHIVE}" "${TOOLCHAIN_URL}" \
