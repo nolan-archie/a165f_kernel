@@ -24,17 +24,24 @@ KSU_SETUP_URL="https://raw.githubusercontent.com/pershoot/KernelSU-Next/refs/hea
 KSU_SOURCE_LABEL="KernelSU-Next (pershoot/dev-susfs)"
 DEVICE="A165F"
 GITHUB_REPO="${GITHUB_REPOSITORY:-nolan-archie/a165f_kernel}"
+# Snapshot these NOW — build.sh may reset/scrub the environment internally,
+# and we don't want that to silently kill the Telegram notification later.
+_SAVED_BOT_TOKEN="${BOT_TOKEN:-}"
+_SAVED_CHAT_ID="${CHAT_ID:-}"
+if [ -z "$_SAVED_BOT_TOKEN" ] || [ -z "$_SAVED_CHAT_ID" ]; then
+  echo "[telegram] WARNING: BOT_TOKEN/CHAT_ID empty at script start — check workflow secrets/env passthrough." >&2
+fi
 # ------------------------------------------------------------------------------
 
 # ============================= Telegram helper ===============================
 send_telegram_html() {
   local text="$1"
-  if [ -z "${BOT_TOKEN:-}" ] || [ -z "${CHAT_ID:-}" ]; then
+  if [ -z "$_SAVED_BOT_TOKEN" ] || [ -z "$_SAVED_CHAT_ID" ]; then
     echo "[telegram] BOT_TOKEN/CHAT_ID not set, skipping" >&2
     return 0
   fi
-  curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
-    -d chat_id="${CHAT_ID}" \
+  curl -s -X POST "https://api.telegram.org/bot${_SAVED_BOT_TOKEN}/sendMessage" \
+    -d chat_id="${_SAVED_CHAT_ID}" \
     -d parse_mode="HTML" \
     -d disable_web_page_preview="true" \
     --data-urlencode text="${text}" >/dev/null
