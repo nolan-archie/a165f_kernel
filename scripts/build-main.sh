@@ -1,40 +1,84 @@
 #!/usr/bin/env bash
-# scripts/build-main.sh
+# scripts/build-susfs-dev.sh
 #
-# Everything for the `main` branch in one file:
-#   1. Update KernelSU-Next to pershoot/KernelSU-Next `dev-susfs`
+# Everything for the `susfs-dev` branch in one file:
+#   1. Update manager-detection code via YOUR existing sync-manager-detection.sh
+#      (untouched — only kernel/manager/* + EXPECTED_HASH/SIZE block change)
 #   2. Run your existing build.sh (unchanged)
 #   3. Read the REAL .config/Makefile it produced — no hardcoded feature claims
 #   4. Send a Telegram build card (pass or fail)
 #   5. Write GITHUB_OUTPUT values so the workflow can create the Release
 #
-# Usage: ./scripts/build-main.sh <repo-root>
-# Requires env: BOT_TOKEN, CHAT_ID (Telegram). Optional: KERNEL_SRC_DIR, DOT_CONFIG_OVERRIDE
+# Usage: ./scripts/build-susfs-dev.sh <repo-root>
+# Requires env: BOT_TOKEN, CHAT_ID (Telegram). Optional: KERNEL_SRC_DIR, KSU_DIR, DOT_CONFIG_OVERRIDE
 
 set -uo pipefail   # not -e: a failed build must still reach the notify step
 
 REPO_ROOT="${1:?Usage: $0 <repo-root>}"
-BRANCH="main"
+BRANCH="susfs-dev"
 
 # ---- CONFIG: confirm once against your actual tree -------------------------
 KERNEL_SRC_DIR="${KERNEL_SRC_DIR:-$REPO_ROOT/kernel-5.10}"
-KSU_DIR="$KERNEL_SRC_DIR/KernelSU-Next"
-KSU_BRANCH="dev-susfs"
-KSU_SETUP_URL="https://raw.githubusercontent.com/pershoot/KernelSU-Next/refs/heads/${KSU_BRANCH}/kernel/setup.sh"
-KSU_SOURCE_LABEL="KernelSU-Next (pershoot/${KSU_BRANCH})"
+KSU_DIR="${KSU_DIR:-$KERNEL_SRC_DIR/drivers/kernelsu}"
+SYNC_SCRIPT="$REPO_ROOT/sync-manager-detection.sh"
+KSU_SOURCE_LABEL="SukiSU-Ultra (nolan-archie fork, manager synced from upstream/main)"
 DEVICE="A165F"
 GITHUB_REPO="${GITHUB_REPOSITORY:-nolan-archie/a165f_kernel}"
+_SAVED_BOT_TOKEN="${BOT_TOKEN:-}"
+_SAVED_CHAT_ID="${CHAT_ID:-}"
+if [ -z "$_SAVED_BOT_TOKEN" ] || [ -z "$_SAVED_CHAT_ID" ]; then
+  echo "[telegram] WARNING: BOT_TOKEN/CHAT_ID empty at script start — check workflow secrets/env passthrough." >&2
+fi
 # ------------------------------------------------------------------------------
+
+echo "[update] Ensuring git submodules are initialized (KernelSU checks out empty otherwise)..."
+git -C "$REPO_ROOT" submodule update --init --recursive || echo "[update] submodule update returned non-zero (continuing, may be non-fatal)"
+
+# select-kernelsu's symlink is normally created by a local git post-checkout
+# hook, which does NOT run on a fresh Actions checkout. Create it ourselves.
+if [ ! -e "$KSU_DIR" ]; then
+  echo "[update] KSU_DIR missing, resolving real source under $KERNEL_SRC_DIR ..."
+  CANDIDATE=""
+  # Confirmed path: we saw `kernel-5.10/KernelSU` tracked as a real dir earlier
+  # (it showed up as an accidental embedded gitlink when switching off this branch).
+  [ -d "$KERNEL_SRC_DIR/KernelSU/kernel" ] && CANDIDATE="$KERNEL_SRC_DIR/KernelSU/kernel"
+  [ -z "$CANDIDATE" ] && [ -d "$KERNEL_SRC_DIR/KernelSU" ] && CANDIDATE="$KERNEL_SRC_DIR/KernelSU"
+  if [ -z "$CANDIDATE" ]; then
+    # Fallback: case-INSENSITIVE path search (previous run's bug: -path is
+    # case-sensitive, missed "KernelSU"/"SukiSU" with capitals)
+    CANDIDATE="$(find "$KERNEL_SRC_DIR" -maxdepth 3 -type d -iname "kernel" \
+      \( -ipath "*sukisu*" -o -ipath "*kernelsu*" \) 2>/dev/null | head -n1)"
+  fi
+  echo "[update] Candidate source dir: ${CANDIDATE:-none found}"
+  if [ -n "$CANDIDATE" ] && [ ! -f "$CANDIDATE/Makefile" ]; then
+    echo "[update] $CANDIDATE has no Makefile at its root, searching deeper..."
+    DEEPER="$(find "$CANDIDATE" -maxdepth 3 -type f -iname "Makefile" 2>/dev/null | head -n1)"
+    if [ -n "$DEEPER" ]; then
+      CANDIDATE="$(dirname "$DEEPER")"
+      echo "[update] Found Makefile, using: $CANDIDATE"
+    else
+      echo "[update] No Makefile found anywhere under candidate — listing its contents:" >&2
+      find "$CANDIDATE" -maxdepth 2 | sort >&2
+    fi
+  fi
+  if [ -z "$CANDIDATE" ]; then
+    echo "[update] Top-level dirs under $KERNEL_SRC_DIR for diagnosis:" >&2
+    find "$KERNEL_SRC_DIR" -maxdepth 1 -type d | sort >&2
+  else
+    ln -sfn "$(realpath --relative-to="$KERNEL_SRC_DIR/drivers" "$CANDIDATE")" "$KERNEL_SRC_DIR/drivers/kernelsu"
+    echo "[update] Symlinked drivers/kernelsu -> $CANDIDATE"
+  fi
+fi
 
 # ============================= Telegram helper ===============================
 send_telegram_html() {
   local text="$1"
-  if [ -z "${BOT_TOKEN:-}" ] || [ -z "${CHAT_ID:-}" ]; then
+  if [ -z "$_SAVED_BOT_TOKEN" ] || [ -z "$_SAVED_CHAT_ID" ]; then
     echo "[telegram] BOT_TOKEN/CHAT_ID not set, skipping" >&2
     return 0
   fi
-  curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
-    -d chat_id="${CHAT_ID}" \
+  curl -s -X POST "https://api.telegram.org/bot${_SAVED_BOT_TOKEN}/sendMessage" \
+    -d chat_id="${_SAVED_CHAT_ID}" \
     -d parse_mode="HTML" \
     -d disable_web_page_preview="true" \
     --data-urlencode text="${text}" >/dev/null
@@ -72,28 +116,32 @@ send_build_card() {
   send_telegram_html "$body"
 }
 
-# ============================ Step 1: update KSU ==============================
-echo "[update] Running upstream setup.sh for branch: $KSU_BRANCH"
-cd "$KERNEL_SRC_DIR"
-PRE_SHA="none"
-[ -d "KernelSU-Next/.git" ] && PRE_SHA="$(git -C KernelSU-Next rev-parse HEAD 2>/dev/null || echo none)"
-
-curl -LSs "$KSU_SETUP_URL" | bash -s "$KSU_BRANCH"
-
-if [ ! -d "KernelSU-Next/.git" ]; then
-  echo "[ERROR] KernelSU-Next missing after setup.sh — setup failed." >&2
+# ============================ Step 1: sync manager files =======================
+if [ ! -f "$SYNC_SCRIPT" ]; then
+  echo "[ERROR] sync-manager-detection.sh not found at $SYNC_SCRIPT" >&2
   exit 1
 fi
-POST_SHA="$(git -C KernelSU-Next rev-parse HEAD)"
+if [ ! -d "$KSU_DIR" ]; then
+  echo "[ERROR] KSU_DIR '$KSU_DIR' does not exist. Set KSU_DIR env var and re-run." >&2
+  exit 1
+fi
+
+echo "[update] Snapshotting manager files..."
+BEFORE_HASH="$(find "$KSU_DIR/manager" -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum || echo none)"
+
+echo "[update] Running sync-manager-detection.sh against SukiSU-Ultra/main..."
+bash "$SYNC_SCRIPT" "$KSU_DIR"
+
+AFTER_HASH="$(find "$KSU_DIR/manager" -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum || echo none)"
 CHANGED=0
-[ "$PRE_SHA" != "$POST_SHA" ] && CHANGED=1
-echo "[update] $PRE_SHA -> $POST_SHA (changed=$CHANGED)"
+[ "$BEFORE_HASH" != "$AFTER_HASH" ] && CHANGED=1
+echo "[update] changed=$CHANGED"
 echo "CHANGED=$CHANGED" >> "${GITHUB_OUTPUT:-/dev/stdout}"
 
 if [ "$CHANGED" -eq 1 ]; then
   cd "$REPO_ROOT"
   git add -A
-  git commit -m "Weekly sync: update ${KSU_SOURCE_LABEL} [skip ci]" || true
+  git commit -m "Weekly sync: update manager-detection from SukiSU-Ultra/main [skip ci]" || true
   git push origin HEAD:"$BRANCH" || echo "[update] push skipped/failed (non-fatal)" >&2
 fi
 
@@ -128,11 +176,17 @@ if git -C "$KSU_DIR" rev-parse --git-dir >/dev/null 2>&1; then
   SHORT_SHA="$(git -C "$KSU_DIR" rev-parse --short HEAD 2>/dev/null || echo "")"
   if [ -n "$DESCRIBE" ]; then KSU_VERSION_DISPLAY="$DESCRIBE"
   elif [ -n "$COUNT" ]; then KSU_VERSION_DISPLAY="commit-count:${COUNT} (${SHORT_SHA})"; fi
+else
+  # susfs-dev's kernelsu dir may not be its own git repo (in-tree, not a submodule) —
+  # fall back to the repo's own commit for traceability.
+  KSU_VERSION_DISPLAY="repo-commit:$(git -C "$REPO_ROOT" rev-parse --short HEAD)"
 fi
 
+# This is the exact block your sync-manager-detection.sh writes into the
+# Makefile — read only, never modified here.
 MANAGER_EXPECTED_HASH="unknown"; MANAGER_EXPECTED_SIZE="unknown"
-HASH_MATCH="$(grep -rhoE 'KSU_EXPECTED_HASH[[:space:]]*:?=[[:space:]]*[A-Za-z0-9]+' "$KSU_DIR" 2>/dev/null | head -n1 || true)"
-SIZE_MATCH="$(grep -rhoE 'KSU_EXPECTED_SIZE[[:space:]]*:?=[[:space:]]*[A-Za-z0-9x]+' "$KSU_DIR" 2>/dev/null | head -n1 || true)"
+HASH_MATCH="$(grep -hoE 'KSU_EXPECTED_HASH[[:space:]]*:?=[[:space:]]*[A-Za-z0-9]+' "$KSU_DIR/Makefile" 2>/dev/null | head -n1 || true)"
+SIZE_MATCH="$(grep -hoE 'KSU_EXPECTED_SIZE[[:space:]]*:?=[[:space:]]*[A-Za-z0-9x]+' "$KSU_DIR/Makefile" 2>/dev/null | head -n1 || true)"
 [ -n "$HASH_MATCH" ] && MANAGER_EXPECTED_HASH="${HASH_MATCH##*[:=] }"
 [ -n "$SIZE_MATCH" ] && MANAGER_EXPECTED_SIZE="${SIZE_MATCH##*[:=] }"
 
@@ -175,7 +229,6 @@ KERNEL_FULL_VERSION="unknown"
 IMAGE_PATH="$REPO_ROOT/out/target/product/a16/obj/KERNEL_OBJ/kernel-5.10/arch/arm64/boot/Image.gz"
 [ -f "$IMAGE_PATH" ] && KERNEL_FULL_VERSION="$(zcat "$IMAGE_PATH" 2>/dev/null | strings | grep -m1 'Linux version' || echo unknown)"
 
-# Write a plain-text info block for the GitHub Release body
 INFO_FILE="$REPO_ROOT/build-info.env"
 {
   echo "Repo: $GITHUB_REPO"
@@ -202,7 +255,7 @@ if [ "$BUILD_EXIT" -eq 0 ] && [ -n "$DIST_ZIP" ]; then
   echo "artifact_path=$DIST_ZIP" >> "${GITHUB_OUTPUT:-/dev/stdout}"
   echo "run_tag=$RUN_TAG" >> "${GITHUB_OUTPUT:-/dev/stdout}"
   echo "info_file=$INFO_FILE" >> "${GITHUB_OUTPUT:-/dev/stdout}"
-  send_build_card "success" ""   # release link comes in a follow-up ping (workflow step 2)
+  send_build_card "success" ""
 else
   echo "[build] FAILED (exit $BUILD_EXIT, artifact: ${DIST_ZIP:-none})"
   echo "status=failure" >> "${GITHUB_OUTPUT:-/dev/stdout}"
