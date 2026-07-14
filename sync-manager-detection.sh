@@ -1,15 +1,8 @@
 #!/usr/bin/env bash
 # sync-manager-detection.sh
 #
-# Keeps the KERNEL-SIDE manager-detection code (apk_sign.c, throne_tracker.c,
-# manager_identity.h, etc.) in your builtin-based tree in sync with
-# SukiSU-Ultra's `main` branch, WITHOUT trying to merge the two unrelated
-# histories or touch anything SUSFS-related.
-#
-# Why this is safe: the manager subsystem is self-contained (kernel/manager/*
-# + the EXPECTED_SIZE/EXPECTED_HASH block in kernel/Makefile). It doesn't
-# depend on the hook/selinux rewrite that makes `main` and `builtin`
-# incompatible everywhere else.
+# Keeps the KERNEL-SIDE manager-detection code in your builtin-based tree
+# in sync with SukiSU-Ultra's `main` branch.
 #
 # Usage:
 #   ./sync-manager-detection.sh /path/to/your/a165f_kernel/kernel-5.10/drivers/kernelsu
@@ -41,10 +34,9 @@ MANAGER_FILES=(
   pkg_observer.c
   throne_tracker.c
   throne_tracker.h
-  pkg_observer.h
 )
 
-echo "[+] Diffing against your current tree..."
+echo "[+] Diffing against your current tree (from upstream main)..."
 CHANGED=0
 mkdir -p "$TARGET_DIR/manager"
 for f in "${MANAGER_FILES[@]}"; do
@@ -63,30 +55,38 @@ for f in "${MANAGER_FILES[@]}"; do
   fi
 done
 
-
-echo "[+] Fetching your fork's builtin branch (source of truth for pkg_observer.h/pkg_observer_compat.h)..."
+echo "[+] Fetching your fork's builtin branch (source of truth for pkg_observer.h / pkg_observer_compat.h)..."
 git clone --filter=blob:none --no-checkout --depth=50 \
   https://github.com/nolan-archie/SukiSU-Ultra.git "$WORK_DIR/fork" >/dev/null 2>&1
-(cd "$WORK_DIR/fork" && git sparse-checkout init --cone >/dev/null 2>&1 && git sparse-checkout set kernel/manager >/dev/null 2>&1 && git checkout -q origin/builtin -- kernel/manager 2>/dev/null)
+cd "$WORK_DIR/fork"
+git sparse-checkout init --cone >/dev/null 2>&1
+git sparse-checkout set kernel/manager >/dev/null 2>&1
+git checkout -q origin/builtin -- kernel/manager 2>/dev/null || git checkout -q builtin -- kernel/manager
+
+# Debug: list what we actually got
+echo "    [dbg]  Files in fork checkout:"
+for f in kernel/manager/*; do
+  [ -f "$f" ] && echo "           $(basename "$f")"
+done
 
 for f in pkg_observer.h pkg_observer_compat.h; do
-  SRC="$WORK_DIR/fork/kernel/manager/$f"
+  SRC="kernel/manager/$f"
   DST="$TARGET_DIR/manager/$f"
-  if [ -f "$SRC" ] && { [ ! -f "$DST" ] || ! diff -q "$SRC" "$DST" >/dev/null 2>&1; }; then
+  if [ ! -f "$SRC" ]; then
+    echo "[ERROR] $f not found in builtin fork checkout at $SRC" >&2
+    exit 1
+  fi
+  if [ -f "$DST" ] && diff -q "$SRC" "$DST" >/dev/null 2>&1; then
+    echo "    [ok]   $f already up to date"
+  else
     cp "$SRC" "$DST"
     echo "    [sync] $f updated (from builtin fork)"
     CHANGED=1
-  elif [ ! -f "$DST" ]; then
-    echo "[ERROR] $f missing and not found in builtin fork either." >&2
-    exit 1
-  else
-    echo "    [ok]   $f already up to date"
   fi
 done
 
 echo "[+] Ensuring EXPECTED_SIZE/EXPECTED_HASH block is present in Makefile..."
 if ! grep -q "EXPECTED_SIZE" "$TARGET_DIR/Makefile"; then
-  # Insert right before the KSU_MANAGER_PACKAGE block (or at EOF as fallback)
   BLOCK=$(cat <<'EOF'
 ifndef KSU_EXPECTED_SIZE
 KSU_EXPECTED_SIZE := 0x35c
@@ -129,7 +129,7 @@ fi
 if [ "$CHANGED" -eq 1 ]; then
   echo
   echo "[+] Done. Files changed — rebuild your kernel now:"
-  echo "      cd <your kernel build root> && ./build_kernel_a16.sh   # or your build command"
+  echo "      cd <your kernel build root> && ./build_kernel_a16.sh"
 else
   echo
   echo "[+] Already fully in sync. Nothing to rebuild."
