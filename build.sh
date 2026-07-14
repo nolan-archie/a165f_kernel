@@ -335,7 +335,7 @@ main() {
     log_info "====================================================================="
     log_success "Build completed in ${duration} seconds"
     log_info "====================================================================="
-    log_info "Output: ${SCRIPT_DIR}/dist/SukiSU-Ultra-A165F-${BUILD_KERNEL_VERSION}-packaged.zip"
+    log_info "Output: ${SCRIPT_DIR}/dist/KernelSU-NEXT-A165F-${BUILD_KERNEL_VERSION}-packaged.zip"
 }
 
 trap 'log_error "Build failed at line $LINENO"' ERR
