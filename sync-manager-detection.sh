@@ -41,7 +41,6 @@ MANAGER_FILES=(
   pkg_observer.c
   throne_tracker.c
   throne_tracker.h
-  pkg_observer.h
 )
 
 echo "[+] Diffing against your current tree..."
@@ -60,6 +59,27 @@ for f in "${MANAGER_FILES[@]}"; do
     cp "$SRC" "$DST"
     echo "    [sync] $f updated"
     CHANGED=1
+  fi
+done
+
+
+echo "[+] Fetching your fork's builtin branch (source of truth for pkg_observer.h/pkg_observer_compat.h)..."
+git clone --filter=blob:none --no-checkout --depth=50 \
+  https://github.com/nolan-archie/KernelSU.git "$WORK_DIR/fork" >/dev/null 2>&1
+(cd "$WORK_DIR/fork" && git sparse-checkout init --cone >/dev/null 2>&1 && git sparse-checkout set kernel/manager >/dev/null 2>&1 && git checkout -q origin/builtin -- kernel/manager 2>/dev/null)
+
+for f in pkg_observer.h pkg_observer_compat.h; do
+  SRC="$WORK_DIR/fork/kernel/manager/$f"
+  DST="$TARGET_DIR/manager/$f"
+  if [ -f "$SRC" ] && { [ ! -f "$DST" ] || ! diff -q "$SRC" "$DST" >/dev/null 2>&1; }; then
+    cp "$SRC" "$DST"
+    echo "    [sync] $f updated (from builtin fork)"
+    CHANGED=1
+  elif [ ! -f "$DST" ]; then
+    echo "[ERROR] $f missing and not found in builtin fork either." >&2
+    exit 1
+  else
+    echo "    [ok]   $f already up to date"
   fi
 done
 
