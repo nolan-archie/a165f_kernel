@@ -65,7 +65,7 @@ done
 
 echo "[+] Fetching your fork's builtin branch (source of truth for pkg_observer.h/pkg_observer_compat.h)..."
 git clone --filter=blob:none --no-checkout --depth=50 \
-  https://github.com/nolan-archie/KernelSU.git "$WORK_DIR/fork" >/dev/null 2>&1
+  https://github.com/nolan-archie/SukiSU-Ultra.git "$WORK_DIR/fork" >/dev/null 2>&1
 (cd "$WORK_DIR/fork" && git sparse-checkout init --cone >/dev/null 2>&1 && git sparse-checkout set kernel/manager >/dev/null 2>&1 && git checkout -q origin/builtin -- kernel/manager 2>/dev/null)
 
 for f in pkg_observer.h pkg_observer_compat.h; do
