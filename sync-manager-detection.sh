@@ -11,12 +11,6 @@
 # depend on the hook/selinux rewrite that makes `main` and `builtin`
 # incompatible everywhere else.
 #
-# CHANGED FROM THE ORIGINAL: this version syncs the WHOLE kernel/manager/
-# directory instead of a hardcoded file list. The hardcoded list silently
-# missed pkg_observer.h when upstream added it, which broke the build
-# (ksu.c couldn't find it). Whole-directory sync means a future upstream
-# file addition can't cause that same class of failure again.
-#
 # Usage:
 #   ./sync-manager-detection.sh /path/to/your/a165f_kernel/kernel-5.10/drivers/kernelsu
 #
@@ -39,37 +33,38 @@ git sparse-checkout init --cone >/dev/null 2>&1
 git sparse-checkout set kernel/manager >/dev/null 2>&1
 git checkout -q origin/main -- kernel/manager 2>/dev/null || git checkout -q main -- kernel/manager
 
-if [ ! -d "kernel/manager" ]; then
-  echo "[ERROR] kernel/manager not found upstream after checkout — aborting, not touching your tree." >&2
-  exit 1
-fi
+MANAGER_FILES=(
+  apk_sign.c
+  apk_sign.h
+  manager_identity.h
+  manager_observer.h
+  pkg_observer.c
+  throne_tracker.c
+  throne_tracker.h
+)
 
-echo "[+] Syncing entire kernel/manager/ directory (not a fixed file list)..."
+echo "[+] Diffing against your current tree..."
+CHANGED=0
 mkdir -p "$TARGET_DIR/manager"
-
-# rsync -c (checksum) so "changed" reflects real content diffs, not just
-# mtimes, and --delete so files removed upstream get removed here too.
-if command -v rsync >/dev/null 2>&1; then
-  RSYNC_OUT="$(rsync -ac --delete --out-format="%n" "kernel/manager/" "$TARGET_DIR/manager/")"
-  if [ -n "$RSYNC_OUT" ]; then
-    echo "$RSYNC_OUT" | sed 's/^/    [sync] /'
-    CHANGED=1
-  else
-    echo "    [ok]   manager/ already fully in sync"
-    CHANGED=0
+for f in "${MANAGER_FILES[@]}"; do
+  SRC="kernel/manager/$f"
+  DST="$TARGET_DIR/manager/$f"
+  if [ ! -f "$SRC" ]; then
+    echo "    [skip] $f not present upstream"
+    continue
   fi
-else
-  # Fallback if rsync isn't available: plain copy + diff-based change detection
-  BEFORE_HASH="$(find "$TARGET_DIR/manager" -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum || echo none)"
-  cp -rf kernel/manager/. "$TARGET_DIR/manager/"
-  AFTER_HASH="$(find "$TARGET_DIR/manager" -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum || echo none)"
-  CHANGED=0
-  [ "$BEFORE_HASH" != "$AFTER_HASH" ] && CHANGED=1
-  echo "    [sync] copied kernel/manager/ -> $TARGET_DIR/manager/ (changed=$CHANGED)"
-fi
+  if [ -f "$DST" ] && diff -q "$SRC" "$DST" >/dev/null 2>&1; then
+    echo "    [ok]   $f already up to date"
+  else
+    cp "$SRC" "$DST"
+    echo "    [sync] $f updated"
+    CHANGED=1
+  fi
+done
 
 echo "[+] Ensuring EXPECTED_SIZE/EXPECTED_HASH block is present in Makefile..."
 if ! grep -q "EXPECTED_SIZE" "$TARGET_DIR/Makefile"; then
+  # Insert right before the KSU_MANAGER_PACKAGE block (or at EOF as fallback)
   BLOCK=$(cat <<'EOF'
 ifndef KSU_EXPECTED_SIZE
 KSU_EXPECTED_SIZE := 0x35c
