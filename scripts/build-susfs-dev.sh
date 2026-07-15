@@ -230,7 +230,16 @@ if [ "$BUILD_EXIT" -eq 0 ] && [ -n "$DIST_ZIP" ]; then
   RELEASE_NAME="$(date -u '+%b %d, %Y')"
   echo "release_name=${BRANCH} build — ${RELEASE_NAME} ($(git rev-parse --short HEAD))" >> "${GITHUB_OUTPUT:-/dev/stdout}"
   echo "info_file=$INFO_FILE" >> "${GITHUB_OUTPUT:-/dev/stdout}"
-  send_build_card "success" ""
+  echo "kernel_short=$(_tg_short_kver 2>/dev/null || echo "${KERNEL_FULL_VERSION:-unknown}" | sed 's/Linux version //; s/ (.*//')" >> "${GITHUB_OUTPUT:-/dev/stdout}"
+  echo "ksu_version=${KSU_VERSION_DISPLAY:-unknown}" >> "${GITHUB_OUTPUT:-/dev/stdout}"
+  echo "susfs_version=${SUSFS_VERSION:-unknown}" >> "${GITHUB_OUTPUT:-/dev/stdout}"
+  {
+    echo "features_block<<TG_FEATURES_EOF"
+    echo "$FEATURES_BLOCK" | grep '= true' | sed 's/ = true//'
+    echo "TG_FEATURES_EOF"
+  } >> "${GITHUB_OUTPUT:-/dev/stdout}"
+  # Success ping is now sent by the workflow's "final Telegram ping" step,
+  # once the real release download link exists — no premature/linkless card here.
 else
   echo "[build] FAILED (exit $BUILD_EXIT, artifact: ${DIST_ZIP:-none})"
   echo "status=failure" >> "${GITHUB_OUTPUT:-/dev/stdout}"
