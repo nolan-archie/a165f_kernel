@@ -67,15 +67,23 @@ jobs:
           set -euo pipefail
 
           RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/${{ steps.build.outputs.run_tag }}"
+          FEATURES="${{ steps.build.outputs.features_block }}"
+          [ -z "$FEATURES" ] && FEATURES="(none enabled)"
 
-          TEXT=$(printf '<b>Release published</b>\nBranch: %s\n<a href="%s">Download build</a>' \
+          TEXT=$(printf '<b>New %s Build</b>\n\nBranch: <code>%s</code>\nTag: <code>%s</code>\nKernel: <code>%s</code>\nKSU: <code>%s</code>\nSuSFS: <code>%s</code>\n\nFeatures:\n<pre>%s</pre>\n\nDownload: <a href="%s">Click Here</a>' \
             "${{ matrix.branch }}" \
+            "${{ matrix.branch }}" \
+            "${{ steps.build.outputs.run_tag }}" \
+            "${{ steps.build.outputs.kernel_short }}" \
+            "${{ steps.build.outputs.ksu_version }}" \
+            "${{ steps.build.outputs.susfs_version }}" \
+            "$FEATURES" \
             "${RELEASE_URL}")
 
           curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
             -d chat_id="${CHAT_ID}" \
             -d parse_mode="HTML" \
-            -d disable_web_page_preview="true" \
+            -d disable_web_page_preview="false" \
             --data-urlencode "text=${TEXT}" >/dev/null
 
       - name: Upload build log as workflow artifact
