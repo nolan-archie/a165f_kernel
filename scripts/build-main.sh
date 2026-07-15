@@ -23,97 +23,12 @@ KSU_BRANCH="dev-susfs"
 KSU_SOURCE_LABEL="KernelSU-Next"
 DEVICE="A165F"
 GITHUB_REPO="${GITHUB_REPOSITORY:-nolan-archie/a165f_kernel}"
-# Snapshot these NOW — build.sh may reset/scrub the environment internally
-_SAVED_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
-_SAVED_CHAT_ID="${TELEGRAM_CHAT_ID:-}"
-if [ -z "$_SAVED_BOT_TOKEN" ] || [ -z "$_SAVED_CHAT_ID" ]; then
-  echo "[telegram] WARNING: TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID empty at script start — check workflow secrets" >&2
-fi
+# Telegram creds come from BOT_TOKEN/CHAT_ID (set by kernel_builder.yml)
+# and are read directly by scripts/lib-telegram.sh — sourced below.
 # -----------------------------------------------------------------------------
 
-# ============================= Telegram helper ===============================
-send_telegram_html() {
-  local text="$1"
-  if [ -z "$_SAVED_BOT_TOKEN" ] || [ -z "$_SAVED_CHAT_ID" ]; then
-    echo "[telegram] BOT_TOKEN/CHAT_ID not set, skipping" >&2
-    return 0
-  fi
-  curl -s -X POST "https://api.telegram.org/bot${_SAVED_BOT_TOKEN}/sendMessage" \
-    -d chat_id="${_SAVED_CHAT_ID}" \
-    -d parse_mode="HTML" \
-    -d disable_web_page_preview="true" \
-    --data-urlencode text="${text}" >/dev/null
-}
-
-build_info_block() {
-  local out=""
-  local kver="${KERNEL_FULL_VERSION:-unknown}"
-  local ksu_ver="${KSU_VERSION_DISPLAY:-unknown}"
-  local hook="${HOOK_TYPE:-unknown}"
-  local susfs="${SUSFS_VERSION:-unknown}"
-  local hash="${MANAGER_EXPECTED_HASH:-unknown}"
-  local size="${MANAGER_EXPECTED_SIZE:-unknown}"
-
-  if [ "$kver" != "unknown" ]; then
-    kver="$(echo "$kver" | sed 's/Linux version //; s/ (.*//')"
-  fi
-
-  out="<b>Device:</b> $DEVICE
-<b>Branch:</b> $BRANCH
-<b>Kernel:</b> <code>$kver</code>"
-
-  [ "$ksu_ver" != "unknown" ] && out="$out
-<b>KSU Version:</b> <code>$ksu_ver</code>"
-  [ "$hook" != "unknown" ] && out="$out
-<b>Hook:</b> $hook"
-  [ "$susfs" != "unknown" ] && out="$out
-<b>SuSFS:</b> <code>$susfs</code>"
-  [ "$hash" != "unknown" ] && out="$out
-<b>Manager Hash:</b> <code>${hash:0:16}...</code>"
-  [ "$size" != "unknown" ] && out="$out
-<b>Manager Size:</b> <code>$size</code>"
-
-  local enabled=""
-  if [ -n "${FEATURES_BLOCK:-}" ] && [ "$FEATURES_BLOCK" != "(.config not found)" ] && [ "$FEATURES_BLOCK" != "(none enabled)" ]; then
-    enabled="$(echo "$FEATURES_BLOCK" | grep '= true' | sed 's/ = true//' | tr '\n' ', ' | sed 's/, $//')"
-  fi
-  [ -n "$enabled" ] && out="$out
-
-<b>Features:</b> <code>$enabled</code>"
-
-  out="$out
-
-<b>Built:</b> $(date -u '+%Y-%m-%d %H:%M UTC')"
-
-  printf '%s' "$out"
-}
-
-send_build_card() {
-  local status="$1" download_url="${2:-}"
-  local header
-  if [ "$status" = "success" ]; then
-    header="Build Succeeded"
-  else
-    header="Build Failed"
-  fi
-
-  local body="<b>$header</b>
-
-$(build_info_block)"
-
-  if [ "$status" = "success" ] && [ -n "$download_url" ]; then
-    body="$body
-
-<a href=\"${download_url}\">Download Build</a>"
-  fi
-  if [ "$status" = "failure" ] && [ -n "${LOG_URL:-}" ]; then
-    body="$body
-
-<a href=\"${LOG_URL}\">View Logs</a>"
-  fi
-
-  send_telegram_html "$body"
-}
+# Shared Telegram helpers (send_telegram_html / send_build_card)
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-telegram.sh"
 
 # ============================ Step 1: update KSU ==============================
 echo "[update] Ensuring KernelSU-Next is on branch: $KSU_BRANCH"
@@ -169,6 +84,7 @@ fi
 cd "$REPO_ROOT"
 RUN_TAG="$(date -u '+%Y%m%d')-${BRANCH}-$(git rev-parse --short HEAD)"
 export BUILD_KERNEL_VERSION="$RUN_TAG"
+export PACKAGE_PREFIX="KernelSU-NEXT"
 echo "[build] BUILD_KERNEL_VERSION=$BUILD_KERNEL_VERSION"
 
 set +e
