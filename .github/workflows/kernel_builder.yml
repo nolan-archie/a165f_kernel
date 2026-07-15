@@ -50,7 +50,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.build.outputs.run_tag }}
-          name: ${{ matrix.branch }} build ${{ steps.build.outputs.run_tag }}
+          name: ${{ steps.build.outputs.release_name }}
           body_path: ${{ steps.build.outputs.info_file }}
           files: ${{ steps.build.outputs.artifact_path }}
           target_commitish: ${{ matrix.branch }}

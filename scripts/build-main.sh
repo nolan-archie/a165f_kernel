@@ -216,6 +216,8 @@ if [ "$BUILD_EXIT" -eq 0 ] && [ -n "$DIST_ZIP" ]; then
   echo "status=success" >> "${GITHUB_OUTPUT:-/dev/stdout}"
   echo "artifact_path=$DIST_ZIP" >> "${GITHUB_OUTPUT:-/dev/stdout}"
   echo "run_tag=$RUN_TAG" >> "${GITHUB_OUTPUT:-/dev/stdout}"
+  RELEASE_NAME="$(date -u '+%b %d, %Y')"
+  echo "release_name=${BRANCH} build — ${RELEASE_NAME} ($(git rev-parse --short HEAD))" >> "${GITHUB_OUTPUT:-/dev/stdout}"
   echo "info_file=$INFO_FILE" >> "${GITHUB_OUTPUT:-/dev/stdout}"
   send_build_card "success" ""
 else
