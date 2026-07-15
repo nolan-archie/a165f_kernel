@@ -54,6 +54,13 @@ apply_defconfig_flags() {
 }
 
 apply_baseband_guard() {
+  # BBG's own setup.sh is not idempotent (it blindly re-appends the obj-$(CONFIG_BBG)
+  # line on every run). Skip entirely if it's already wired in on this branch.
+  if grep -qE 'obj-\$\(CONFIG_BBG\)\s*\+=\s*baseband-guard/' "$KERNEL_DIR/security/Makefile" 2>/dev/null; then
+    echo "[*] Baseband-guard already installed on this branch — skipping re-run."
+    return 0
+  fi
+
   echo "[*] Fetching Baseband-guard setup.sh"
   local tmp
   tmp="$(mktemp)"
@@ -61,9 +68,18 @@ apply_baseband_guard() {
   chmod +x "$tmp"
   ( cd "$KERNEL_DIR" && bash "$tmp" )
   rm -f "$tmp"
+
+  # setup.sh clones with its own .git, which git flags as a broken embedded repo.
+  # Detach it so it's tracked as plain files, consistent with how KernelSU/SukiSU-Ultra
+  # is already handled in this tree (plain clone, not a submodule).
+  if [ -d "$KERNEL_DIR/Baseband-guard/.git" ]; then
+    rm -rf "$KERNEL_DIR/Baseband-guard/.git"
+    echo "[*] Detached nested .git in $KERNEL_DIR/Baseband-guard"
+  fi
+
   echo "[!] BBG installed source-side. It printed defconfig/Kconfig instructions above —"
-  echo "    read that output; it may list a CONFIG flag or a manual security/Kconfig edit"
-  echo "    this script deliberately does not auto-apply (see header notes)."
+  echo "    read that output; it may list a CONFIG_LSM= line to add. This script does not"
+  echo "    auto-apply it (see header notes) — add it to $DEFCONFIG by hand."
 }
 
 for BRANCH in "${BRANCHES[@]}"; do
@@ -78,11 +94,16 @@ for BRANCH in "${BRANCHES[@]}"; do
   apply_baseband_guard
   apply_defconfig_flags
 
-  echo "[*] Diff for $BRANCH:"
-  git --no-pager diff -- "$DEFCONFIG" "$KERNEL_DIR" | head -100
-
-  echo "[i] Changes left UNSTAGED on '$BRANCH' for you to review."
-  echo "    git add -A && git commit -m 'Add BBG, enable BBR/WireGuard/IPSet' -- when you're happy."
+  if [ -n "$(git status --porcelain)" ]; then
+    echo "[*] Diff for $BRANCH:"
+    git --no-pager diff -- "$DEFCONFIG" "$KERNEL_DIR" | head -100
+    echo "[*] Committing changes on '$BRANCH' (so the branch switch below doesn't get blocked)."
+    git add -A
+    git commit -m "Add BBG, enable BBR/WireGuard/IPSet"
+    echo "[i] Review with: git show HEAD    (amend/reset if you don't like it)"
+  else
+    echo "[*] No changes on '$BRANCH' — already up to date."
+  fi
 done
 
 echo "=================================================================="
