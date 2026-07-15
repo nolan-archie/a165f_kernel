@@ -45,3 +45,4 @@ obj-y += samsung/dsms/ # ADDED BY LEGO AUTOMATICALLY: DO NOT SUBMIT
 obj-y += samsung/five/ # ADDED BY LEGO AUTOMATICALLY: DO NOT SUBMIT
 
 obj-$(CONFIG_BBG) += baseband-guard/
+
