@@ -1,0 +1,96 @@
+name: Weekly Kernel Build
+
+on:
+  schedule:
+    - cron: '0 0 * * 1' # every Monday 00:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - branch: main
+            script: scripts/build-main.sh
+          - branch: susfs-dev
+            script: scripts/build-susfs-dev.sh
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout ${{ matrix.branch }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.branch }}
+          fetch-depth: 0
+
+      - name: Configure git identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Nolan's Kernel Pusher"
+          git config user.email "actions@users.noreply.github.com"
+
+      - name: Build and notify
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x "${{ matrix.script }}"
+          "${{ matrix.script }}" "$GITHUB_WORKSPACE" |& tee build.log
+
+      - name: Create GitHub Release
+        if: steps.build.outputs.status == 'success'
+        id: release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.build.outputs.run_tag }}
+          name: ${{ steps.build.outputs.release_name }}
+          body_path: ${{ steps.build.outputs.info_file }}
+          files: ${{ steps.build.outputs.artifact_path }}
+          target_commitish: ${{ matrix.branch }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Send final Telegram ping with real download link
+        if: steps.build.outputs.status == 'success'
+        shell: bash
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          set -euo pipefail
+
+          RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/${{ steps.build.outputs.run_tag }}"
+          FEATURES="${{ steps.build.outputs.features_block }}"
+          [ -z "$FEATURES" ] && FEATURES="(none enabled)"
+
+          TEXT=$(printf '<b>New %s Build</b>\n\nBranch: <code>%s</code>\nTag: <code>%s</code>\nKernel: <code>%s</code>\nKSU: <code>%s</code>\nSuSFS: <code>%s</code>\n\nFeatures:\n<pre>%s</pre>\n\nDownload: <a href="%s">Click Here</a>' \
+            "${{ matrix.branch }}" \
+            "${{ matrix.branch }}" \
+            "${{ steps.build.outputs.run_tag }}" \
+            "${{ steps.build.outputs.kernel_short }}" \
+            "${{ steps.build.outputs.ksu_version }}" \
+            "${{ steps.build.outputs.susfs_version }}" \
+            "$FEATURES" \
+            "${RELEASE_URL}")
+
+          curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+            -d chat_id="${CHAT_ID}" \
+            -d parse_mode="HTML" \
+            -d disable_web_page_preview="false" \
+            --data-urlencode "text=${TEXT}" >/dev/null
+
+      - name: Upload build log as workflow artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ matrix.branch }}-${{ github.run_id }}
+          path: build.log
+          if-no-files-found: ignore
+          retention-days: 14
