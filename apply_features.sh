@@ -61,6 +61,13 @@ apply_baseband_guard() {
     return 0
   fi
 
+  # If a leftover Baseband-guard directory exists from a previous branch switch,
+  # remove it so setup.sh's git clone doesn't fail.
+  if [ -d "$KERNEL_DIR/Baseband-guard" ]; then
+    echo "[*] Removing leftover Baseband-guard directory before install"
+    rm -rf "$KERNEL_DIR/Baseband-guard"
+  fi
+
   echo "[*] Fetching Baseband-guard setup.sh"
   local tmp
   tmp="$(mktemp)"
@@ -88,8 +95,12 @@ for BRANCH in "${BRANCHES[@]}"; do
   git checkout "$BRANCH"
   git pull --ff-only || echo "[!] pull failed/skipped, continuing on local HEAD"
 
-  # keep KernelSU-Next / KernelSU-Ultra symlink correct for this branch
-  ./select-kernelsu.sh
+  # select-kernelsu.sh is not present on every branch; run only if it exists.
+  if [ -x "./select-kernelsu.sh" ]; then
+    ./select-kernelsu.sh
+  else
+    echo "[*] select-kernelsu.sh not present on $BRANCH — skipping"
+  fi
 
   apply_baseband_guard
   apply_defconfig_flags
