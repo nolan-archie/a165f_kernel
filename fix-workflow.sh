@@ -1,3 +1,14 @@
+#!/usr/bin/env bash
+# fix-workflow.sh - unifies kernel_builder.yml on both branches to the
+# working version (no PAT_TOKEN dependency, uses default GITHUB_TOKEN).
+set -euo pipefail
+if [ ! -d .git ]; then echo "Run this from the kernel repo root (git repo)."; exit 1; fi
+ORIG_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+git fetch origin main susfs-dev
+
+write_workflow() {
+  mkdir -p .github/workflows
+  cat > .github/workflows/kernel_builder.yml <<'WORKFLOW_EOF'
 name: Weekly Kernel Build
 
 on:
@@ -86,3 +97,17 @@ jobs:
           path: build.log
           if-no-files-found: ignore
           retention-days: 14
+WORKFLOW_EOF
+}
+
+for b in main susfs-dev; do
+  echo "==> Syncing kernel_builder.yml on $b"
+  git checkout "$b"
+  write_workflow
+  git add -A
+  git commit -m "ci: unify kernel_builder.yml, drop PAT_TOKEN dependency" || echo "(nothing to commit on $b)"
+  git push origin "$b"
+done
+
+git checkout "$ORIG_BRANCH"
+echo "==> Done."
