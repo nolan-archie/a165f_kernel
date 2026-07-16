@@ -154,3 +154,4 @@ build.log
 **/__pycache__/
 *.pyc
 kernel-5.10/KernelSU/
+boot.img
