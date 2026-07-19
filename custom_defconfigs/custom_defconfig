@@ -28,7 +28,6 @@ CONFIG_KPM=n
 # MTK BT and WLAN DRIVERS
 CONFIG_MTK_BT_DRV_EXTERNAL=y
 CONFIG_WLAN_DRV_MODULE=y
-CONFIG_DEFAULT_BBR=y
 CONFIG_WIREGUARD=y
 CONFIG_IP_SET=y
 CONFIG_IP_SET_MAX=256
@@ -40,6 +39,10 @@ CONFIG_LSM=lockdown,yama,loadpin,safesetid,integrity,selinux,smack,tomoyo,apparm
 CONFIG_TCP_CONG_ADVANCED=y
 CONFIG_TCP_CONG_BBR=y
 CONFIG_DEFAULT_BBR=y
+CONFIG_DEFAULT_TCP_CONG="bbr"
+CONFIG_NET_SCH_FQ=y
+CONFIG_DEFAULT_NET_SCH="fq"
+
 # Kernel configurations for full DroidSpaces support for GKI
 # Copyright (C) 2026 ravindu644 <droidcasts@protonmail.com>
 
