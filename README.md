@@ -61,13 +61,30 @@ kernel, builds `boot.img`, and zips the final package into `dist/`. The
 output filename prefix (`KernelSU-NEXT-...` vs `SukiSU-Ultra-...`) is
 controlled by the `PACKAGE_PREFIX` env var set by whichever branch script
 calls it, so the artifact name always matches the branch's actual root
-manager.
+manager. The A16 uses a single boot-image layout: `boot.img` is produced
+directly and no separate vendor boot image is built.
+
+### Networking and runtime support
+
+Both branches enable the same built-in device-facing features:
+
+- CAKE, FQ and FQ-CoDel queue disciplines, plus ingress and traffic actions
+  for tethering and mobile-link QoS.
+- Upstream Linux 5.10 BBRv1 with FQ as the default queue discipline.
+- WireGuard built into the kernel.
+- The upstream NTSYNC interface (`/dev/ntsync`) backported from Linux 6.14
+  for Wine/Proton-compatible NT synchronization primitives.
+
+BBRplus is not advertised for this device: available 5.10 BBRplus patches
+target a different TCP private-API layout than Samsung's vendor tree. Keeping
+the in-tree BBRv1 avoids applying an unverified transport patch to the boot
+kernel.
 
 ### `scripts/build-main.sh` / `scripts/build-susfs-dev.sh`
 Branch-specific orchestration: update the KSU source, invoke `build.sh`,
 verify the resulting `.config` for the real feature set (SuSFS, Manual
-Hooks, KPM, Magic Mount, LZ4K/LZ4KD, BBR), and hand structured results back
-to the workflow.
+Hooks, KPM, Magic Mount, LZ4K/LZ4KD, BBR, CAKE, WireGuard, and NTSYNC), and
+hand structured results back to the workflow.
 
 ### `scripts/lib-telegram.sh`
 Single shared Telegram notifier sourced by both branch scripts, so message
