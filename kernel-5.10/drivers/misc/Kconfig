@@ -5,6 +5,13 @@
 
 menu "Misc devices"
 
+config NTSYNC
+	bool "NT synchronization primitive emulation"
+	help
+	  Provide the /dev/ntsync interface used by Wine/Proton to emulate
+	  Windows NT synchronization primitives. Build it into the boot kernel
+	  so it is available on Android systems that do not ship kernel modules.
+
 config SENSORS_LIS3LV02D
 	tristate
 	depends on INPUT
