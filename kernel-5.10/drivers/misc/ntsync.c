@@ -25,6 +25,15 @@
 
 #define NTSYNC_NAME	"ntsync"
 
+/* lockdep_assert() and LOCK_STATE_NOT_HELD were added after v5.10. */
+#ifndef lockdep_assert
+#ifdef CONFIG_LOCKDEP
+#define lockdep_assert(condition)	WARN_ON(debug_locks && !(condition))
+#else
+#define lockdep_assert(condition)	do { } while (0)
+#endif
+#endif
+
 enum ntsync_type {
 	NTSYNC_TYPE_SEM,
 	NTSYNC_TYPE_MUTEX,
@@ -224,10 +233,14 @@ static void ntsync_unlock_obj(struct ntsync_device *dev, struct ntsync_obj *obj,
 	}
 }
 
+#ifdef CONFIG_LOCKDEP
 #define ntsync_assert_held(obj) \
-	lockdep_assert((lockdep_is_held(&(obj)->lock) != LOCK_STATE_NOT_HELD) || \
-		       ((lockdep_is_held(&(obj)->dev->wait_all_lock) != LOCK_STATE_NOT_HELD) && \
+	lockdep_assert(lockdep_is_held(&(obj)->lock) || \
+		       (lockdep_is_held(&(obj)->dev->wait_all_lock) && \
 			(obj)->dev_locked))
+#else
+#define ntsync_assert_held(obj)	do { } while (0)
+#endif
 
 static bool is_signaled(struct ntsync_obj *obj, __u32 owner)
 {
