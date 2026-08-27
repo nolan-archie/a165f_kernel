@@ -135,8 +135,9 @@ if [ "$MANAGER_EXPECTED_SIZE" = "unknown" ]; then
 fi
 
 SUSFS_VERSION="unknown"
-SUSFS_MATCH="$(grep -rhoE 'SUSFS_VERSION[[:space:]]+"[^"]+"' "$KSU_DIR" 2>/dev/null | head -n1 || true)"
-[ -z "$SUSFS_MATCH" ] && SUSFS_MATCH="$(grep -rhoE 'SUSFS_VERSION[[:space:]]+[vV][0-9.]+' "$KSU_DIR" 2>/dev/null | head -n1 || true)"
+SUSFS_HEADER="$KERNEL_SRC_DIR/include/linux/susfs.h"
+SUSFS_MATCH="$(grep -hoE 'SUSFS_VERSION[[:space:]]+"[^"]+"' "$SUSFS_HEADER" 2>/dev/null | head -n1 || true)"
+[ -z "$SUSFS_MATCH" ] && SUSFS_MATCH="$(grep -hoE 'SUSFS_VERSION[[:space:]]+[vV][0-9.]+' "$SUSFS_HEADER" 2>/dev/null | head -n1 || true)"
 [ -n "$SUSFS_MATCH" ] && SUSFS_VERSION="$(echo "$SUSFS_MATCH" | sed -E 's/.*"([^"]+)".*/\1/; s/.*[[:space:]]+([vV][0-9.]+).*/\1/')"
 
 HOOK_TYPE="unknown"
@@ -158,6 +159,7 @@ declare -A FEATURE_CHECKS=(
   ["CAKE"]="CONFIG_NET_SCH_CAKE"
   ["WireGuard"]="CONFIG_WIREGUARD"
   ["NTSYNC"]="CONFIG_NTSYNC"
+  ["DroidSpaces"]="CONFIG_TMPFS_POSIX_ACL"
 )
 FEATURES_BLOCK=""
 if [ -f "$DOT_CONFIG" ]; then
@@ -169,6 +171,13 @@ if [ -f "$DOT_CONFIG" ]; then
     fi
   done
   [ -z "$FEATURES_BLOCK" ] && FEATURES_BLOCK="(none enabled)"
+  # baseband_guard isn't its own CONFIG_X=y symbol -- it's a name inside the
+  # CONFIG_LSM= comma-separated list, so it needs a substring check instead
+  # of the generic loop above.
+  if grep -q '^CONFIG_LSM=.*baseband_guard' "$DOT_CONFIG"; then
+    FEATURES_BLOCK="${FEATURES_BLOCK}Baseband Guard = true
+"
+  fi
 else
   FEATURES_BLOCK="(.config not found)"
 fi
