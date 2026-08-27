@@ -167,6 +167,7 @@ declare -A FEATURE_CHECKS=(
   ["CAKE"]="CONFIG_NET_SCH_CAKE"
   ["WireGuard"]="CONFIG_WIREGUARD"
   ["NTSYNC"]="CONFIG_NTSYNC"
+  ["DroidSpaces"]="CONFIG_TMPFS_POSIX_ACL"
 )
 FEATURES_BLOCK=""
 if [ -f "$DOT_CONFIG" ]; then
