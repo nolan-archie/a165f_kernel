@@ -51,6 +51,31 @@ if [ ! -d "KernelSU-Next/.git" ]; then
   exit 1
 fi
 
+# Apply custom KernelSU-Next Manager signature after every upstream sync.
+KSU_KBUILD="$KSU_DIR/kernel/Kbuild"
+CUSTOM_MANAGER_LIST='KSU_NEXT_MANAGER_LIST := 0x39b:55739c5e079f5b14887fd906986138c58f73a6e9a59c19373f82fe16c8155915,0x3e6:79e590113c4c4c0c222978e413a5faa801666957b1212a328e46c00c69821bf7,0x338:f26471a28031130362bce7eebffb9a0b8afc3095f163ce0c75a309f03b644a1f2'
+
+python3 - "$KSU_KBUILD" "$CUSTOM_MANAGER_LIST" <<'PYEOF'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+replacement = sys.argv[2]
+
+lines = path.read_text(encoding="utf-8").splitlines()
+matches = [i for i, line in enumerate(lines)
+           if line.startswith("KSU_NEXT_MANAGER_LIST :=")]
+
+if len(matches) != 1:
+    raise SystemExit(
+        f"Expected exactly one KSU_NEXT_MANAGER_LIST, found {len(matches)}"
+    )
+
+lines[matches[0]] = replacement
+path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+print("[manager] Custom KSU_NEXT_MANAGER_LIST applied")
+PYEOF
+
 # Wire into tree
 DRIVER_DIR=""
 for d in "$KERNEL_SRC_DIR/common/drivers" "$KERNEL_SRC_DIR/aosp/drivers" "$KERNEL_SRC_DIR/drivers"; do
