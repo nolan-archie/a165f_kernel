@@ -46,13 +46,12 @@ jobs:
         id: release
         uses: softprops/action-gh-release@v2
         with:
+          token: ${{ secrets.PAT_TOKEN }}
           tag_name: ${{ steps.build.outputs.run_tag }}
           name: "${{ matrix.branch }} build ${{ steps.build.outputs.run_tag }}"
           body_path: ${{ steps.build.outputs.info_file }}
           files: ${{ steps.build.outputs.artifact_path }}
           target_commitish: ${{ matrix.branch }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
 
       - name: Send final Telegram ping with real download link
         if: steps.build.outputs.status == 'success'
