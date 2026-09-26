@@ -23,8 +23,8 @@ git clone --filter=blob:none --no-checkout --depth=50 \
   https://github.com/SukiSU-Ultra/SukiSU-Ultra.git "$WORK_DIR/repo" >/dev/null 2>&1
 cd "$WORK_DIR/repo"
 git sparse-checkout init --cone >/dev/null 2>&1
-git sparse-checkout set kernel/manager >/dev/null 2>&1
-git checkout -q origin/main -- kernel/manager 2>/dev/null || git checkout -q main -- kernel/manager
+git sparse-checkout set kernel/manager kernel/include >/dev/null 2>&1
+git checkout -q origin/main -- kernel/manager kernel/include 2>/dev/null || git checkout -q main -- kernel/manager kernel/include
 
 MANAGER_FILES=(
   apk_sign.c
@@ -51,6 +51,32 @@ for f in "${MANAGER_FILES[@]}"; do
   else
     cp "$SRC" "$DST"
     echo "    [sync] $f updated"
+    CHANGED=1
+  fi
+done
+
+# kernel/include/*.h files that manager/ sources depend on via quoted
+# includes (e.g. apk_sign.c and throne_tracker.c both `#include "util.h"`).
+# This list has broken silently before when upstream added a new manager/
+# dependency under kernel/include instead of kernel/manager — see util.h.
+INCLUDE_FILES=(
+  util.h
+)
+
+echo "[+] Diffing manager's kernel/include dependencies against your current tree..."
+mkdir -p "$TARGET_DIR/include"
+for f in "${INCLUDE_FILES[@]}"; do
+  SRC="kernel/include/$f"
+  DST="$TARGET_DIR/include/$f"
+  if [ ! -f "$SRC" ]; then
+    echo "    [skip] include/$f not present upstream"
+    continue
+  fi
+  if [ -f "$DST" ] && diff -q "$SRC" "$DST" >/dev/null 2>&1; then
+    echo "    [ok]   include/$f already up to date"
+  else
+    cp "$SRC" "$DST"
+    echo "    [sync] include/$f updated"
     CHANGED=1
   fi
 done

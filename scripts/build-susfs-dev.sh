@@ -61,12 +61,12 @@ if [ ! -d "$KSU_DIR" ]; then
 fi
 
 echo "[update] Snapshotting manager files..."
-BEFORE_HASH="$(find "$KSU_DIR/manager" -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum || echo none)"
+BEFORE_HASH="$(find "$KSU_DIR/manager" "$KSU_DIR/include" -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum || echo none)"
 
 echo "[update] Running sync-manager-detection.sh..."
 bash "$SYNC_SCRIPT" "$KSU_DIR"
 
-AFTER_HASH="$(find "$KSU_DIR/manager" -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum || echo none)"
+AFTER_HASH="$(find "$KSU_DIR/manager" "$KSU_DIR/include" -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum || echo none)"
 CHANGED=0
 [ "$BEFORE_HASH" != "$AFTER_HASH" ] && CHANGED=1
 echo "[update] changed=$CHANGED"
