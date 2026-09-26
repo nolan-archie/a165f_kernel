@@ -13,7 +13,9 @@
 #endif
 
 // 2: allowlist v4 root profile flag
-DECLARE(__u32, KERNEL_SU_UAPI_VERSION, 2);
+// 3: scoped su-session driver fd
+// 4: add KSU_GET_INFO_FLAG_BUNDLED
+DECLARE(__u32, KERNEL_SU_UAPI_VERSION, 4);
 
 /* Magic numbers for reboot hook to install fd */
 DECLARE(__u32, KSU_INSTALL_MAGIC1, 0xDEADBEEF);
@@ -32,6 +34,9 @@ DECLARE(__u32, KSU_GET_INFO_FLAG_LKM, (1U << 0));
 DECLARE(__u32, KSU_GET_INFO_FLAG_MANAGER, (1U << 1));
 DECLARE(__u32, KSU_GET_INFO_FLAG_LATE_LOAD, (1U << 2));
 DECLARE(__u32, KSU_GET_INFO_FLAG_PR_BUILD, (1U << 3));
+// Not currently set by this dispatch.c (no bundled-build concept vendored
+// here yet) — declared for UAPI v4 struct-layout parity only.
+DECLARE(__u32, KSU_GET_INFO_FLAG_BUNDLED, (1U << 4));
 
 struct ksu_get_info_cmd {
     __u32 version; /* Output: KERNEL_SU_VERSION */
@@ -137,6 +142,24 @@ DECLARE(__u32, KSU_MARK_MARK, 2);
 DECLARE(__u32, KSU_MARK_UNMARK, 3);
 DECLARE(__u32, KSU_MARK_REFRESH, 4);
 
+/* UAPI v4: declared for struct-layout parity with upstream's manager
+ * protocol. Not wired into a handler in this dispatch.c (no uts_spoof /
+ * cpu_spoof subsystem vendored here) — the ioctl numbers below aren't
+ * in ksu_ioctl_handlers[], so calling them safely returns -ENOTTY via
+ * ksu_supercall_handle_ioctl()'s existing unknown-command fallback. */
+struct ksu_set_spoof_version_cmd {
+    __u8 release[65]; /* Input: e.g., "5.10.115-android12-9-g00000000" */
+    __u8 version[65]; /* Input: e.g., "#1 SMP PREEMPT Thu Jan 1 00:00:00 UTC 2026" */
+};
+
+struct ksu_set_spoof_cpu_cmd {
+    __u32 cpu_index;  /* Target processor core index */
+    __u32 midr;       /* Main ID Register payload */
+    __u32 bogomips;   /* BogoMIPS performance timing metric */
+    __u64 hwcap;      /* Main ELF Hardware Capabilities mask */
+    __u64 hwcap2;     /* Auxiliary ELF Hardware Capabilities mask */
+};
+
 struct ksu_nuke_ext4_sysfs_cmd {
     __aligned_u64 arg; /* Input: mnt pointer */
 };
@@ -222,6 +245,10 @@ DECLARE(__u32, KSU_IOCTL_GET_FULL_VERSION, _IOC(_IOC_READ, 'K', 100, 0));
 DECLARE(__u32, KSU_IOCTL_HOOK_TYPE, _IOC(_IOC_READ, 'K', 101, 0));
 DECLARE(__u32, KSU_IOCTL_ENABLE_KPM, _IOC(_IOC_READ, 'K', 102, 0));
 DECLARE(__u32, KSU_IOCTL_LIST_TRY_UMOUNT, _IOC(_IOC_READ | _IOC_WRITE, 'K', 103, 0));
+/* UAPI v4 numbers, declared but unhandled — see comment above the two
+ * spoof cmd structs. Safe no-op until/unless a handler is added. */
+DECLARE(__u32, KSU_IOCTL_SET_SPOOF_VERSION, _IOC(_IOC_WRITE, 'K', 104, 0));
+DECLARE(__u32, KSU_IOCTL_SET_SPOOF_CPU, _IOC(_IOC_WRITE, 'K', 105, 0));
 DECLARE(__u32, KSU_IOCTL_KPM, _IOC(_IOC_READ | _IOC_WRITE, 'K', 200, 0));
 
 #endif
