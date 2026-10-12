@@ -73,7 +73,7 @@
 #error "Unsupported arch"
 #endif
 
-/* allow some architecutures to override `struct pt_regs` */
+/* allow some architecutres to override `struct pt_regs` */
 #ifndef __PT_REGS_CAST
 #define __PT_REGS_CAST(x) (x)
 #endif
