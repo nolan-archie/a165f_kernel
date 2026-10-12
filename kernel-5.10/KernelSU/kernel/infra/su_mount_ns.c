@@ -26,7 +26,7 @@ extern long sys_setns(const struct pt_regs *regs);
 #define do_sys_setns(regs) (sys_setns(regs))
 #endif
 
-static long ksu_sys_setns(int fd, int flags)
+static long ksu_compat_sys_setns(int fd, int flags)
 {
 #ifdef PT_PARM1
     struct pt_regs regs;
@@ -41,7 +41,7 @@ static long ksu_sys_setns(int fd, int flags)
 #endif
 }
 #else
-#define ksu_sys_setns sys_setns
+#define ksu_compat_sys_setns sys_setns
 #define ksys_unshare sys_unshare
 #endif
 
@@ -111,7 +111,7 @@ try_setns:
     }
 
     fd_install(fd, ns_file);
-    ret = ksu_sys_setns(fd, CLONE_NEWNS);
+    ret = ksu_compat_sys_setns(fd, CLONE_NEWNS);
 
     close_fd(fd);
 
