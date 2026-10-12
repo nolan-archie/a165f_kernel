@@ -56,10 +56,10 @@ for f in "${MANAGER_FILES[@]}"; do
 done
 
 # kernel/include/*.h files that manager/ sources depend on via quoted
-# includes (e.g. apk_sign.c and throne_tracker.c both `#include "util.h"`).
-# This list has broken silently before when upstream added a new manager/
-# dependency under kernel/include instead of kernel/manager — see util.h.
+# includes. The synced manager files include util.h, which also includes
+# arch.h, so keep both headers in sync with the upstream manager sources.
 INCLUDE_FILES=(
+  arch.h
   util.h
 )
 
