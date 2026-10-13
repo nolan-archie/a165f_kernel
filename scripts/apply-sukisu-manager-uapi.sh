@@ -34,11 +34,11 @@ if uapi_has_services_event; then
   echo "[compat] SukiSU kernel UAPI $(uapi_version) already supports EVENT_SERVICES."
 else
   echo "[compat] Applying SukiSU Manager UAPI v5 compatibility patch..."
-  if ! git -C "$REPO_ROOT" apply --check "$PATCH_FILE"; then
+  if ! git -C "$REPO_ROOT" apply --unidiff-zero --check "$PATCH_FILE"; then
     echo "[compat] Patch no longer matches this SukiSU source; refusing to build an incompatible kernel." >&2
     exit 1
   fi
-  git -C "$REPO_ROOT" apply "$PATCH_FILE"
+  git -C "$REPO_ROOT" apply --unidiff-zero "$PATCH_FILE"
 fi
 
 if ! uapi_has_services_event; then
@@ -59,11 +59,11 @@ if [[ "$fallback" =~ ^[0-9]+$ ]] && (( fallback >= 40968 )) && \
   echo "[compat] SukiSU offline version fallback is $fallback."
 else
   echo "[compat] Applying manager-compatible SukiSU version fallback..."
-  if ! git -C "$REPO_ROOT" apply --check "$VERSION_PATCH_FILE"; then
+  if ! git -C "$REPO_ROOT" apply --unidiff-zero --check "$VERSION_PATCH_FILE"; then
     echo "[compat] Version fallback patch no longer matches this SukiSU source." >&2
     exit 1
   fi
-  git -C "$REPO_ROOT" apply "$VERSION_PATCH_FILE"
+  git -C "$REPO_ROOT" apply --unidiff-zero "$VERSION_PATCH_FILE"
   fallback="$(version_fallback)"
   if [[ ! "$fallback" =~ ^[0-9]+$ ]] || (( fallback < 40968 )) || \
      ! grep -Fq 'KSU_VERSION_FALLBACK))' "$KSU_MAKEFILE"; then
