@@ -61,28 +61,40 @@ if [ ! -d "$KSU_DIR" ]; then
 fi
 
 echo "[update] Snapshotting manager files..."
-BEFORE_HASH="$(find "$KSU_DIR/manager" "$KSU_DIR/include" -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum || echo none)"
+BEFORE_HASH="$(find "$KSU_DIR/manager" "$KSU_DIR/include" "$KSU_DIR/supercall" "$KSU_DIR/Makefile" -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum || echo none)"
 
 echo "[update] Running sync-manager-detection.sh..."
-bash "$SYNC_SCRIPT" "$KSU_DIR"
+SYNC_EXIT=0
+bash "$SYNC_SCRIPT" "$KSU_DIR" || SYNC_EXIT=$?
 
-AFTER_HASH="$(find "$KSU_DIR/manager" "$KSU_DIR/include" -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum || echo none)"
+AFTER_HASH="$(find "$KSU_DIR/manager" "$KSU_DIR/include" "$KSU_DIR/supercall" "$KSU_DIR/Makefile" -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum || echo none)"
 CHANGED=0
 [ "$BEFORE_HASH" != "$AFTER_HASH" ] && CHANGED=1
 echo "[update] changed=$CHANGED"
+if [ "$SYNC_EXIT" -ne 0 ]; then
+  echo "[update] SukiSU source sync failed (exit $SYNC_EXIT); weekly build will be skipped."
+fi
 echo "CHANGED=$CHANGED" >> "${GITHUB_OUTPUT:-/dev/stdout}"
 
-if [ "$CHANGED" -eq 1 ]; then
+if [ "$CHANGED" -eq 1 ] && [ "$SYNC_EXIT" -eq 0 ]; then
   cd "$REPO_ROOT"
-  git add -A
+  KSU_REAL_DIR="$(realpath "$KSU_DIR")"
+  KSU_GIT_DIR="${KSU_REAL_DIR#"$REPO_ROOT"/}"
+  git add -A -- \
+    "$KSU_GIT_DIR/manager" \
+    "$KSU_GIT_DIR/include" \
+    "$KSU_GIT_DIR/supercall" \
+    "$KSU_GIT_DIR/Makefile"
   git commit -m "Weekly sync: update manager-detection [skip ci]" || true
   git push origin HEAD:"$BRANCH" 2>/dev/null || true
 fi
 
-# Reapply and verify the kernel-side API required by current SukiSU Manager.
-# This runs after the weekly sync so the compatibility fix survives source updates.
-COMPAT_EXIT=0
-bash "$REPO_ROOT/scripts/apply-sukisu-manager-uapi.sh" "$REPO_ROOT" || COMPAT_EXIT=$?
+# Verify the current upstream SukiSU API after syncing its UAPI and event
+# handlers. Unsupported API changes stop the weekly build before publishing.
+COMPAT_EXIT="$SYNC_EXIT"
+if [ "$SYNC_EXIT" -eq 0 ]; then
+  bash "$REPO_ROOT/scripts/apply-sukisu-manager-uapi.sh" "$REPO_ROOT" || COMPAT_EXIT=$?
+fi
 
 # ============================ Step 2: build ====================================
 cd "$REPO_ROOT"

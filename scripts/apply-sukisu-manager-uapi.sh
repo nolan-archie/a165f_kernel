@@ -1,18 +1,17 @@
 #!/usr/bin/env bash
-# Reapply the SukiSU Manager UAPI compatibility patch after weekly source syncs.
+# Verify that the synced SukiSU UAPI and all of its events are handled.
 set -euo pipefail
 
 REPO_ROOT="${1:?Usage: $0 <repository-root>}"
-PATCH_FILE="$REPO_ROOT/scripts/sukisu-manager-uapi-v5.diff"
-VERSION_PATCH_FILE="$REPO_ROOT/scripts/sukisu-version-fallback.diff"
 KSU_ROOT="$REPO_ROOT/kernel-5.10/KernelSU/kernel"
 HEADER="$KSU_ROOT/include/uapi/supercall.h"
 DISPATCH="$KSU_ROOT/supercall/dispatch.c"
 KSU_MAKEFILE="$KSU_ROOT/Makefile"
+VERSION_PATCH_FILE="$REPO_ROOT/scripts/sukisu-version-fallback.diff"
 
-if [[ ! -f "$HEADER" || ! -f "$DISPATCH" || ! -f "$PATCH_FILE" || \
-      ! -f "$KSU_MAKEFILE" || ! -f "$VERSION_PATCH_FILE" ]]; then
-  echo "[compat] Missing SukiSU UAPI source or compatibility patch." >&2
+if [[ ! -f "$HEADER" || ! -f "$DISPATCH" || ! -f "$KSU_MAKEFILE" || \
+      ! -f "$VERSION_PATCH_FILE" ]]; then
+  echo "[compat] Missing SukiSU UAPI source or compatibility support file." >&2
   exit 1
 fi
 
@@ -21,32 +20,35 @@ uapi_version() {
     "$HEADER" | head -n1
 }
 
-uapi_has_services_event() {
-  local version
-  version="$(uapi_version)"
-  [[ "$version" =~ ^[0-9]+$ ]] || return 1
-  (( version >= 5 )) || return 1
-  grep -Eq 'DECLARE\(__u32,[[:space:]]*EVENT_SERVICES,[[:space:]]*4\);' "$HEADER" || return 1
-  grep -Fq 'case EVENT_SERVICES:' "$DISPATCH" || return 1
-}
-
-if uapi_has_services_event; then
-  echo "[compat] SukiSU kernel UAPI $(uapi_version) already supports EVENT_SERVICES."
-else
-  echo "[compat] Applying SukiSU Manager UAPI v5 compatibility patch..."
-  if ! git -C "$REPO_ROOT" apply --unidiff-zero --check "$PATCH_FILE"; then
-    echo "[compat] Patch no longer matches this SukiSU source; refusing to build an incompatible kernel." >&2
-    exit 1
-  fi
-  git -C "$REPO_ROOT" apply --unidiff-zero "$PATCH_FILE"
-fi
-
-if ! uapi_has_services_event; then
-  echo "[compat] UAPI v5 EVENT_SERVICES support is still missing after patching." >&2
+version="$(uapi_version)"
+if [[ ! "$version" =~ ^[0-9]+$ ]]; then
+  echo "[compat] Could not read KERNEL_SU_UAPI_VERSION from the synced header." >&2
   exit 1
 fi
 
-echo "[compat] Verified SukiSU kernel UAPI $(uapi_version)."
+mapfile -t events < <(
+  sed -nE 's/^[[:space:]]*DECLARE\(__u32,[[:space:]]*(EVENT_[A-Z0-9_]+),.*/\1/p' "$HEADER"
+)
+if [[ "${#events[@]}" -eq 0 ]]; then
+  echo "[compat] No event declarations found in the synced SukiSU UAPI." >&2
+  exit 1
+fi
+
+for event in "${events[@]}"; do
+  if ! grep -Eq "^[[:space:]]*case[[:space:]]+$event[[:space:]]*:" "$DISPATCH"; then
+    echo "[compat] UAPI event $event has no kernel handler; refusing to build." >&2
+    exit 1
+  fi
+done
+
+while IFS= read -r event; do
+  if ! printf '%s\n' "${events[@]}" | grep -Fxq "$event"; then
+    echo "[compat] Kernel handles undeclared event $event; refusing to build." >&2
+    exit 1
+  fi
+done < <(sed -nE 's/^[[:space:]]*case[[:space:]]+(EVENT_[A-Z0-9_]+)[[:space:]]*:.*/\1/p' "$DISPATCH")
+
+echo "[compat] Verified SukiSU kernel UAPI $version with ${#events[@]} handled events."
 
 version_fallback() {
   sed -nE 's/^[[:space:]]*KSU_VERSION_FALLBACK[[:space:]]*\?=[[:space:]]*([0-9]+).*/\1/p' \

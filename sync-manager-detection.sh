@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # sync-manager-detection.sh
 #
-# Keeps the KERNEL-SIDE manager-detection code in your builtin-based tree
-# in sync with SukiSU-Ultra's `main` branch.
+# Keeps the KERNEL-SIDE manager-detection code and UAPI in your builtin-based
+# tree in sync with SukiSU-Ultra's main branch.
 #
 # Usage:
 #   ./sync-manager-detection.sh /path/to/your/a165f_kernel/kernel-5.10/drivers/kernelsu
@@ -10,6 +10,7 @@
 set -euo pipefail
 
 TARGET_DIR="${1:?Usage: $0 <path-to-drivers/kernelsu>}"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
@@ -18,13 +19,14 @@ if [ ! -f "$TARGET_DIR/Makefile" ]; then
   exit 1
 fi
 
-echo "[+] Fetching upstream main (manager files only, shallow)..."
+echo "[+] Fetching upstream main (manager and UAPI sources, shallow)..."
 git clone --filter=blob:none --no-checkout --depth=50 \
   https://github.com/SukiSU-Ultra/SukiSU-Ultra.git "$WORK_DIR/repo" >/dev/null 2>&1
 cd "$WORK_DIR/repo"
 git sparse-checkout init --cone >/dev/null 2>&1
-git sparse-checkout set kernel/manager kernel/include >/dev/null 2>&1
-git checkout -q origin/main -- kernel/manager kernel/include 2>/dev/null || git checkout -q main -- kernel/manager kernel/include
+git sparse-checkout set uapi kernel/manager kernel/include kernel/supercall >/dev/null 2>&1
+git checkout -q origin/main -- uapi kernel/manager kernel/include kernel/supercall 2>/dev/null || \
+  git checkout -q main -- uapi kernel/manager kernel/include kernel/supercall
 
 MANAGER_FILES=(
   apk_sign.c
@@ -80,6 +82,16 @@ for f in "${INCLUDE_FILES[@]}"; do
     CHANGED=1
   fi
 done
+
+echo "[+] Syncing current upstream UAPI and event handlers..."
+UAPI_BEFORE="$(sha256sum "$TARGET_DIR/include/uapi/supercall.h" "$TARGET_DIR/supercall/dispatch.c" | sha256sum)"
+python3 "$ROOT_DIR/scripts/sync-sukisu-uapi.py" \
+  "$WORK_DIR/repo/uapi/supercall.h" \
+  "$WORK_DIR/repo/kernel/supercall/dispatch.c" \
+  "$TARGET_DIR/include/uapi/supercall.h" \
+  "$TARGET_DIR/supercall/dispatch.c"
+UAPI_AFTER="$(sha256sum "$TARGET_DIR/include/uapi/supercall.h" "$TARGET_DIR/supercall/dispatch.c" | sha256sum)"
+[ "$UAPI_BEFORE" != "$UAPI_AFTER" ] && CHANGED=1
 
 echo "[+] Fetching your fork's builtin branch (source of truth for pkg_observer.h / pkg_observer_compat.h)..."
 git clone --filter=blob:none --no-checkout --depth=50 --branch=builtin \
