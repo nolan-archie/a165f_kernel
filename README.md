@@ -86,6 +86,12 @@ verify the resulting `.config` for the real feature set (SuSFS, Manual
 Hooks, KPM, Magic Mount, LZ4K/LZ4KD, BBR, CAKE, WireGuard, and NTSYNC), and
 hand structured results back to the workflow.
 
+On `susfs-dev`, the weekly script runs
+[`scripts/apply-sukisu-manager-uapi.sh`](scripts/apply-sukisu-manager-uapi.sh)
+after manager sync. It reapplies the tracked UAPI compatibility diff when
+needed and verifies UAPI 5 `EVENT_SERVICES` support before allowing the build
+to proceed, so a source refresh cannot silently remove this fix.
+
 ### `scripts/lib-telegram.sh`
 Single shared Telegram notifier sourced by both branch scripts, so message
 formatting and credential handling live in one place instead of being

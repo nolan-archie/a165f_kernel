@@ -15,7 +15,8 @@
 // 2: allowlist v4 root profile flag
 // 3: scoped su-session driver fd
 // 4: add KSU_GET_INFO_FLAG_BUNDLED
-DECLARE(__u32, KERNEL_SU_UAPI_VERSION, 4);
+// 5: add EVENT_SERVICES with a start/skip result
+DECLARE(__u32, KERNEL_SU_UAPI_VERSION, 5);
 
 /* Magic numbers for reboot hook to install fd */
 DECLARE(__u32, KSU_INSTALL_MAGIC1, 0xDEADBEEF);
@@ -29,6 +30,7 @@ struct ksu_become_daemon_cmd {
 DECLARE(__u32, EVENT_POST_FS_DATA, 1);
 DECLARE(__u32, EVENT_BOOT_COMPLETED, 2);
 DECLARE(__u32, EVENT_MODULE_MOUNTED, 3);
+DECLARE(__u32, EVENT_SERVICES, 4);
 
 DECLARE(__u32, KSU_GET_INFO_FLAG_LKM, (1U << 0));
 DECLARE(__u32, KSU_GET_INFO_FLAG_MANAGER, (1U << 1));

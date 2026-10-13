@@ -1,0 +1,59 @@
+diff --git a/kernel-5.10/KernelSU/kernel/include/uapi/supercall.h b/kernel-5.10/KernelSU/kernel/include/uapi/supercall.h
+index 63b9b0478..3a6f68e68 100644
+--- a/kernel-5.10/KernelSU/kernel/include/uapi/supercall.h
++++ b/kernel-5.10/KernelSU/kernel/include/uapi/supercall.h
+@@ -15,7 +15,8 @@
+ // 2: allowlist v4 root profile flag
+ // 3: scoped su-session driver fd
+ // 4: add KSU_GET_INFO_FLAG_BUNDLED
+-DECLARE(__u32, KERNEL_SU_UAPI_VERSION, 4);
++// 5: add EVENT_SERVICES with a start/skip result
++DECLARE(__u32, KERNEL_SU_UAPI_VERSION, 5);
+ 
+ /* Magic numbers for reboot hook to install fd */
+ DECLARE(__u32, KSU_INSTALL_MAGIC1, 0xDEADBEEF);
+@@ -29,6 +30,7 @@ struct ksu_become_daemon_cmd {
+ DECLARE(__u32, EVENT_POST_FS_DATA, 1);
+ DECLARE(__u32, EVENT_BOOT_COMPLETED, 2);
+ DECLARE(__u32, EVENT_MODULE_MOUNTED, 3);
++DECLARE(__u32, EVENT_SERVICES, 4);
+ 
+ DECLARE(__u32, KSU_GET_INFO_FLAG_LKM, (1U << 0));
+ DECLARE(__u32, KSU_GET_INFO_FLAG_MANAGER, (1U << 1));
+diff --git a/kernel-5.10/KernelSU/kernel/supercall/dispatch.c b/kernel-5.10/KernelSU/kernel/supercall/dispatch.c
+index c1d3abaf8..8aa2ca7d7 100644
+--- a/kernel-5.10/KernelSU/kernel/supercall/dispatch.c
++++ b/kernel-5.10/KernelSU/kernel/supercall/dispatch.c
+@@ -58,6 +58,7 @@ static int do_get_info_legacy(void __user *arg)
+ 
+ static int do_report_event(void __user *arg)
+ {
++    static bool services_started = false;
+     struct ksu_report_event_cmd cmd;
+ 
+     if (copy_from_user(&cmd, arg, sizeof(cmd))) {
+@@ -67,6 +68,8 @@ static int do_report_event(void __user *arg)
+     switch (cmd.event) {
+     case EVENT_POST_FS_DATA: {
+         static bool post_fs_data_lock = false;
++        /* Allow the services event to run again after a soft reboot. */
++        services_started = false;
+         if (!post_fs_data_lock) {
+             post_fs_data_lock = true;
+             pr_info("post-fs-data triggered\n");
+@@ -91,6 +94,15 @@ static int do_report_event(void __user *arg)
+         on_module_mounted();
+         break;
+     }
++    case EVENT_SERVICES: {
++        if (services_started) {
++            pr_info("services already started, skipping\n");
++            return 0;
++        }
++        services_started = true;
++        pr_info("services triggered\n");
++        return 1;
++    }
+     default:
+         break;
+     }

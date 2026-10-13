@@ -79,6 +79,11 @@ if [ "$CHANGED" -eq 1 ]; then
   git push origin HEAD:"$BRANCH" 2>/dev/null || true
 fi
 
+# Reapply and verify the kernel-side API required by current SukiSU Manager.
+# This runs after the weekly sync so the compatibility fix survives source updates.
+COMPAT_EXIT=0
+bash "$REPO_ROOT/scripts/apply-sukisu-manager-uapi.sh" "$REPO_ROOT" || COMPAT_EXIT=$?
+
 # ============================ Step 2: build ====================================
 cd "$REPO_ROOT"
 RUN_TAG="$(date -u '+%Y%m%d')-${BRANCH}-$(git rev-parse --short HEAD)"
@@ -86,10 +91,15 @@ export BUILD_KERNEL_VERSION="$RUN_TAG"
 export PACKAGE_PREFIX="SukiSU-Ultra"
 echo "[build] BUILD_KERNEL_VERSION=$BUILD_KERNEL_VERSION"
 
-set +e
-./build.sh
-BUILD_EXIT=$?
-set -e
+if [ "$COMPAT_EXIT" -eq 0 ]; then
+  set +e
+  ./build.sh
+  BUILD_EXIT=$?
+  set -e
+else
+  echo "[build] Skipping compile because SukiSU Manager compatibility could not be applied."
+  BUILD_EXIT="$COMPAT_EXIT"
+fi
 
 # ============================ Step 3: verify =================================
 DOT_CONFIG="${DOT_CONFIG_OVERRIDE:-}"
