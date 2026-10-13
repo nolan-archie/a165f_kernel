@@ -66,20 +66,138 @@ def convert_uapi(source: str) -> str:
     return result
 
 
-def normalized_uapi_contract(header: str) -> str:
-    """Ignore comments, formatting, the version, and event IDs for ABI checks."""
-    contract = re.sub(r"/\*.*?\*/|//[^\n]*", "", header, flags=re.DOTALL)
-    contract = re.sub(
-        r"DECLARE\(\s*__u32\s*,\s*KERNEL_SU_UAPI_VERSION\s*,[^;]+;\s*",
-        "",
-        contract,
+def declared_constants(header: str) -> dict[str, str]:
+    declarations = re.finditer(
+        r"^[ \t]*DECLARE\(\s*([^,\n]+?)\s*,\s*([A-Za-z_]\w*)"
+        r"\s*,\s*(.*?)\)\s*;",
+        header,
+        flags=re.MULTILINE,
     )
-    contract = re.sub(
-        r"DECLARE\(\s*__u32\s*,\s*EVENT_[A-Z0-9_]+\s*,[^;]+;\s*",
-        "",
-        contract,
+    return {
+        match.group(2): re.sub(r"\s+", "", match.group(0))
+        for match in declarations
+    }
+
+
+def declared_structures(header: str) -> dict[str, str]:
+    masked = mask_comments_and_strings(header)
+    structures: dict[str, str] = {}
+    for match in re.finditer(r"\bstruct\s+([A-Za-z_]\w*)\s*\{", masked):
+        open_pos = masked.find("{", match.start(), match.end())
+        close_pos = matching_brace(header, open_pos, masked)
+        end = close_pos + 1
+        while end < len(masked) and masked[end].isspace():
+            end += 1
+        if end < len(masked) and masked[end] == ";":
+            structures[match.group(1)] = re.sub(
+                r"\s+", "", masked[match.start():end + 1]
+            )
+    return structures
+
+
+def validate_non_event_contract(local_header: str, upstream_header: str) -> None:
+    """Require every upstream ABI item while allowing local-only extensions."""
+    local_includes = set(
+        re.findall(r"^\s*#include\s+[^\n]+", local_header, flags=re.MULTILINE)
     )
-    return re.sub(r"\s+", "", contract)
+    upstream_includes = set(
+        re.findall(r"^\s*#include\s+[^\n]+", upstream_header, flags=re.MULTILINE)
+    )
+    missing_includes = sorted(upstream_includes - local_includes)
+
+    local_constants = declared_constants(local_header)
+    upstream_constants = declared_constants(upstream_header)
+    incompatible = []
+    for name, definition in upstream_constants.items():
+        if name == "KERNEL_SU_UAPI_VERSION" or name.startswith("EVENT_"):
+            continue
+        if local_constants.get(name) != definition:
+            incompatible.append(name)
+
+    local_structures = declared_structures(local_header)
+    upstream_structures = declared_structures(upstream_header)
+    for name, definition in upstream_structures.items():
+        if local_structures.get(name) != definition:
+            incompatible.append(f"struct {name}")
+
+    if missing_includes:
+        incompatible.extend(f"include {item}" for item in missing_includes)
+    if incompatible:
+        fail(
+            "upstream non-event UAPI items are missing or different in the "
+            "kernel tree: " + ", ".join(sorted(incompatible))
+        )
+
+
+def merge_uapi_header(local_header: str, upstream_header: str) -> str:
+    """Update only the version and event constants, preserving local extensions."""
+    version = re.search(
+        r"DECLARE\(\s*__u32\s*,\s*KERNEL_SU_UAPI_VERSION\s*,\s*(\d+)\s*\)",
+        upstream_header,
+    )
+    if not version:
+        fail("upstream supercall.h has no numeric KERNEL_SU_UAPI_VERSION")
+
+    upstream_event_lines = []
+    for line in upstream_header.splitlines():
+        if re.search(r"DECLARE\(\s*__u32\s*,\s*EVENT_[A-Z0-9_]+\s*,", line):
+            upstream_event_lines.append(line)
+    if not upstream_event_lines:
+        fail("upstream supercall.h has no EVENT_* declarations")
+
+    local_lines = local_header.splitlines()
+    local_event_indexes = [
+        index for index, line in enumerate(local_lines)
+        if re.search(r"DECLARE\(\s*__u32\s*,\s*EVENT_[A-Z0-9_]+\s*,", line)
+    ]
+    if local_event_indexes:
+        event_insert_at = local_event_indexes[0]
+    else:
+        daemon_struct = next(
+            (
+                index for index, line in enumerate(local_lines)
+                if "struct ksu_become_daemon_cmd" in line
+            ),
+            None,
+        )
+        if daemon_struct is None:
+            fail("could not find a place for upstream event declarations")
+        event_insert_at = next(
+            (
+                index + 1 for index in range(daemon_struct, len(local_lines))
+                if local_lines[index].strip() == "};"
+            ),
+            None,
+        )
+        if event_insert_at is None:
+            fail("could not find the end of ksu_become_daemon_cmd")
+
+    output = []
+    inserted_events = False
+    version_seen = False
+    for index, line in enumerate(local_lines):
+        if index == event_insert_at:
+            output.extend(upstream_event_lines)
+            inserted_events = True
+
+        if re.search(r"DECLARE\(\s*__u32\s*,\s*EVENT_[A-Z0-9_]+\s*,", line):
+            continue
+
+        version_line = re.match(
+            r"^(\s*DECLARE\(\s*__u32\s*,\s*KERNEL_SU_UAPI_VERSION\s*,\s*)"
+            r"\d+(\s*\);.*)$",
+            line,
+        )
+        if version_line:
+            line = f"{version_line.group(1)}{version.group(1)}{version_line.group(2)}"
+            version_seen = True
+        output.append(line)
+
+    if not inserted_events:
+        output.extend(upstream_event_lines)
+    if not version_seen:
+        fail("could not find KERNEL_SU_UAPI_VERSION in the local header")
+    return "\n".join(output) + "\n"
 
 
 def mask_comments_and_strings(source: str) -> str:
@@ -301,18 +419,15 @@ def main() -> None:
 
     previous_header = local_header_path.read_text()
     upstream_header = convert_uapi(upstream_header_path.read_text())
-    if normalized_uapi_contract(previous_header) != normalized_uapi_contract(upstream_header):
-        fail(
-            "upstream changed non-event UAPI definitions; refusing to advertise an "
-            "API whose new ioctl or data structure has not been ported"
-        )
+    validate_non_event_contract(previous_header, upstream_header)
+    merged_header = merge_uapi_header(previous_header, upstream_header)
     merged_dispatch = merge_event_cases(
         upstream_header,
         upstream_dispatch_path.read_text(),
         local_dispatch_path.read_text(),
     )
 
-    header_changed = write_if_changed(local_header_path, upstream_header)
+    header_changed = write_if_changed(local_header_path, merged_header)
     dispatch_changed = write_if_changed(local_dispatch_path, merged_dispatch)
     version = re.search(
         r"DECLARE\(\s*__u32\s*,\s*KERNEL_SU_UAPI_VERSION\s*,\s*(\d+)\s*\)",
