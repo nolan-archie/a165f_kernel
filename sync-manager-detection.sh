@@ -140,6 +140,29 @@ for f in pkg_observer.h pkg_observer_compat.h; do
   fi
 done
 
+echo "[+] Ensuring the SukiSU manager package identity is configured..."
+if ! grep -Fq 'ccflags-y += -DKSU_PACKAGE_NAME=\"$(KSU_PACKAGE_NAME)\"' "$TARGET_DIR/Makefile" || \
+   ! grep -Fq 'ccflags-y += -DKSU_IS_PR_BUILD=$(KSU_IS_PR_BUILD)' "$TARGET_DIR/Makefile"; then
+  PACKAGE_BLOCK=$(cat <<'EOF'
+KSU_IS_PR_BUILD ?= 0
+ifeq ($(KSU_IS_PR_BUILD),0)
+KSU_PACKAGE_NAME ?= com.sukisu.ultra
+else
+KSU_PACKAGE_NAME ?= com.sukisu.ultra.pr
+endif
+
+$(info -- KernelSU Manager package name: $(KSU_PACKAGE_NAME))
+ccflags-y += -DKSU_PACKAGE_NAME=\"$(KSU_PACKAGE_NAME)\"
+ccflags-y += -DKSU_IS_PR_BUILD=$(KSU_IS_PR_BUILD)
+EOF
+)
+  printf '\n%s\n' "$PACKAGE_BLOCK" >> "$TARGET_DIR/Makefile"
+  echo "    [sync] KSU_PACKAGE_NAME and KSU_IS_PR_BUILD definitions added"
+  CHANGED=1
+else
+  echo "    [ok]   KSU_PACKAGE_NAME and KSU_IS_PR_BUILD already configured"
+fi
+
 echo "[+] Ensuring EXPECTED_SIZE/EXPECTED_HASH block is present in Makefile..."
 if ! grep -q "EXPECTED_SIZE" "$TARGET_DIR/Makefile"; then
   BLOCK=$(cat <<'EOF'

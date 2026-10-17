@@ -54,6 +54,19 @@ $(info -- $(REPO_NAME) version: $(KSU_VERSION) [$(KSU_VERSION_FULL)])
 ccflags-y += -DKSU_VERSION=$(KSU_VERSION)
 ccflags-y += -DKSU_VERSION_FULL=\"$(KSU_VERSION_FULL)\"
 
+# Mirror SukiSU-Ultra's manager identity defaults from its Kbuild. The synced
+# throne_tracker.c uses KSU_PACKAGE_NAME at compile time.
+KSU_IS_PR_BUILD ?= 0
+ifeq ($(KSU_IS_PR_BUILD),0)
+KSU_PACKAGE_NAME ?= com.sukisu.ultra
+else
+KSU_PACKAGE_NAME ?= com.sukisu.ultra.pr
+endif
+
+$(info -- KernelSU Manager package name: $(KSU_PACKAGE_NAME))
+ccflags-y += -DKSU_PACKAGE_NAME=\"$(KSU_PACKAGE_NAME)\"
+ccflags-y += -DKSU_IS_PR_BUILD=$(KSU_IS_PR_BUILD)
+
 KERNEL_VERSION := $(VERSION).$(PATCHLEVEL)
 KERNEL_TYPE := Non-GKI
 # Check for GKI 2.0 (5.10+ or 6.x+)

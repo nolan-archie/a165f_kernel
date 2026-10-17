@@ -102,3 +102,11 @@ else
   fi
   echo "[compat] Verified SukiSU offline version fallback is $fallback."
 fi
+
+if ! grep -Fq 'ccflags-y += -DKSU_PACKAGE_NAME=\"$(KSU_PACKAGE_NAME)\"' "$KSU_MAKEFILE" || \
+   ! grep -Fq 'ccflags-y += -DKSU_IS_PR_BUILD=$(KSU_IS_PR_BUILD)' "$KSU_MAKEFILE" || \
+   ! grep -Eq 'KSU_PACKAGE_NAME[[:space:]]*\?=[[:space:]]*com\.sukisu\.ultra([[:space:]]|$)' "$KSU_MAKEFILE"; then
+  echo "[compat] SukiSU manager package identity is not configured in the kernel Makefile." >&2
+  exit 1
+fi
+echo "[compat] Verified SukiSU manager package identity compile flags."
