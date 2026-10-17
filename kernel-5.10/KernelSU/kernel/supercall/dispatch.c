@@ -1,3 +1,5 @@
+#include "manager/dynamic_manager.h"
+
 static int do_grant_root(void __user *arg)
 {
     int ret;
@@ -108,6 +110,32 @@ static int do_report_event(void __user *arg)
     }
 
     return 0;
+}
+
+static int do_manager(void __user *arg)
+{
+    struct ksu_manager_cmd *cmd;
+    int ret;
+
+    cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
+    if (!cmd)
+        return -ENOMEM;
+
+    if (copy_from_user(cmd, arg, sizeof(*cmd))) {
+        ret = -EFAULT;
+        goto out;
+    }
+    if (cmd->operation == KSU_MANAGER_GET) {
+        ret = ksu_dynamic_manager_get(cmd);
+        if (!ret && copy_to_user(arg, cmd, sizeof(*cmd)))
+            ret = -EFAULT;
+        goto out;
+    }
+    ret = ksu_dynamic_manager_set(cmd);
+
+out:
+    kfree(cmd);
+    return ret;
 }
 
 static int do_set_sepolicy(void __user *arg)
@@ -1000,6 +1028,12 @@ static const struct ksu_ioctl_cmd_map ksu_ioctl_handlers[] = {
         .cmd = KSU_IOCTL_LIST_TRY_UMOUNT,
         .name = "LIST_TRY_UMOUNT",
         .handler = list_try_umount,
+        .perm_check = manager_or_root
+    },
+    {
+        .cmd = KSU_IOCTL_MANAGER,
+        .name = "MANAGER",
+        .handler = do_manager,
         .perm_check = manager_or_root
     },
     {

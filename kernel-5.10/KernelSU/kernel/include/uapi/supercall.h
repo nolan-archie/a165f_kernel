@@ -5,6 +5,7 @@
 #include <linux/types.h>
 
 #include "uapi/app_profile.h"
+#include "uapi/manager.h"
 
 #ifdef __BINDGEN__
 #define DECLARE(type, name, val) static const type name = val
@@ -251,6 +252,7 @@ DECLARE(__u32, KSU_IOCTL_LIST_TRY_UMOUNT, _IOC(_IOC_READ | _IOC_WRITE, 'K', 103,
  * spoof cmd structs. Safe no-op until/unless a handler is added. */
 DECLARE(__u32, KSU_IOCTL_SET_SPOOF_VERSION, _IOC(_IOC_WRITE, 'K', 104, 0));
 DECLARE(__u32, KSU_IOCTL_SET_SPOOF_CPU, _IOC(_IOC_WRITE, 'K', 105, 0));
+DECLARE(__u32, KSU_IOCTL_MANAGER, _IOWR('K', 106, struct ksu_manager_cmd));
 DECLARE(__u32, KSU_IOCTL_KPM, _IOC(_IOC_READ | _IOC_WRITE, 'K', 200, 0));
 
 #endif
