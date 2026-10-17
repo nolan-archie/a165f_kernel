@@ -1,3 +1,5 @@
+#include "manager/dynamic_manager.h"
+
 bool ksu_module_mounted __read_mostly = false;
 bool ksu_boot_completed __read_mostly = false;
 
@@ -51,6 +53,7 @@ void on_post_fs_data(void)
     pr_info("on_post_fs_data!\n");
 
     ksu_load_allow_list();
+    ksu_dynamic_manager_load();
     ksu_observer_init();
     // sanity check, this may influence the performance
 #if defined(CONFIG_KSU_SUSFS) && defined(KSU_COMPAT_USE_STATIC_KEY)

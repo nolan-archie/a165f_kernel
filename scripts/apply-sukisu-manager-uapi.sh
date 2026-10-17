@@ -5,13 +5,20 @@ set -euo pipefail
 REPO_ROOT="${1:?Usage: $0 <repository-root>}"
 KSU_ROOT="$REPO_ROOT/kernel-5.10/KernelSU/kernel"
 HEADER="$KSU_ROOT/include/uapi/supercall.h"
+MANAGER_HEADER="$KSU_ROOT/include/uapi/manager.h"
 DISPATCH="$KSU_ROOT/supercall/dispatch.c"
+UNIFIED_SOURCE="$KSU_ROOT/ksu.c"
+POST_FS_DATA_SOURCE="$KSU_ROOT/runtime/ksud.c"
+MANAGER_SOURCE="$KSU_ROOT/manager/dynamic_manager.c"
+MANAGER_API="$KSU_ROOT/manager/dynamic_manager.h"
 KSU_MAKEFILE="$KSU_ROOT/Makefile"
 VERSION_PATCH_FILE="$REPO_ROOT/scripts/sukisu-version-fallback.diff"
 
-if [[ ! -f "$HEADER" || ! -f "$DISPATCH" || ! -f "$KSU_MAKEFILE" || \
-      ! -f "$VERSION_PATCH_FILE" ]]; then
-  echo "[compat] Missing SukiSU UAPI source or compatibility support file." >&2
+if [[ ! -f "$HEADER" || ! -f "$MANAGER_HEADER" || ! -f "$DISPATCH" || \
+      ! -f "$UNIFIED_SOURCE" || ! -f "$POST_FS_DATA_SOURCE" || \
+      ! -f "$MANAGER_SOURCE" || ! -f "$MANAGER_API" || \
+      ! -f "$KSU_MAKEFILE" || ! -f "$VERSION_PATCH_FILE" ]]; then
+  echo "[compat] Missing SukiSU manager UAPI, implementation, or compatibility support file." >&2
   exit 1
 fi
 
@@ -41,6 +48,27 @@ for event in "${events[@]}"; do
   fi
 done
 
+if ! grep -Fq '#include "uapi/manager.h"' "$HEADER" || \
+   ! grep -Eq 'DECLARE\(__u32,[[:space:]]*KSU_IOCTL_MANAGER,' "$HEADER" || \
+   ! grep -Eq 'struct[[:space:]]+ksu_manager_cmd' "$MANAGER_HEADER"; then
+  echo "[compat] Dynamic manager UAPI is incomplete; refusing to build." >&2
+  exit 1
+fi
+
+if ! grep -Eq 'static[[:space:]]+int[[:space:]]+do_manager\(' "$DISPATCH" || \
+   ! grep -Eq '\.cmd[[:space:]]*=[[:space:]]*KSU_IOCTL_MANAGER' "$DISPATCH" || \
+   ! grep -Eq '\.handler[[:space:]]*=[[:space:]]*do_manager' "$DISPATCH" || \
+   ! grep -Eq '\.perm_check[[:space:]]*=[[:space:]]*manager_or_root' "$DISPATCH"; then
+  echo "[compat] KSU_IOCTL_MANAGER is missing its manager-or-root handler; refusing to build." >&2
+  exit 1
+fi
+
+if ! grep -Fq '#include "manager/dynamic_manager.c"' "$UNIFIED_SOURCE" || \
+   ! grep -Fq 'ksu_dynamic_manager_load();' "$POST_FS_DATA_SOURCE"; then
+  echo "[compat] Dynamic manager implementation is not linked or loaded at post-fs-data; refusing to build." >&2
+  exit 1
+fi
+
 while IFS= read -r event; do
   if ! printf '%s\n' "${events[@]}" | grep -Fxq "$event"; then
     echo "[compat] Kernel handles undeclared event $event; refusing to build." >&2
@@ -48,7 +76,7 @@ while IFS= read -r event; do
   fi
 done < <(sed -nE 's/^[[:space:]]*case[[:space:]]+(EVENT_[A-Z0-9_]+)[[:space:]]*:.*/\1/p' "$DISPATCH")
 
-echo "[compat] Verified SukiSU kernel UAPI $version with ${#events[@]} handled events."
+echo "[compat] Verified SukiSU kernel UAPI $version, dynamic manager ioctl, and ${#events[@]} handled events."
 
 version_fallback() {
   sed -nE 's/^[[:space:]]*KSU_VERSION_FALLBACK[[:space:]]*\?=[[:space:]]*([0-9]+).*/\1/p' \

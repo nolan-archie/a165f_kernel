@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # sync-manager-detection.sh
 #
-# Keeps the KERNEL-SIDE manager-detection code and UAPI in your builtin-based
-# tree in sync with SukiSU-Ultra's main branch.
+# Keeps the kernel-side manager detection code and UAPI in your built-in tree
+# in sync with SukiSU-Ultra's main branch, including dynamic manager support.
 #
 # Usage:
 #   ./sync-manager-detection.sh /path/to/your/a165f_kernel/kernel-5.10/drivers/kernelsu
@@ -31,6 +31,8 @@ git checkout -q origin/main -- uapi kernel/manager kernel/include kernel/superca
 MANAGER_FILES=(
   apk_sign.c
   apk_sign.h
+  dynamic_manager.c
+  dynamic_manager.h
   manager_identity.h
   manager_observer.h
   pkg_observer.c
@@ -56,6 +58,21 @@ for f in "${MANAGER_FILES[@]}"; do
     CHANGED=1
   fi
 done
+
+echo "[+] Syncing manager UAPI..."
+mkdir -p "$TARGET_DIR/include/uapi"
+if [ ! -f "$WORK_DIR/repo/uapi/manager.h" ]; then
+  echo "[ERROR] upstream uapi/manager.h is missing; refusing to build without the manager UAPI." >&2
+  exit 1
+fi
+if [ -f "$TARGET_DIR/include/uapi/manager.h" ] && \
+   diff -q "$WORK_DIR/repo/uapi/manager.h" "$TARGET_DIR/include/uapi/manager.h" >/dev/null 2>&1; then
+  echo "    [ok]   include/uapi/manager.h already up to date"
+else
+  cp "$WORK_DIR/repo/uapi/manager.h" "$TARGET_DIR/include/uapi/manager.h"
+  echo "    [sync] include/uapi/manager.h updated"
+  CHANGED=1
+fi
 
 # kernel/include/*.h files that manager/ sources depend on via quoted
 # includes. The synced manager files include util.h, which also includes

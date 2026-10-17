@@ -18,6 +18,7 @@
 #include "policy/allowlist.h"
 #include "policy/feature.h"
 #include "manager/apk_sign.h"
+#include "manager/dynamic_manager.h"
 #include "manager/manager_identity.h"
 #include "manager/throne_tracker.h"
 #include "manager/pkg_observer.h"
@@ -64,6 +65,9 @@
 #include "policy/app_profile.c"
 #include "policy/feature.c"
 #include "manager/apk_sign.c"
+#ifndef CONFIG_KSU_DISABLE_MANAGER
+#include "manager/dynamic_manager.c"
+#endif
 #include "manager/throne_tracker.c"
 #include "manager/pkg_observer.c"
 

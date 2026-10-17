@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sync the current SukiSU UAPI and import newly declared event handlers."""
+"""Sync the SukiSU UAPI, event handlers, and dynamic manager ioctl."""
 
 from __future__ import annotations
 
@@ -129,8 +129,66 @@ def validate_non_event_contract(local_header: str, upstream_header: str) -> None
         )
 
 
+def merge_manager_uapi(local_header: str, upstream_header: str) -> str:
+    """Merge the manager header include and dynamic-manager ioctl."""
+    manager_include = '#include "uapi/manager.h"'
+    if not re.search(r'^\s*#include\s+"uapi/manager\.h"\s*$', upstream_header, re.MULTILINE):
+        fail('upstream supercall.h no longer includes "uapi/manager.h"')
+
+    upstream_constants = declared_constants(upstream_header)
+    manager_ioctl = upstream_constants.get("KSU_IOCTL_MANAGER")
+    if not manager_ioctl:
+        fail("upstream supercall.h has no KSU_IOCTL_MANAGER declaration")
+
+    local_constants = declared_constants(local_header)
+    local_ioctl = local_constants.get("KSU_IOCTL_MANAGER")
+    if local_ioctl and local_ioctl != manager_ioctl:
+        fail("local KSU_IOCTL_MANAGER declaration differs from upstream")
+
+    lines = local_header.splitlines()
+    if manager_include not in {
+        re.sub(r"\s+", " ", line.strip()) for line in lines
+    }:
+        app_profile_include = next(
+            (
+                index for index, line in enumerate(lines)
+                if re.match(r'^\s*#include\s+"uapi/app_profile\.h"\s*$', line)
+            ),
+            None,
+        )
+        if app_profile_include is None:
+            fail('could not find a place for the "uapi/manager.h" include')
+        lines.insert(app_profile_include + 1, manager_include)
+
+    if not local_ioctl:
+        ioctl_line = next(
+            (
+                line for line in upstream_header.splitlines()
+                if re.search(
+                    r"DECLARE\(\s*__u32\s*,\s*KSU_IOCTL_MANAGER\s*,",
+                    line,
+                )
+            ),
+            None,
+        )
+        if ioctl_line is None:
+            fail("could not find the upstream KSU_IOCTL_MANAGER declaration")
+        kpm_index = next(
+            (
+                index for index, line in enumerate(lines)
+                if re.search(r"DECLARE\(\s*__u32\s*,\s*KSU_IOCTL_KPM\s*,", line)
+            ),
+            None,
+        )
+        if kpm_index is None:
+            fail("could not find a place for KSU_IOCTL_MANAGER")
+        lines.insert(kpm_index, ioctl_line)
+
+    return "\n".join(lines) + "\n"
+
+
 def merge_uapi_header(local_header: str, upstream_header: str) -> str:
-    """Update only the version and event constants, preserving local extensions."""
+    """Update the version and events while preserving local extensions."""
     version = re.search(
         r"DECLARE\(\s*__u32\s*,\s*KERNEL_SU_UAPI_VERSION\s*,\s*(\d+)\s*\)",
         upstream_header,
@@ -295,6 +353,142 @@ def extract_event_function(source: str) -> tuple[int, int, str]:
     return match.start(), close_pos + 1, source[match.start():close_pos + 1]
 
 
+def extract_static_int_function(source: str, name: str) -> tuple[int, int, str]:
+    masked = mask_comments_and_strings(source)
+    match = re.search(
+        rf"\bstatic\s+int\s+{re.escape(name)}\s*\([^)]*\)\s*\{{",
+        masked,
+    )
+    if not match:
+        fail(f"could not find {name}()")
+    open_pos = match.end() - 1
+    close_pos = matching_brace(source, open_pos, masked)
+    return match.start(), close_pos + 1, source[match.start():close_pos + 1]
+
+
+def extract_ioctl_entry(source: str, command: str) -> tuple[int, int, str]:
+    masked = mask_comments_and_strings(source)
+    table = re.search(
+        r"static\s+const\s+struct\s+ksu_ioctl_cmd_map\s+"
+        r"ksu_ioctl_handlers\s*\[\s*\]\s*=\s*\{",
+        masked,
+    )
+    if not table:
+        fail("could not find ksu_ioctl_handlers[]")
+    table_open = table.end() - 1
+    table_close = matching_brace(source, table_open, masked)
+
+    cursor = table_open + 1
+    while cursor < table_close:
+        if masked[cursor] != "{":
+            cursor += 1
+            continue
+        entry_end = matching_brace(source, cursor, masked)
+        if re.search(
+            rf"\.cmd\s*=\s*{re.escape(command)}\b",
+            masked[cursor:entry_end + 1],
+        ):
+            return cursor, entry_end + 1, source[cursor:entry_end + 1]
+        cursor = entry_end + 1
+
+    fail(f"{command} has no entry in ksu_ioctl_handlers[]")
+
+
+def merge_manager_dispatch(
+    upstream_dispatch: str,
+    local_dispatch: str,
+) -> str:
+    """Import do_manager() and its permission-checked ioctl map entry."""
+    _, _, upstream_function = extract_static_int_function(
+        upstream_dispatch, "do_manager"
+    )
+    if (
+        "ksu_dynamic_manager_get" not in upstream_function
+        or "ksu_dynamic_manager_set" not in upstream_function
+    ):
+        fail("upstream do_manager() does not implement GET and mutation operations")
+
+    _, _, upstream_entry = extract_ioctl_entry(
+        upstream_dispatch, "KSU_IOCTL_MANAGER"
+    )
+    if not re.search(r"\.handler\s*=\s*do_manager\b", upstream_entry):
+        fail("upstream KSU_IOCTL_MANAGER entry has no do_manager() handler")
+    if not re.search(r"\.perm_check\s*=\s*manager_or_root\b", upstream_entry):
+        fail("upstream KSU_IOCTL_MANAGER entry has unexpected permissions")
+
+    if re.search(
+        r"\bstatic\s+int\s+do_manager\s*\(",
+        mask_comments_and_strings(local_dispatch),
+    ):
+        local_start, local_end, local_function = extract_static_int_function(
+            local_dispatch, "do_manager"
+        )
+    else:
+        local_function = None
+    if local_function is None:
+        masked = mask_comments_and_strings(local_dispatch)
+        anchor = re.search(
+            r"(?=\bstatic\s+int\s+do_set_sepolicy\s*\()", masked
+        )
+        if not anchor:
+            fail("could not find a place for do_manager()")
+        local_dispatch = (
+            local_dispatch[:anchor.start()]
+            + upstream_function
+            + "\n\n"
+            + local_dispatch[anchor.start():]
+        )
+    else:
+        local_dispatch = (
+            local_dispatch[:local_start]
+            + upstream_function
+            + local_dispatch[local_end:]
+        )
+
+    if re.search(
+        r"\.cmd\s*=\s*KSU_IOCTL_MANAGER\b",
+        mask_comments_and_strings(local_dispatch),
+    ):
+        _, _, local_entry = extract_ioctl_entry(
+            local_dispatch, "KSU_IOCTL_MANAGER"
+        )
+    else:
+        local_entry = None
+    if local_entry is not None:
+        if not re.search(r"\.handler\s*=\s*do_manager\b", local_entry):
+            fail("local KSU_IOCTL_MANAGER entry has an unexpected handler")
+        if not re.search(r"\.perm_check\s*=\s*manager_or_root\b", local_entry):
+            fail("local KSU_IOCTL_MANAGER entry has unexpected permissions")
+    else:
+        masked = mask_comments_and_strings(local_dispatch)
+        table = re.search(
+            r"static\s+const\s+struct\s+ksu_ioctl_cmd_map\s+"
+            r"ksu_ioctl_handlers\s*\[\s*\]\s*=\s*\{",
+            masked,
+        )
+        if not table:
+            fail("could not find ksu_ioctl_handlers[]")
+        table_open = table.end() - 1
+        table_close = matching_brace(local_dispatch, table_open, masked)
+        sentinel = re.search(
+            r"\{\s*\.cmd\s*=\s*0\b",
+            masked[table_open + 1:table_close],
+        )
+        if not sentinel:
+            fail("could not find the ioctl map sentinel")
+        insert_at = table_open + 1 + sentinel.start()
+        local_dispatch = (
+            local_dispatch[:insert_at]
+            + upstream_entry
+            + ",\n    "
+            + local_dispatch[insert_at:]
+        )
+
+    if '#include "manager/dynamic_manager.h"' not in local_dispatch:
+        local_dispatch = '#include "manager/dynamic_manager.h"\n\n' + local_dispatch
+    return local_dispatch
+
+
 def event_cases(function: str) -> tuple[list[tuple[str, int, int]], int]:
     masked = mask_comments_and_strings(function)
     switch = re.search(r"\bswitch\s*\(\s*cmd\.event\s*\)\s*\{", masked)
@@ -419,13 +613,16 @@ def main() -> None:
 
     previous_header = local_header_path.read_text()
     upstream_header = convert_uapi(upstream_header_path.read_text())
-    validate_non_event_contract(previous_header, upstream_header)
-    merged_header = merge_uapi_header(previous_header, upstream_header)
+    merged_manager_header = merge_manager_uapi(previous_header, upstream_header)
+    validate_non_event_contract(merged_manager_header, upstream_header)
+    merged_header = merge_uapi_header(merged_manager_header, upstream_header)
+    upstream_dispatch = upstream_dispatch_path.read_text()
     merged_dispatch = merge_event_cases(
         upstream_header,
-        upstream_dispatch_path.read_text(),
+        upstream_dispatch,
         local_dispatch_path.read_text(),
     )
+    merged_dispatch = merge_manager_dispatch(upstream_dispatch, merged_dispatch)
 
     header_changed = write_if_changed(local_header_path, merged_header)
     dispatch_changed = write_if_changed(local_dispatch_path, merged_dispatch)

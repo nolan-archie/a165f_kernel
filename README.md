@@ -103,7 +103,11 @@ repository secrets).
 `susfs-dev` only. Pulls the manager-detection/handshake code from
 [SukiSU-Ultra's upstream `main`](https://github.com/SukiSU-Ultra/SukiSU-Ultra)
 into this repo's in-tree copy, so manager-app compatibility (hash/size
-checks, etc.) stays current without hand-patching.
+checks, etc.) stays current without hand-patching. It also syncs the dynamic
+manager implementation and UAPI and merges the manager ioctl into this
+kernel's dispatch. The persisted manager list is loaded at `post-fs-data`,
+before package observation begins. The UAPI compatibility check fails closed
+if upstream changes the manager contract or dispatch shape incompatibly.
 
 ### Scheduling
 `kernel_builder.yml` runs every Monday at 00:00 UTC and on manual dispatch,
