@@ -956,3 +956,11 @@ CONFIG_DEFAULT_BBR=y
 # CONFIG_KFENCE is not set
 # CONFIG_SCHED_DEBUG is not set
 # CONFIG_SCHEDSTATS is not set
+
+# Remove additional debug and hardening work from allocation and list hot paths.
+# These checks remain appropriate for development and sanitizer builds.
+# CONFIG_SLUB_DEBUG is not set
+# CONFIG_INIT_ON_ALLOC_DEFAULT_ON is not set
+# CONFIG_UBSAN is not set
+# CONFIG_DEBUG_LIST is not set
+# CONFIG_BUG_ON_DATA_CORRUPTION is not set
