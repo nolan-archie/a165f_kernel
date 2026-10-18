@@ -969,6 +969,9 @@ CONFIG_DEFAULT_NET_SCH="fq"
 # CONFIG_SCHED_DEBUG is not set
 # CONFIG_SCHEDSTATS is not set
 
+# Use the low-latency LZ4 compressor by default for ZRAM swap.
+CONFIG_CRYPTO_LZ4=y
+
 # Remove additional debug and hardening work from allocation and list hot paths.
 # These checks remain appropriate for development and sanitizer builds.
 # CONFIG_SLUB_DEBUG is not set
@@ -976,6 +979,18 @@ CONFIG_DEFAULT_NET_SCH="fq"
 # CONFIG_UBSAN is not set
 # CONFIG_DEBUG_LIST is not set
 # CONFIG_BUG_ON_DATA_CORRUPTION is not set
+
+# Retain the storage and accelerator features while removing their optional
+# tracing, error-injection, and debug paths from the release kernel.
+# CONFIG_F2FS_SEC_BLOCK_OPERATIONS_DEBUG is not set
+# CONFIG_HPB_DEBUG is not set
+# CONFIG_HPB_DEBUG_SYSFS is not set
+# CONFIG_HPB_ERR_INJECTION is not set
+# CONFIG_UFSHID_DEBUG is not set
+# CONFIG_USB_DEBUG_DETAILED_LOG is not set
+# CONFIG_NTFS_DEBUG is not set
+# CONFIG_MTK_APUSYS_DEBUG is not set
+# CONFIG_MTK_APUSYS_VPU_DEBUG is not set
 
 # Kernel configurations for full DroidSpaces support for GKI
 # Copyright (C) 2026 ravindu644 <droidcasts@protonmail.com>
