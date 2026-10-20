@@ -59,15 +59,6 @@ CONFIG_DEFAULT_BBR=y
 CONFIG_DEFAULT_TCP_CONG="bbr"
 CONFIG_DEFAULT_NET_SCH="fq"
 
-# Release performance profile. Keep MediaTek DVFS, scheduler utilization
-# clamping, performance manager, and hardware thermal controls enabled, while
-# removing diagnostic instrumentation that can add runtime and memory cost.
-# Re-enable these options for debug or sanitizer builds.
-# CONFIG_KASAN is not set
-# CONFIG_KFENCE is not set
-# CONFIG_SCHED_DEBUG is not set
-# CONFIG_SCHEDSTATS is not set
-
 # Kernel configurations for full DroidSpaces support for GKI
 # Copyright (C) 2026 ravindu644 <droidcasts@protonmail.com>
 
