@@ -836,7 +836,7 @@ static int do_get_hook_type(void __user *arg)
     return 0;
 }
 
-// 102. ENABLE_KPM - Check if KPM is enabled
+// 107. ENABLE_KPM - Check if KPM is enabled
 static int do_enable_kpm(void __user *arg)
 {
     struct ksu_enable_kpm_cmd cmd;
