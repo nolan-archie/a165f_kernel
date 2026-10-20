@@ -241,20 +241,16 @@ def validate_non_event_contract(local_header: str, upstream_header: str) -> None
 
 
 def merge_manager_uapi(local_header: str, upstream_header: str) -> str:
-    """Merge the manager header include and dynamic-manager ioctl."""
+    """Keep the fork's dynamic-manager ioctl when upstream omits it."""
     manager_include = '#include "uapi/manager.h"'
-    if not re.search(r'^\s*#include\s+"uapi/manager\.h"\s*$', upstream_header, re.MULTILINE):
-        fail('upstream supercall.h no longer includes "uapi/manager.h"')
-
     upstream_constants = declared_constants(upstream_header)
     manager_ioctl = upstream_constants.get("KSU_IOCTL_MANAGER")
-    if not manager_ioctl:
-        fail("upstream supercall.h has no KSU_IOCTL_MANAGER declaration")
-
     local_constants = declared_constants(local_header)
     local_ioctl = local_constants.get("KSU_IOCTL_MANAGER")
-    if local_ioctl and local_ioctl != manager_ioctl:
+    if manager_ioctl and local_ioctl and local_ioctl != manager_ioctl:
         fail("local KSU_IOCTL_MANAGER declaration differs from upstream")
+    if not manager_ioctl and not local_ioctl:
+        fail("neither upstream nor local supercall.h declares KSU_IOCTL_MANAGER")
 
     lines = local_header.splitlines()
     if manager_include not in {
@@ -271,7 +267,7 @@ def merge_manager_uapi(local_header: str, upstream_header: str) -> str:
             fail('could not find a place for the "uapi/manager.h" include')
         lines.insert(app_profile_include + 1, manager_include)
 
-    if not local_ioctl:
+    if not local_ioctl and manager_ioctl:
         ioctl_line = next(
             (
                 line for line in upstream_header.splitlines()
@@ -513,23 +509,36 @@ def merge_manager_dispatch(
     upstream_dispatch: str,
     local_dispatch: str,
 ) -> str:
-    """Import do_manager() and its permission-checked ioctl map entry."""
-    _, _, upstream_function = extract_static_int_function(
-        upstream_dispatch, "do_manager"
-    )
-    if (
-        "ksu_dynamic_manager_get" not in upstream_function
-        or "ksu_dynamic_manager_set" not in upstream_function
-    ):
-        fail("upstream do_manager() does not implement GET and mutation operations")
+    """Sync do_manager() when upstream has it, retaining the fork extension otherwise."""
+    upstream_masked = mask_comments_and_strings(upstream_dispatch)
+    upstream_has_function = re.search(
+        r"\bstatic\s+int\s+do_manager\s*\(", upstream_masked
+    ) is not None
+    upstream_has_entry = re.search(
+        r"\.cmd\s*=\s*KSU_IOCTL_MANAGER\b", upstream_masked
+    ) is not None
+    if upstream_has_function != upstream_has_entry:
+        fail("upstream has an incomplete KSU_IOCTL_MANAGER implementation")
 
-    _, _, upstream_entry = extract_ioctl_entry(
-        upstream_dispatch, "KSU_IOCTL_MANAGER"
-    )
-    if not re.search(r"\.handler\s*=\s*do_manager\b", upstream_entry):
-        fail("upstream KSU_IOCTL_MANAGER entry has no do_manager() handler")
-    if not re.search(r"\.perm_check\s*=\s*manager_or_root\b", upstream_entry):
-        fail("upstream KSU_IOCTL_MANAGER entry has unexpected permissions")
+    upstream_function = None
+    upstream_entry = None
+    if upstream_has_function:
+        _, _, upstream_function = extract_static_int_function(
+            upstream_dispatch, "do_manager"
+        )
+        if (
+            "ksu_dynamic_manager_get" not in upstream_function
+            or "ksu_dynamic_manager_set" not in upstream_function
+        ):
+            fail("upstream do_manager() does not implement GET and mutation operations")
+
+        _, _, upstream_entry = extract_ioctl_entry(
+            upstream_dispatch, "KSU_IOCTL_MANAGER"
+        )
+        if not re.search(r"\.handler\s*=\s*do_manager\b", upstream_entry):
+            fail("upstream KSU_IOCTL_MANAGER entry has no do_manager() handler")
+        if not re.search(r"\.perm_check\s*=\s*manager_or_root\b", upstream_entry):
+            fail("upstream KSU_IOCTL_MANAGER entry has unexpected permissions")
 
     if re.search(
         r"\bstatic\s+int\s+do_manager\s*\(",
@@ -540,7 +549,14 @@ def merge_manager_dispatch(
         )
     else:
         local_function = None
+    if upstream_function is None and local_function is not None and (
+        "ksu_dynamic_manager_get" not in local_function
+        or "ksu_dynamic_manager_set" not in local_function
+    ):
+        fail("local do_manager() does not implement GET and mutation operations")
     if local_function is None:
+        if upstream_function is None:
+            fail("upstream dropped KSU_IOCTL_MANAGER and local do_manager() is missing")
         masked = mask_comments_and_strings(local_dispatch)
         anchor = re.search(
             r"(?=\bstatic\s+int\s+do_set_sepolicy\s*\()", masked
@@ -553,7 +569,7 @@ def merge_manager_dispatch(
             + "\n\n"
             + local_dispatch[anchor.start():]
         )
-    else:
+    elif upstream_function is not None:
         local_dispatch = (
             local_dispatch[:local_start]
             + upstream_function
@@ -575,6 +591,8 @@ def merge_manager_dispatch(
         if not re.search(r"\.perm_check\s*=\s*manager_or_root\b", local_entry):
             fail("local KSU_IOCTL_MANAGER entry has unexpected permissions")
     else:
+        if upstream_entry is None:
+            fail("upstream dropped KSU_IOCTL_MANAGER and local ioctl entry is missing")
         masked = mask_comments_and_strings(local_dispatch)
         table = re.search(
             r"static\s+const\s+struct\s+ksu_ioctl_cmd_map\s+"
