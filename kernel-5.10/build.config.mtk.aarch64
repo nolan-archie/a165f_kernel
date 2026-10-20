@@ -25,3 +25,7 @@ KMI_SYMBOL_LIST=android/abi_gki_aarch64_mtk
 GKI_MODULES_LIST=android/gki_aarch64_modules
 ABI_DEFINITION=android/abi_gki_aarch64.xml
 SKIP_CP_KERNEL_HDR=1
+# Keep A16 module dependencies outside the generic GKI KMI list.
+# This includes CFI helpers, so do not trim exports or run strict KMI checks.
+TRIM_NONLISTED_KMI=
+KMI_SYMBOL_LIST_STRICT_MODE=
