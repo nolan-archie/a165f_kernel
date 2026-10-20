@@ -61,13 +61,13 @@ if [ ! -d "$KSU_DIR" ]; then
 fi
 
 echo "[update] Snapshotting manager files..."
-BEFORE_HASH="$(find "$KSU_DIR/manager" "$KSU_DIR/include" "$KSU_DIR/supercall" "$KSU_DIR/Makefile" -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum || echo none)"
+BEFORE_HASH="$(find "$KSU_DIR/manager" "$KSU_DIR/include" "$KSU_DIR/supercall" "$KSU_DIR/Makefile" "$KSU_DIR/infra/symbol_resolver.c" "$KSU_DIR/infra/symbol_resolver.h" -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum || echo none)"
 
 echo "[update] Running sync-manager-detection.sh..."
 SYNC_EXIT=0
 bash "$SYNC_SCRIPT" "$KSU_DIR" || SYNC_EXIT=$?
 
-AFTER_HASH="$(find "$KSU_DIR/manager" "$KSU_DIR/include" "$KSU_DIR/supercall" "$KSU_DIR/Makefile" -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum || echo none)"
+AFTER_HASH="$(find "$KSU_DIR/manager" "$KSU_DIR/include" "$KSU_DIR/supercall" "$KSU_DIR/Makefile" "$KSU_DIR/infra/symbol_resolver.c" "$KSU_DIR/infra/symbol_resolver.h" -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum || echo none)"
 CHANGED=0
 [ "$BEFORE_HASH" != "$AFTER_HASH" ] && CHANGED=1
 echo "[update] changed=$CHANGED"
@@ -83,6 +83,8 @@ if [ "$CHANGED" -eq 1 ] && [ "$SYNC_EXIT" -eq 0 ]; then
   git add -A -- \
     "$KSU_GIT_DIR/manager" \
     "$KSU_GIT_DIR/include" \
+    "$KSU_GIT_DIR/infra/symbol_resolver.c" \
+    "$KSU_GIT_DIR/infra/symbol_resolver.h" \
     "$KSU_GIT_DIR/supercall" \
     "$KSU_GIT_DIR/Makefile"
   git commit -m "Weekly sync: update manager-detection [skip ci]" || true

@@ -20,6 +20,57 @@ def fail(message: str) -> None:
     raise SystemExit(f"[uapi-sync] {message}")
 
 
+def strip_c_comments(source: str) -> str:
+    """Remove comments without changing string or character literals."""
+    chars = list(source)
+    state = "code"
+    i = 0
+    while i < len(source):
+        char = source[i]
+        nxt = source[i + 1] if i + 1 < len(source) else ""
+        if state == "code":
+            if char == "/" and nxt == "/":
+                chars[i] = chars[i + 1] = " "
+                i += 2
+                state = "line_comment"
+                continue
+            if char == "/" and nxt == "*":
+                chars[i] = chars[i + 1] = " "
+                i += 2
+                state = "block_comment"
+                continue
+            if char == '"':
+                state = "string"
+            elif char == "'":
+                state = "char"
+            i += 1
+            continue
+        if state == "line_comment":
+            if char == "\n":
+                state = "code"
+            else:
+                chars[i] = " "
+            i += 1
+            continue
+        if state == "block_comment":
+            if char == "*" and nxt == "/":
+                chars[i] = chars[i + 1] = " "
+                i += 2
+                state = "code"
+            else:
+                if char != "\n":
+                    chars[i] = " "
+                i += 1
+            continue
+        if char == "\\":
+            i += 2
+            continue
+        if (state == "string" and char == '"') or (state == "char" and char == "'"):
+            state = "code"
+        i += 1
+    return "".join(chars)
+
+
 def convert_uapi(source: str) -> str:
     """Adapt upstream static constants to the local bindgen-aware form."""
     if "#define DECLARE" in source:
@@ -67,21 +118,28 @@ def convert_uapi(source: str) -> str:
 
 
 def declared_constants(header: str) -> dict[str, str]:
-    declarations = re.finditer(
-        r"^[ \t]*DECLARE\(\s*([^,\n]+?)\s*,\s*([A-Za-z_]\w*)"
-        r"\s*,\s*(.*?)\)\s*;",
-        header,
-        flags=re.MULTILINE,
-    )
-    return {
-        match.group(2): re.sub(r"\s+", "", match.group(0))
-        for match in declarations
-    }
-
-
-def declared_structures(header: str) -> dict[str, str]:
     masked = mask_comments_and_strings(header)
-    structures: dict[str, str] = {}
+    declarations = {}
+    for match in re.finditer(r"^[ \t]*DECLARE\(", masked, flags=re.MULTILINE):
+        end = masked.find(";", match.start())
+        if end < 0:
+            fail("unterminated DECLARE() in UAPI header")
+        statement = masked[match.start():end + 1]
+        name = re.match(
+            r"^[ \t]*DECLARE\(\s*[^,\n]+?\s*,\s*([A-Za-z_]\w*)",
+            statement,
+        )
+        if name:
+            raw = header[match.start():end + 1]
+            declarations[name.group(1)] = re.sub(
+                r"\s+", "", strip_c_comments(raw)
+            )
+    return declarations
+
+
+def structure_declarations(header: str) -> list[tuple[int, str, str, str]]:
+    masked = mask_comments_and_strings(header)
+    structures = []
     for match in re.finditer(r"\bstruct\s+([A-Za-z_]\w*)\s*\{", masked):
         open_pos = masked.find("{", match.start(), match.end())
         close_pos = matching_brace(header, open_pos, masked)
@@ -89,10 +147,63 @@ def declared_structures(header: str) -> dict[str, str]:
         while end < len(masked) and masked[end].isspace():
             end += 1
         if end < len(masked) and masked[end] == ";":
-            structures[match.group(1)] = re.sub(
-                r"\s+", "", masked[match.start():end + 1]
-            )
+            end += 1
+            raw = header[match.start():end]
+            normalized = re.sub(r"\b__user\b", "", masked[match.start():end])
+            structures.append((match.start(), match.group(1), raw, re.sub(r"\s+", "", normalized)))
     return structures
+
+
+def declared_structures(header: str) -> dict[str, str]:
+    return {name: definition for _, name, _, definition in structure_declarations(header)}
+
+
+def append_upstream_declarations(local_header: str, upstream_header: str) -> tuple[str, list[str]]:
+    """Add new upstream constants/structs while preserving local-only ABI items."""
+    local_constants = declared_constants(local_header)
+    local_structs = declared_structures(local_header)
+    masked = mask_comments_and_strings(upstream_header)
+    additions: list[tuple[int, str, str]] = []
+
+    for match in re.finditer(r"^[ \t]*DECLARE\(", masked, flags=re.MULTILINE):
+        end = masked.find(";", match.start())
+        if end < 0:
+            fail("unterminated upstream DECLARE()")
+        statement = masked[match.start():end + 1]
+        name = re.match(
+            r"^[ \t]*DECLARE\(\s*[^,\n]+?\s*,\s*([A-Za-z_]\w*)",
+            statement,
+        )
+        if not name:
+            continue
+        symbol = name.group(1)
+        if symbol == "KERNEL_SU_UAPI_VERSION" or symbol.startswith("EVENT_"):
+            continue
+        if symbol not in local_constants:
+            raw = upstream_header[match.start():end + 1].rstrip()
+            additions.append((match.start(), symbol, raw))
+            local_constants[symbol] = re.sub(r"\s+", "", statement)
+
+    for offset, name, raw, _ in structure_declarations(upstream_header):
+        if name not in local_structs:
+            additions.append((offset, f"struct {name}", raw.rstrip()))
+            local_structs[name] = ""
+
+    additions.sort(key=lambda item: item[0])
+    if not additions:
+        return local_header, []
+
+    endif_matches = list(re.finditer(r"^[ \t]*#endif\b", local_header, flags=re.MULTILINE))
+    if not endif_matches:
+        fail("could not find the final include guard in the local UAPI header")
+
+    insert_at = endif_matches[-1].start()
+    prefix = local_header[:insert_at].rstrip()
+    suffix = local_header[insert_at:]
+    names = [name for _, name, _ in additions]
+    block = "\n\n/* Additive declarations imported from SukiSU-Ultra/main. */\n"
+    block += "\n\n".join(raw for _, _, raw in additions)
+    return prefix + block + "\n\n" + suffix, names
 
 
 def validate_non_event_contract(local_header: str, upstream_header: str) -> None:
@@ -111,13 +222,13 @@ def validate_non_event_contract(local_header: str, upstream_header: str) -> None
     for name, definition in upstream_constants.items():
         if name == "KERNEL_SU_UAPI_VERSION" or name.startswith("EVENT_"):
             continue
-        if local_constants.get(name) != definition:
+        if name in local_constants and local_constants[name] != definition:
             incompatible.append(name)
 
     local_structures = declared_structures(local_header)
     upstream_structures = declared_structures(upstream_header)
     for name, definition in upstream_structures.items():
-        if local_structures.get(name) != definition:
+        if name in local_structures and local_structures[name] != definition:
             incompatible.append(f"struct {name}")
 
     if missing_includes:
@@ -188,7 +299,7 @@ def merge_manager_uapi(local_header: str, upstream_header: str) -> str:
 
 
 def merge_uapi_header(local_header: str, upstream_header: str) -> str:
-    """Update the version and events while preserving local extensions."""
+    """Update the version/events and import additive upstream ABI declarations."""
     version = re.search(
         r"DECLARE\(\s*__u32\s*,\s*KERNEL_SU_UAPI_VERSION\s*,\s*(\d+)\s*\)",
         upstream_header,
@@ -202,6 +313,10 @@ def merge_uapi_header(local_header: str, upstream_header: str) -> str:
             upstream_event_lines.append(line)
     if not upstream_event_lines:
         fail("upstream supercall.h has no EVENT_* declarations")
+
+    local_header, additions = append_upstream_declarations(local_header, upstream_header)
+    if additions:
+        print("[uapi-sync] imported additive UAPI declarations: " + ", ".join(additions))
 
     local_lines = local_header.splitlines()
     local_event_indexes = [
@@ -489,6 +604,96 @@ def merge_manager_dispatch(
     return local_dispatch
 
 
+def merge_lookup_symbols_dispatch(
+    upstream_dispatch: str,
+    local_dispatch: str,
+) -> str:
+    """Import the UAPI v6 symbol lookup handler and its permission-checked ioctl."""
+    _, _, upstream_function = extract_static_int_function(
+        upstream_dispatch, "do_lookup_symbols"
+    )
+    if (
+        "ksu_lookup_kernel_symbols" not in upstream_function
+        or "KSU_LOOKUP_SYMBOLS_MAX" not in upstream_function
+    ):
+        fail("upstream do_lookup_symbols() does not implement the v6 lookup contract")
+
+    _, _, upstream_entry = extract_ioctl_entry(
+        upstream_dispatch, "KSU_IOCTL_LOOKUP_SYMBOLS"
+    )
+    if not re.search(r"\.handler\s*=\s*do_lookup_symbols\b", upstream_entry):
+        fail("upstream KSU_IOCTL_LOOKUP_SYMBOLS entry has no lookup handler")
+    if not re.search(r"\.perm_check\s*=\s*only_root\b", upstream_entry):
+        fail("upstream KSU_IOCTL_LOOKUP_SYMBOLS entry has unexpected permissions")
+
+    masked = mask_comments_and_strings(local_dispatch)
+    if re.search(r"\bstatic\s+int\s+do_lookup_symbols\s*\(", masked):
+        local_start, local_end, local_function = extract_static_int_function(
+            local_dispatch, "do_lookup_symbols"
+        )
+        if "ksu_lookup_kernel_symbols" not in local_function:
+            fail("local do_lookup_symbols() has an unexpected implementation")
+        local_dispatch = (
+            local_dispatch[:local_start]
+            + upstream_function
+            + local_dispatch[local_end:]
+        )
+    else:
+        anchor = re.search(
+            r"(?=static\s+const\s+struct\s+ksu_ioctl_cmd_map\s+"
+            r"ksu_ioctl_handlers\s*\[\s*\]\s*=\s*\{)",
+            masked,
+        )
+        if not anchor:
+            fail("could not find ksu_ioctl_handlers[] for do_lookup_symbols()")
+        local_dispatch = (
+            local_dispatch[:anchor.start()]
+            + upstream_function
+            + "\n\n"
+            + local_dispatch[anchor.start():]
+        )
+
+    masked = mask_comments_and_strings(local_dispatch)
+    if re.search(r"\.cmd\s*=\s*KSU_IOCTL_LOOKUP_SYMBOLS\b", masked):
+        entry_start, entry_end, local_entry = extract_ioctl_entry(
+            local_dispatch, "KSU_IOCTL_LOOKUP_SYMBOLS"
+        )
+        if not re.search(r"\.handler\s*=\s*do_lookup_symbols\b", local_entry):
+            fail("local KSU_IOCTL_LOOKUP_SYMBOLS entry has an unexpected handler")
+        if not re.search(r"\.perm_check\s*=\s*only_root\b", local_entry):
+            fail("local KSU_IOCTL_LOOKUP_SYMBOLS entry has unexpected permissions")
+        local_dispatch = (
+            local_dispatch[:entry_start]
+            + upstream_entry
+            + local_dispatch[entry_end:]
+        )
+    else:
+        table = re.search(
+            r"static\s+const\s+struct\s+ksu_ioctl_cmd_map\s+"
+            r"ksu_ioctl_handlers\s*\[\s*\]\s*=\s*\{",
+            masked,
+        )
+        if not table:
+            fail("could not find ksu_ioctl_handlers[]")
+        table_open = table.end() - 1
+        table_close = matching_brace(local_dispatch, table_open, masked)
+        table_body = masked[table_open + 1:table_close]
+        anchor = re.search(r"\{\s*\.cmd\s*=\s*0\b", table_body)
+        if not anchor:
+            fail("could not find the ioctl map sentinel for KSU_IOCTL_LOOKUP_SYMBOLS")
+        insert_at = table_open + 1 + anchor.start()
+        local_dispatch = (
+            local_dispatch[:insert_at]
+            + upstream_entry
+            + ",\n    "
+            + local_dispatch[insert_at:]
+        )
+
+    if '#include "infra/symbol_resolver.h"' not in local_dispatch:
+        local_dispatch = '#include "infra/symbol_resolver.h"\n' + local_dispatch
+    return local_dispatch
+
+
 def event_cases(function: str) -> tuple[list[tuple[str, int, int]], int]:
     masked = mask_comments_and_strings(function)
     switch = re.search(r"\bswitch\s*\(\s*cmd\.event\s*\)\s*\{", masked)
@@ -622,10 +827,12 @@ def main() -> None:
         upstream_dispatch,
         local_dispatch_path.read_text(),
     )
+    merged_dispatch = merge_lookup_symbols_dispatch(upstream_dispatch, merged_dispatch)
     merged_dispatch = merge_manager_dispatch(upstream_dispatch, merged_dispatch)
 
     header_changed = write_if_changed(local_header_path, merged_header)
     dispatch_changed = write_if_changed(local_dispatch_path, merged_dispatch)
+    validate_non_event_contract(merged_header, upstream_header)
     version = re.search(
         r"DECLARE\(\s*__u32\s*,\s*KERNEL_SU_UAPI_VERSION\s*,\s*(\d+)\s*\)",
         upstream_header,

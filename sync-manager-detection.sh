@@ -24,9 +24,9 @@ git clone --filter=blob:none --no-checkout --depth=50 \
   https://github.com/SukiSU-Ultra/SukiSU-Ultra.git "$WORK_DIR/repo" >/dev/null 2>&1
 cd "$WORK_DIR/repo"
 git sparse-checkout init --cone >/dev/null 2>&1
-git sparse-checkout set uapi kernel/manager kernel/include kernel/supercall >/dev/null 2>&1
-git checkout -q origin/main -- uapi kernel/manager kernel/include kernel/supercall 2>/dev/null || \
-  git checkout -q main -- uapi kernel/manager kernel/include kernel/supercall
+git sparse-checkout set uapi kernel/manager kernel/include kernel/infra kernel/supercall >/dev/null 2>&1
+git checkout -q origin/main -- uapi kernel/manager kernel/include kernel/infra kernel/supercall 2>/dev/null || \
+  git checkout -q main -- uapi kernel/manager kernel/include kernel/infra kernel/supercall
 
 MANAGER_FILES=(
   apk_sign.c
@@ -96,6 +96,30 @@ for f in "${INCLUDE_FILES[@]}"; do
   else
     cp "$SRC" "$DST"
     echo "    [sync] include/$f updated"
+    CHANGED=1
+  fi
+done
+
+# UAPI v6 adds batched symbol lookup. Keep its resolver implementation synced
+# with upstream so the new ioctl is backed by the same kernel-side behavior.
+RESOLVER_FILES=(
+  symbol_resolver.c
+  symbol_resolver.h
+)
+echo "[+] Syncing UAPI symbol resolver..."
+mkdir -p "$TARGET_DIR/infra"
+for f in "${RESOLVER_FILES[@]}"; do
+  SRC="kernel/infra/$f"
+  DST="$TARGET_DIR/infra/$f"
+  if [ ! -f "$SRC" ]; then
+    echo "[ERROR] $SRC not found upstream; refusing to build without the UAPI v6 resolver." >&2
+    exit 1
+  fi
+  if [ -f "$DST" ] && diff -q "$SRC" "$DST" >/dev/null 2>&1; then
+    echo "    [ok]   infra/$f already up to date"
+  else
+    cp "$SRC" "$DST"
+    echo "    [sync] infra/$f updated"
     CHANGED=1
   fi
 done

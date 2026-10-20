@@ -13,6 +13,7 @@
 
 // kernel compat, lite ones
 #include "infra/kernel_compat.h"
+#include "infra/symbol_resolver.h"
 
 #include "policy/app_profile.h"
 #include "policy/allowlist.h"
@@ -78,6 +79,7 @@
 #include "infra/su_mount_ns.c"
 #include "infra/file_wrapper.c"
 #include "infra/event_queue.c"
+#include "infra/symbol_resolver.c"
 
 #ifdef CONFIG_KSU_FEATURE_ADBROOT
 #include "feature/adb_root.c"
@@ -136,6 +138,8 @@ int __init kernelsu_init(void)
 #endif
 
     ksu_feature_init();
+
+    ksu_init_symbol_resolver();
 
     ksu_supercalls_init();
 
