@@ -47,7 +47,8 @@
 
 #include <linux/blkdev.h>
 #include "../../scsi/sd.h"
-#ifdef CONFIG_USB_DEBUG_DETAILED_LOG
+#ifdef CONFIG_USB_HOST_SAMSUNG_FEATURE
+/* usb_remove_device() is also used by the Samsung storage recovery path. */
 #include "../core/usb.h"
 #endif
 
