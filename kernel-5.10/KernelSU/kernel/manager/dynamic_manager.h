@@ -7,6 +7,10 @@
 #include "uapi/supercall.h"
 
 #ifdef CONFIG_KSU_DISABLE_MANAGER
+static inline bool ksu_manager_enabled(void)
+{
+    return false;
+}
 static inline bool ksu_dynamic_manager_match(const char *package, unsigned int size, const char *hash)
 {
     (void)package;
@@ -45,6 +49,7 @@ static inline int ksu_dynamic_manager_get(struct ksu_manager_cmd *cmd)
     return -EOPNOTSUPP;
 }
 #else
+bool ksu_manager_enabled(void);
 bool ksu_dynamic_manager_match(const char *package, unsigned int size, const char *hash);
 bool ksu_dynamic_manager_package_registered(const char *package);
 bool ksu_dynamic_manager_verify_apk(char *path, const char *package, uid_t uid);
