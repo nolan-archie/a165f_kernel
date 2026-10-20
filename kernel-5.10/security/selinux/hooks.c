@@ -106,7 +106,8 @@
 
 struct selinux_state selinux_state;
 #ifdef CONFIG_KSU_SUSFS
-extern struct selinux_state fake_state;
+/* Older KernelSU snapshots provide this state; keep a fallback for newer ones. */
+struct selinux_state fake_state __weak;
 extern bool ksu_selinux_hide_running __read_mostly;
 #endif // #ifdef CONFIG_KSU_SUSFS
 

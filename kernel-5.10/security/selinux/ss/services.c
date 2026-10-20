@@ -68,6 +68,28 @@
 
 #include <trace/hooks/selinux.h>
 
+#ifdef CONFIG_KSU_SUSFS
+extern struct selinux_state fake_state;
+extern struct selinux_policy *backup_sepolicy;
+
+/* Keep legacy state-based SELinux hooks on KernelSU's backup policy. */
+static bool ksu_sync_fake_state(struct selinux_state *state)
+{
+	struct selinux_policy *policy;
+
+	if (state != &fake_state)
+		return true;
+
+	policy = READ_ONCE(backup_sepolicy);
+	if (!policy)
+		return false;
+
+	rcu_assign_pointer(state->policy, policy);
+	WRITE_ONCE(state->initialized, true);
+	return true;
+}
+#endif
+
 struct convert_context_args {
 	struct selinux_state *state;
 	struct policydb *oldp;
@@ -1179,6 +1201,12 @@ void security_compute_av_user(struct selinux_state *state,
 	struct sidtab *sidtab;
 	struct context *scontext = NULL, *tcontext = NULL;
 
+#ifdef CONFIG_KSU_SUSFS
+	if (unlikely(!ksu_sync_fake_state(state))) {
+		memset(avd, 0, sizeof(*avd));
+		return;
+	}
+#endif
 	rcu_read_lock();
 	policy = rcu_dereference(state->policy);
 	avd_init(policy, avd);
@@ -1339,6 +1367,10 @@ static int security_sid_to_context_core(struct selinux_state *state,
 		*scontext = NULL;
 	*scontext_len  = 0;
 
+#ifdef CONFIG_KSU_SUSFS
+	if (unlikely(!ksu_sync_fake_state(state)))
+		return -EINVAL;
+#endif
 	if (!selinux_initialized(state)) {
 		if (sid <= SECINITSID_NUM) {
 			char *scontextp;
@@ -1523,6 +1555,10 @@ static int security_context_to_sid_core(struct selinux_state *state,
 	struct context context;
 	int rc = 0;
 
+#ifdef CONFIG_KSU_SUSFS
+	if (unlikely(!ksu_sync_fake_state(state)))
+		return -EINVAL;
+#endif
 	/* An empty security context is never valid. */
 	if (!scontext_len)
 		return -EINVAL;
