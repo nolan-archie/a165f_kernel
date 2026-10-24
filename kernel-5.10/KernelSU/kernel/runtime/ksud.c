@@ -61,9 +61,9 @@ void on_post_fs_data(void)
         static_branch_disable(&ksu_is_input_hook_enabled);
         pr_info("ksu_input_hook is disabled\n");
     }
-#else
-    stop_input_hook();
 #endif
+    /* The SUSFS static key does not unregister vol_detector_handler. */
+    stop_input_hook();
     ksu_selinux_hide_handle_post_fs_data();
 }
 
@@ -583,9 +583,8 @@ bool ksu_is_safe_mode(void)
         static_branch_disable(&ksu_is_input_hook_enabled);
         pr_info("ksu_input_hook is disabled\n");
     }
-#else
-    stop_input_hook();
 #endif
+    stop_input_hook();
 
     if (!safe_mode_flag)
         return false;
@@ -600,7 +599,12 @@ static void vol_detector_event(struct input_handle *handle, unsigned int type, u
     static int vol_up_cnt = 0;
     static int vol_down_cnt = 0;
 
-    if (!value)
+    /* Safe mode is decided during early boot; ignore any late input events. */
+    if (!ksu_input_hook || ksu_module_mounted || ksu_boot_completed)
+        return;
+
+    /* Ignore EV_KEY autorepeat (value 2); only count a physical key-down. */
+    if (value != 1)
         return;
 
     if (type != EV_KEY)
