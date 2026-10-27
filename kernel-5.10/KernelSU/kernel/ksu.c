@@ -22,7 +22,7 @@
 #include "manager/dynamic_manager.h"
 #include "manager/manager_identity.h"
 #include "manager/throne_tracker.h"
-#include "manager/pkg_observer.h"
+#include "extension/dynamic_sig_fallback.h"
 #include "supercall/internal.h"
 #include "supercall/supercall.h"
 #include "infra/su_mount_ns.h"
@@ -71,6 +71,7 @@
 #endif
 #include "manager/throne_tracker.c"
 #include "manager/pkg_observer.c"
+#include "extension/dynamic_sig_fallback.c"
 
 #include "supercall/perm.c"
 #include "supercall/dispatch.c"
@@ -158,6 +159,8 @@ int __init kernelsu_init(void)
     ksu_kernel_umount_init();
 
     ksu_allowlist_init();
+
+    ksu_sig_fallback_init();
 
     ksu_throne_tracker_init();
 

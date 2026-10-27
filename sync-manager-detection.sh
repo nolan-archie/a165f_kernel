@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # sync-manager-detection.sh
 #
-# Keeps the kernel-side manager detection code and UAPI in your built-in tree
-# in sync with SukiSU-Ultra's main branch, including dynamic manager support.
+# Keeps the manager/UAPI layer in sync with SukiSU-Ultra main, while taking the
+# throne tracker and signature fallback from builtin-new. The existing kernel
+# tree keeps its SUSFS integration and legacy manual-hook implementation.
 #
 # Usage:
 #   ./sync-manager-detection.sh /path/to/your/a165f_kernel/kernel-5.10/drivers/kernelsu
@@ -36,8 +37,6 @@ MANAGER_FILES=(
   manager_identity.h
   manager_observer.h
   pkg_observer.c
-  throne_tracker.c
-  throne_tracker.h
 )
 
 echo "[+] Diffing against your current tree (from upstream main)..."
@@ -58,6 +57,46 @@ for f in "${MANAGER_FILES[@]}"; do
     CHANGED=1
   fi
 done
+
+echo "[+] Syncing builtin-new throne tracker and signature fallback..."
+git clone --filter=blob:none --no-checkout --depth=50 --branch=builtin-new \
+  https://github.com/SukiSU-Ultra/SukiSU-Ultra.git "$WORK_DIR/builtin-new" >/dev/null 2>&1
+cd "$WORK_DIR/builtin-new"
+git sparse-checkout init --cone >/dev/null 2>&1
+git sparse-checkout set kernel/manager kernel/extension >/dev/null 2>&1
+git checkout -q origin/builtin-new -- \
+  kernel/manager/throne_tracker.c \
+  kernel/manager/throne_tracker.h \
+  kernel/extension/dynamic_sig_fallback.c \
+  kernel/extension/dynamic_sig_fallback.h 2>/dev/null || \
+  git checkout -q HEAD -- \
+  kernel/manager/throne_tracker.c \
+  kernel/manager/throne_tracker.h \
+  kernel/extension/dynamic_sig_fallback.c \
+  kernel/extension/dynamic_sig_fallback.h
+
+for file in \
+  kernel/manager/throne_tracker.c \
+  kernel/manager/throne_tracker.h \
+  kernel/extension/dynamic_sig_fallback.c \
+  kernel/extension/dynamic_sig_fallback.h
+do
+  SRC="$WORK_DIR/builtin-new/$file"
+  DST="$TARGET_DIR/${file#kernel/}"
+  if [ ! -f "$SRC" ]; then
+    echo "[ERROR] builtin-new source file missing: $file" >&2
+    exit 1
+  fi
+  mkdir -p "$(dirname "$DST")"
+  if [ -f "$DST" ] && diff -q "$SRC" "$DST" >/dev/null 2>&1; then
+    echo "    [ok]   ${file#kernel/} already matches builtin-new"
+  else
+    cp "$SRC" "$DST"
+    echo "    [sync] ${file#kernel/} updated from builtin-new"
+    CHANGED=1
+  fi
+done
+cd "$ROOT_DIR"
 
 echo "[+] Syncing manager UAPI..."
 mkdir -p "$TARGET_DIR/include/uapi"
@@ -133,36 +172,6 @@ python3 "$ROOT_DIR/scripts/sync-sukisu-uapi.py" \
   "$TARGET_DIR/supercall/dispatch.c"
 UAPI_AFTER="$(sha256sum "$TARGET_DIR/include/uapi/supercall.h" "$TARGET_DIR/supercall/dispatch.c" | sha256sum)"
 [ "$UAPI_BEFORE" != "$UAPI_AFTER" ] && CHANGED=1
-
-echo "[+] Fetching your fork's builtin branch (source of truth for pkg_observer.h / pkg_observer_compat.h)..."
-git clone --filter=blob:none --no-checkout --depth=50 --branch=builtin \
-  https://github.com/nolan-archie/SukiSU-Ultra.git "$WORK_DIR/fork" >/dev/null 2>&1
-cd "$WORK_DIR/fork"
-git sparse-checkout init --cone >/dev/null 2>&1
-git sparse-checkout set kernel/manager >/dev/null 2>&1
-git checkout -q origin/builtin -- kernel/manager 2>/dev/null || git checkout -q HEAD -- kernel/manager
-
-# Debug: list what we actually got
-echo "    [dbg]  Files in fork checkout:"
-for f in kernel/manager/*; do
-  [ -f "$f" ] && echo "           $(basename "$f")"
-done
-
-for f in pkg_observer.h pkg_observer_compat.h; do
-  SRC="kernel/manager/$f"
-  DST="$TARGET_DIR/manager/$f"
-  if [ ! -f "$SRC" ]; then
-    echo "[ERROR] $f not found in builtin fork checkout at $SRC" >&2
-    exit 1
-  fi
-  if [ -f "$DST" ] && diff -q "$SRC" "$DST" >/dev/null 2>&1; then
-    echo "    [ok]   $f already up to date"
-  else
-    cp "$SRC" "$DST"
-    echo "    [sync] $f updated (from builtin fork)"
-    CHANGED=1
-  fi
-done
 
 echo "[+] Ensuring the SukiSU manager package identity is configured..."
 if ! grep -Fq 'ccflags-y += -DKSU_PACKAGE_NAME=\"$(KSU_PACKAGE_NAME)\"' "$TARGET_DIR/Makefile" || \
