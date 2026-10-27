@@ -166,7 +166,7 @@ if [ -f "$UPSTREAM_RESOLVER_C" ] && [ -f "$UPSTREAM_RESOLVER_H" ]; then
     exit 1
   fi
   for f in "${RESOLVER_FILES[@]}"; do
-    SRC="kernel/infra/$f"
+    SRC="$WORK_DIR/repo/kernel/infra/$f"
     DST="$TARGET_DIR/infra/$f"
     if [ -f "$DST" ] && diff -q "$SRC" "$DST" >/dev/null 2>&1; then
       echo "    [ok]   infra/$f already up to date"
