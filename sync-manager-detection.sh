@@ -139,29 +139,56 @@ for f in "${INCLUDE_FILES[@]}"; do
   fi
 done
 
-# UAPI v6 adds batched symbol lookup. Keep its resolver implementation synced
-# with upstream so the new ioctl is backed by the same kernel-side behavior.
+# UAPI v6 adds batched symbol lookup. Prefer syncing its resolver from upstream,
+# but keep the known local implementation when a partial upstream checkout omits
+# either file. In both cases, verify that the v6 lookup API is present.
 RESOLVER_FILES=(
   symbol_resolver.c
   symbol_resolver.h
 )
 echo "[+] Syncing UAPI symbol resolver..."
 mkdir -p "$TARGET_DIR/infra"
-for f in "${RESOLVER_FILES[@]}"; do
-  SRC="kernel/infra/$f"
-  DST="$TARGET_DIR/infra/$f"
-  if [ ! -f "$SRC" ]; then
-    echo "[ERROR] $SRC not found upstream; refusing to build without the UAPI v6 resolver." >&2
+resolver_api_present() {
+  local source_file="$1"
+  local header_file="$2"
+  [ -f "$source_file" ] && [ -f "$header_file" ] && \
+    grep -Eq 'int([[:space:]]+__nocfi)?[[:space:]]+ksu_lookup_kernel_symbols[[:space:]]*\(' "$source_file" && \
+    grep -Eq 'int[[:space:]]+ksu_lookup_kernel_symbols[[:space:]]*\(' "$header_file"
+}
+
+UPSTREAM_RESOLVER_C="$WORK_DIR/repo/kernel/infra/symbol_resolver.c"
+UPSTREAM_RESOLVER_H="$WORK_DIR/repo/kernel/infra/symbol_resolver.h"
+LOCAL_RESOLVER_C="$TARGET_DIR/infra/symbol_resolver.c"
+LOCAL_RESOLVER_H="$TARGET_DIR/infra/symbol_resolver.h"
+if [ -f "$UPSTREAM_RESOLVER_C" ] && [ -f "$UPSTREAM_RESOLVER_H" ]; then
+  if ! resolver_api_present "$UPSTREAM_RESOLVER_C" "$UPSTREAM_RESOLVER_H"; then
+    echo "[ERROR] Upstream symbol resolver does not implement the UAPI v6 lookup API." >&2
     exit 1
   fi
-  if [ -f "$DST" ] && diff -q "$SRC" "$DST" >/dev/null 2>&1; then
-    echo "    [ok]   infra/$f already up to date"
-  else
-    cp "$SRC" "$DST"
-    echo "    [sync] infra/$f updated"
-    CHANGED=1
+  for f in "${RESOLVER_FILES[@]}"; do
+    SRC="kernel/infra/$f"
+    DST="$TARGET_DIR/infra/$f"
+    if [ -f "$DST" ] && diff -q "$SRC" "$DST" >/dev/null 2>&1; then
+      echo "    [ok]   infra/$f already up to date"
+    else
+      cp "$SRC" "$DST"
+      echo "    [sync] infra/$f updated"
+      CHANGED=1
+    fi
+  done
+else
+  echo "    [fallback] upstream resolver pair unavailable; retaining local UAPI v6 resolver"
+  if ! resolver_api_present "$LOCAL_RESOLVER_C" "$LOCAL_RESOLVER_H"; then
+    echo "[ERROR] Upstream resolver is incomplete and the local resolver lacks the UAPI v6 lookup API." >&2
+    exit 1
   fi
-done
+fi
+
+if ! grep -Fq '#include "infra/symbol_resolver.c"' "$TARGET_DIR/ksu.c" || \
+   ! grep -Fq 'ksu_init_symbol_resolver();' "$TARGET_DIR/ksu.c"; then
+  echo "[ERROR] UAPI v6 symbol resolver is not compiled and initialized by ksu.c." >&2
+  exit 1
+fi
 
 echo "[+] Syncing current upstream UAPI and event handlers..."
 UAPI_BEFORE="$(sha256sum "$TARGET_DIR/include/uapi/supercall.h" "$TARGET_DIR/supercall/dispatch.c" | sha256sum)"
