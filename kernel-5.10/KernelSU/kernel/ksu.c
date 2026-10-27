@@ -1,4 +1,5 @@
 #include "kernel_includes.h"
+#include "manager/builtin_new_compat.h"
 
 // uapi
 #include "include/uapi/app_profile.h"

@@ -1,0 +1,33 @@
+diff --git a/kernel/manager/throne_tracker.c b/kernel/manager/throne_tracker.c
+index d34243b..dae7b42 100644
+--- a/kernel/manager/throne_tracker.c
++++ b/kernel/manager/throne_tracker.c
+@@ -387,7 +387,7 @@ static int throne_tracker_thread(void *data)
+ 
+ 	pr_info("throne_tracker: pid: %d started\n", current->pid);
+ 
+-	guarded_mutex_lock(&throne_tracker_mutex);
++	mutex_lock(&throne_tracker_mutex);
+ 
+ test_tmp:
+ 	if (!is_file_existing("/data/system/packages.list.tmp"))
+@@ -418,6 +418,7 @@ start_tt:
+ 	throne_tracker_fn(prune_only);
+ 
+ 	pr_info("throne_tracker: pid: %d exit!\n", current->pid);
++	mutex_unlock(&throne_tracker_mutex);
+ 	return 0;
+ }
+ 
+@@ -428,8 +429,9 @@ void track_throne(bool prune_only)
+ 	goto *label;
+ 
+ first_run:
+-	if (guarded_mutex_lock(&throne_tracker_mutex))
+-		throne_tracker_fn(prune_only);
++	mutex_lock(&throne_tracker_mutex);
++	throne_tracker_fn(prune_only);
++	mutex_unlock(&throne_tracker_mutex);
+ 	
+ 	label = &&threaded;
+ 	return;

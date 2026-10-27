@@ -75,6 +75,18 @@ git checkout -q origin/builtin-new -- \
   kernel/extension/dynamic_sig_fallback.c \
   kernel/extension/dynamic_sig_fallback.h
 
+TRACKER_SOURCE="$WORK_DIR/builtin-new/kernel/manager/throne_tracker.c"
+if grep -Fq 'guarded_mutex_lock(&throne_tracker_mutex)' "$TRACKER_SOURCE"; then
+  echo "[+] Applying Linux 5.10 mutex compatibility to builtin-new tracker..."
+  if ! git -C "$WORK_DIR/builtin-new" apply --check \
+       "$ROOT_DIR/scripts/builtin-new-kernel-5.10-compat.patch"; then
+    echo "[ERROR] builtin-new throne tracker changed; update the Linux 5.10 compatibility patch." >&2
+    exit 1
+  fi
+  git -C "$WORK_DIR/builtin-new" apply \
+    "$ROOT_DIR/scripts/builtin-new-kernel-5.10-compat.patch"
+fi
+
 for file in \
   kernel/manager/throne_tracker.c \
   kernel/manager/throne_tracker.h \
