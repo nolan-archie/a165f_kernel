@@ -9,6 +9,9 @@ CONFIG_KSU=y
 
 # SUSFS (for KernelSU)
 CONFIG_KSU_SUSFS=y
+# KernelSU-Next defaults this optional feature on, but the in-tree SUSFS v2.3.0
+# core does not yet implement its ABI or priority UID filtering hooks.
+CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER=n
 CONFIG_KSU_SUSFS_SUS_PATH=n
 CONFIG_KSU_SUSFS_SUS_MOUNT=y
 CONFIG_KSU_SUSFS_SUS_KSTAT=y
