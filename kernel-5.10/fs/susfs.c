@@ -459,9 +459,6 @@ out_copy_to_user:
 static DEFINE_MUTEX(susfs_mutex_lock_sus_kstat);
 static DEFINE_HASHTABLE(SUS_KSTAT_HLIST, 14);
 
-extern int calculate_f_flags_wrapper(struct vfsmount *mnt);
-extern int statfs_by_dentry_wrapper(struct dentry *dentry, struct kstatfs *buf);
-
 static int susfs_mark_inode_sus_kstat(char *target_pathname, struct st_susfs_sus_kstat_hlist *new_entry, bool is_update) {
 	struct path path;
 	struct inode *inode = NULL;
@@ -1336,6 +1333,46 @@ int susfs_open_redirect_spoof_show_map_vma_srcu(struct inode *inode, unsigned lo
 		}
 	}
 	return -EINVAL;
+}
+
+int susfs_open_redirect_spoof_vfs_statfs(struct inode *inode, struct kstatfs *buf) {
+	struct st_susfs_open_redirect_hlist *entry = NULL;
+	int srcu_idx;
+
+	if (!inode || !buf || !inode->i_sb)
+		return -EINVAL;
+
+	srcu_idx = srcu_read_lock(&susfs_srcu_open_redirect);
+	hash_for_each_possible_rcu(OPEN_REDIRECT_HLIST, entry, node, inode->i_ino) {
+		if (entry->target_dev == inode->i_sb->s_dev) {
+			memcpy(buf, &entry->spoofed_kstatfs, sizeof(*buf));
+			srcu_read_unlock(&susfs_srcu_open_redirect, srcu_idx);
+			return 0;
+		}
+	}
+	srcu_read_unlock(&susfs_srcu_open_redirect, srcu_idx);
+	return -ENOENT;
+}
+
+int susfs_open_redirect_spoof_seq_show(struct inode *inode, int *out_mnt_id, unsigned long *out_ino) {
+	struct st_susfs_open_redirect_hlist *entry = NULL;
+	int srcu_idx;
+
+	if (!inode || !out_mnt_id || !out_ino || !inode->i_sb)
+		return -EINVAL;
+
+	srcu_idx = srcu_read_lock(&susfs_srcu_open_redirect);
+	hash_for_each_possible_rcu(OPEN_REDIRECT_HLIST, entry, node, inode->i_ino) {
+		if (entry->reversed_lookup_only &&
+		    entry->target_dev == inode->i_sb->s_dev) {
+			*out_mnt_id = entry->spoofed_mnt_id;
+			*out_ino = entry->redirected_ino;
+			srcu_read_unlock(&susfs_srcu_open_redirect, srcu_idx);
+			return 0;
+		}
+	}
+	srcu_read_unlock(&susfs_srcu_open_redirect, srcu_idx);
+	return -ENOENT;
 }
 #endif // #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
 

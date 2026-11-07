@@ -9,6 +9,9 @@
 #include <linux/security.h>
 #include <linux/uaccess.h>
 #include <linux/compat.h>
+#if defined(CONFIG_KSU_SUSFS_SUS_KSTAT) || defined(CONFIG_KSU_SUSFS_OPEN_REDIRECT)
+#include <linux/susfs.h>
+#endif
 #if defined(CONFIG_KSU_SUSFS_SUS_MOUNT) || defined(CONFIG_KSU_SUSFS_OPEN_REDIRECT)
 #include <linux/susfs_def.h>
 #endif // #if defined(CONFIG_KSU_SUSFS_SUS_MOUNT) || defined(CONFIG_KSU_SUSFS_OPEN_REDIRECT)
@@ -73,6 +76,18 @@ static int statfs_by_dentry(struct dentry *dentry, struct kstatfs *buf)
 	return retval;
 }
 
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+int statfs_by_dentry_wrapper(struct dentry *dentry, struct kstatfs *buf)
+{
+	return statfs_by_dentry(dentry, buf);
+}
+
+int calculate_f_flags_wrapper(struct vfsmount *mnt)
+{
+	return calculate_f_flags(mnt);
+}
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+
 int vfs_get_fsid(struct dentry *dentry, __kernel_fsid_t *fsid)
 {
 	struct kstatfs st;
@@ -90,10 +105,6 @@ EXPORT_SYMBOL(vfs_get_fsid);
 #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 extern struct vfsmount *susfs_get_non_sus_vfsmnt_from_vfsmnt(struct vfsmount *vfsmnt);
 #endif //#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-
-#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
-extern int susfs_open_redirect_spoof_vfs_statfs(struct inode *inode, struct kstatfs *buf);
-#endif // #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
 
 int vfs_statfs(const struct path *path, struct kstatfs *buf)
 {

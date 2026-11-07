@@ -197,6 +197,10 @@ struct st_susfs_version {
 /***********************/
 /* FORWARD DECLARATION */
 /***********************/
+struct dentry;
+struct inode;
+struct vfsmount;
+
 /* sus_path */
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
 void susfs_add_sus_path(void __user **user_info);
@@ -212,6 +216,8 @@ void susfs_set_hide_sus_mnts_for_non_su_procs(void __user **user_info);
 #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 void susfs_add_sus_kstat(void __user **user_info);
 void susfs_update_sus_kstat(void __user **user_info);
+int statfs_by_dentry_wrapper(struct dentry *dentry, struct kstatfs *buf);
+int calculate_f_flags_wrapper(struct vfsmount *mnt);
 #endif // #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 
 /* spoof_uname */
@@ -233,6 +239,8 @@ void susfs_set_cmdline_or_bootconfig(void __user **user_info);
 /* open_redirect */
 #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
 void susfs_add_open_redirect(void __user **user_info);
+int susfs_open_redirect_spoof_vfs_statfs(struct inode *inode, struct kstatfs *buf);
+int susfs_open_redirect_spoof_seq_show(struct inode *inode, int *out_mnt_id, unsigned long *out_ino);
 #endif // #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
 
 /* sus_map */
