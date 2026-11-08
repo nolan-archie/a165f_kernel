@@ -19,15 +19,16 @@ if [ ! -f "$TARGET_DIR/Makefile" ]; then
   echo "[ERROR] $TARGET_DIR/Makefile not found. Point this at drivers/kernelsu." >&2
   exit 1
 fi
+TARGET_DIR="$(cd "$TARGET_DIR" && pwd -P)"
 
 echo "[+] Fetching upstream main (manager and UAPI sources, shallow)..."
 git clone --filter=blob:none --no-checkout --depth=50 \
   https://github.com/SukiSU-Ultra/SukiSU-Ultra.git "$WORK_DIR/repo" >/dev/null 2>&1
 cd "$WORK_DIR/repo"
 git sparse-checkout init --cone >/dev/null 2>&1
-git sparse-checkout set uapi kernel/manager kernel/include kernel/infra kernel/supercall >/dev/null 2>&1
-git checkout -q origin/main -- uapi kernel/manager kernel/include kernel/infra kernel/supercall 2>/dev/null || \
-  git checkout -q main -- uapi kernel/manager kernel/include kernel/infra kernel/supercall
+git sparse-checkout set uapi kernel/manager kernel/include kernel/infra kernel/supercall kernel/extension kernel/feature >/dev/null 2>&1
+git checkout -q origin/main -- uapi kernel/manager kernel/include kernel/infra kernel/supercall kernel/extension kernel/feature 2>/dev/null || \
+  git checkout -q main -- uapi kernel/manager kernel/include kernel/infra kernel/supercall kernel/extension kernel/feature
 
 MANAGER_FILES=(
   apk_sign.c
@@ -115,6 +116,75 @@ mkdir -p "$TARGET_DIR/include/uapi"
 if [ ! -f "$WORK_DIR/repo/uapi/manager.h" ]; then
   echo "[ERROR] upstream uapi/manager.h is missing; refusing to build without the manager UAPI." >&2
   exit 1
+fi
+
+# The legacy in-tree SukiSU kernel on susfs-dev is a unity build. It needs
+# the newer extension hub wired into its own dispatch and initialization;
+# KernelSU-Next has a separate build layout and owns that integration itself.
+if [ -f "$TARGET_DIR/ksu.c" ]; then
+  echo "[+] Syncing the extension ABI and legacy unity-build handlers..."
+  for file in uapi/extension.h uapi/feature.h; do
+    SRC="$WORK_DIR/repo/$file"
+    DST="$TARGET_DIR/include/$file"
+    if [ ! -f "$SRC" ]; then
+      echo "[ERROR] Required upstream ABI file is missing: $file" >&2
+      exit 1
+    fi
+    mkdir -p "$(dirname "$DST")"
+    if [ -f "$DST" ] && diff -q "$SRC" "$DST" >/dev/null 2>&1; then
+      echo "    [ok]   include/${file#uapi/} already up to date"
+    else
+      cp "$SRC" "$DST"
+      echo "    [sync] include/${file#uapi/} updated"
+      CHANGED=1
+    fi
+  done
+
+  EXTENSION_FILES=(
+    extension.c
+    extension.h
+    cpu_spoof.c
+    cpu_spoof.h
+    susfs_extension.c
+    susfs_extension.h
+    umount_paths.c
+    umount_paths.h
+    version_spoof.c
+    version_spoof.h
+  )
+  for file in "${EXTENSION_FILES[@]}"; do
+    SRC="$WORK_DIR/repo/kernel/extension/$file"
+    DST="$TARGET_DIR/extension/$file"
+    if [ ! -f "$SRC" ]; then
+      echo "[ERROR] Required upstream extension source is missing: $file" >&2
+      exit 1
+    fi
+    mkdir -p "$(dirname "$DST")"
+    if [ -f "$DST" ] && diff -q "$SRC" "$DST" >/dev/null 2>&1; then
+      echo "    [ok]   extension/$file already up to date"
+    else
+      cp "$SRC" "$DST"
+      echo "    [sync] extension/$file updated"
+      CHANGED=1
+    fi
+  done
+
+  for file in shell_su_adb_only.c shell_su_adb_only.h; do
+    SRC="$WORK_DIR/repo/kernel/feature/$file"
+    DST="$TARGET_DIR/feature/$file"
+    if [ ! -f "$SRC" ]; then
+      echo "[ERROR] Required upstream feature source is missing: $file" >&2
+      exit 1
+    fi
+    mkdir -p "$(dirname "$DST")"
+    if [ -f "$DST" ] && diff -q "$SRC" "$DST" >/dev/null 2>&1; then
+      echo "    [ok]   feature/$file already up to date"
+    else
+      cp "$SRC" "$DST"
+      echo "    [sync] feature/$file updated"
+      CHANGED=1
+    fi
+  done
 fi
 if [ -f "$TARGET_DIR/include/uapi/manager.h" ] && \
    diff -q "$WORK_DIR/repo/uapi/manager.h" "$TARGET_DIR/include/uapi/manager.h" >/dev/null 2>&1; then

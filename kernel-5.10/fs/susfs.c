@@ -242,6 +242,23 @@ int susfs_get_data_path(struct path *path) {
 //   otherwise user needs to turn it on in post-fs-data stage and turn it off in boot-completed stage
 DEFINE_STATIC_KEY_FALSE(susfs_is_hide_sus_mnts_for_non_su_procs_enabled);
 
+bool susfs_is_hide_sus_mnts_enabled(void)
+{
+	return static_key_enabled(&susfs_is_hide_sus_mnts_for_non_su_procs_enabled);
+}
+
+int susfs_set_hide_sus_mnts_enabled(bool enabled)
+{
+	if (static_key_enabled(&susfs_is_hide_sus_mnts_for_non_su_procs_enabled) == enabled)
+		return 0;
+
+	if (enabled)
+		static_branch_enable(&susfs_is_hide_sus_mnts_for_non_su_procs_enabled);
+	else
+		static_branch_disable(&susfs_is_hide_sus_mnts_for_non_su_procs_enabled);
+	return 0;
+}
+
 void susfs_set_hide_sus_mnts_for_non_su_procs(void __user **user_info) {
 	struct st_susfs_hide_sus_mnts_for_non_su_procs info = {0};
 
@@ -250,11 +267,7 @@ void susfs_set_hide_sus_mnts_for_non_su_procs(void __user **user_info) {
 		goto out_copy_to_user;
 	}
 	
-	if (info.enabled) {
-		static_branch_enable(&susfs_is_hide_sus_mnts_for_non_su_procs_enabled);
-	} else {
-		static_branch_disable(&susfs_is_hide_sus_mnts_for_non_su_procs_enabled);
-	}
+	susfs_set_hide_sus_mnts_enabled(info.enabled);
 
 	SUSFS_LOGI("susfs_is_hide_sus_mnts_for_non_su_procs_enabled: %d\n", static_key_enabled(&susfs_is_hide_sus_mnts_for_non_su_procs_enabled));
 	info.err = 0;
@@ -1128,6 +1141,23 @@ out_copy_to_user:
 /* susfs avc log spoofing */
 DEFINE_STATIC_KEY_FALSE(susfs_is_avc_log_spoofing_enabled);
 
+bool susfs_avc_log_spoofing_is_enabled(void)
+{
+	return static_key_enabled(&susfs_is_avc_log_spoofing_enabled);
+}
+
+int susfs_set_avc_log_spoofing_enabled(bool enabled)
+{
+	if (static_key_enabled(&susfs_is_avc_log_spoofing_enabled) == enabled)
+		return 0;
+
+	if (enabled)
+		static_branch_enable(&susfs_is_avc_log_spoofing_enabled);
+	else
+		static_branch_disable(&susfs_is_avc_log_spoofing_enabled);
+	return 0;
+}
+
 void susfs_set_avc_log_spoofing(void __user **user_info) {
 	struct st_susfs_avc_log_spoofing info = {0};
 
@@ -1137,10 +1167,10 @@ void susfs_set_avc_log_spoofing(void __user **user_info) {
 	}
 
 	if (info.enabled) {
-		static_branch_enable(&susfs_is_avc_log_spoofing_enabled);
+		susfs_set_avc_log_spoofing_enabled(true);
 		SUSFS_LOGI("enabling susfs_avc_log_spoofing\n");
 	} else {
-		static_branch_disable(&susfs_is_avc_log_spoofing_enabled);
+		susfs_set_avc_log_spoofing_enabled(false);
 		SUSFS_LOGI("disabling susfs_avc_log_spoofing\n");
 	}
 
@@ -1465,4 +1495,3 @@ void susfs_init(void) {\
 
 /* No module exit is needed becuase it should never be a loadable kernel module */
 //void __init susfs_exit(void)
-

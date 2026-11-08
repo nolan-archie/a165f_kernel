@@ -76,6 +76,35 @@ while IFS= read -r event; do
   fi
 done < <(sed -nE 's/^[[:space:]]*case[[:space:]]+(EVENT_[A-Z0-9_]+)[[:space:]]*:.*/\1/p' "$DISPATCH")
 
+if [[ -f "$UNIFIED_SOURCE" ]]; then
+  if [[ ! -f "$KSU_ROOT/include/uapi/extension.h" || \
+        ! -f "$KSU_ROOT/extension/extension.c" || \
+        ! -f "$KSU_ROOT/extension/cpu_spoof.c" || \
+        ! -f "$KSU_ROOT/extension/dynamic_manager_ext.c" || \
+        ! -f "$KSU_ROOT/extension/kpm.c" || \
+        ! -f "$KSU_ROOT/extension/susfs_extension.c" || \
+        ! -f "$KSU_ROOT/extension/umount_paths.c" || \
+        ! -f "$KSU_ROOT/extension/version_spoof.c" || \
+        ! -f "$KSU_ROOT/feature/shell_su_adb_only.c" || \
+        ! -f "$KSU_ROOT/feature/susfs_features.c" ]]; then
+    echo "[compat] SukiSU extension hub or legacy feature adapters are incomplete; refusing to build." >&2
+    exit 1
+  fi
+  if ! grep -Eq '\.cmd[[:space:]]*=[[:space:]]*KSU_IOCTL_EXTENSION' "$DISPATCH" || \
+     ! grep -Eq '\.handler[[:space:]]*=[[:space:]]*do_extension' "$DISPATCH" || \
+     ! grep -Fq '#include "extension/extension.c"' "$UNIFIED_SOURCE" || \
+     ! grep -Fq '#include "extension/dynamic_manager_ext.c"' "$UNIFIED_SOURCE" || \
+     ! grep -Fq 'ksu_extension_register_all();' "$UNIFIED_SOURCE" || \
+     ! grep -Fq 'ksu_shell_su_adb_only_init();' "$UNIFIED_SOURCE" || \
+     ! grep -Fq 'ksu_extension_apply_forced();' "$POST_FS_DATA_SOURCE" || \
+     ! grep -Fq 'KSU_FEATURE_MOUNT_HIDE' "$KSU_ROOT/feature/susfs_features.c" || \
+     ! grep -Fq 'KSU_FEATURE_AVC_SPOOF' "$KSU_ROOT/feature/susfs_features.c"; then
+    echo "[compat] SukiSU extension hub or legacy feature adapters are not wired into the kernel." >&2
+    exit 1
+  fi
+  echo "[compat] Verified extension hub and shell/SuSFS feature handlers."
+fi
+
 echo "[compat] Verified SukiSU kernel UAPI $version, dynamic manager ioctl, and ${#events[@]} handled events."
 
 version_fallback() {

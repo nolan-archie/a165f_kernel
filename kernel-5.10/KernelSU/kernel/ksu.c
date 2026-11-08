@@ -19,11 +19,14 @@
 #include "policy/app_profile.h"
 #include "policy/allowlist.h"
 #include "policy/feature.h"
+#include "feature/shell_su_adb_only.h"
+#include "feature/susfs_features.h"
 #include "manager/apk_sign.h"
 #include "manager/dynamic_manager.h"
 #include "manager/manager_identity.h"
 #include "manager/throne_tracker.h"
 #include "extension/dynamic_sig_fallback.h"
+#include "extension/extension.h"
 #include "supercall/internal.h"
 #include "supercall/supercall.h"
 #include "infra/su_mount_ns.h"
@@ -74,6 +77,14 @@
 #include "manager/pkg_observer.c"
 #include "extension/dynamic_sig_fallback.c"
 
+#include "extension/extension.c"
+#include "extension/cpu_spoof.c"
+#include "extension/dynamic_manager_ext.c"
+#include "extension/kpm.c"
+#include "extension/susfs_extension.c"
+#include "extension/umount_paths.c"
+#include "extension/version_spoof.c"
+
 #include "supercall/perm.c"
 #include "supercall/dispatch.c"
 #include "supercall/supercall.c"
@@ -87,6 +98,8 @@
 #include "feature/adb_root.c"
 #endif
 #include "feature/kernel_umount.c"
+#include "feature/shell_su_adb_only.c"
+#include "feature/susfs_features.c"
 #include "feature/sucompat.c"
 #include "feature/sulog.c"
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
@@ -141,6 +154,9 @@ int __init kernelsu_init(void)
 
     ksu_feature_init();
 
+    ksu_extension_init();
+    ksu_extension_register_all();
+
     ksu_init_symbol_resolver();
 
     ksu_supercalls_init();
@@ -158,6 +174,9 @@ int __init kernelsu_init(void)
 #endif
 
     ksu_kernel_umount_init();
+
+    ksu_shell_su_adb_only_init();
+    ksu_susfs_features_init();
 
     ksu_allowlist_init();
 

@@ -1,5 +1,8 @@
+#include "extension/extension.h"
 #include "infra/symbol_resolver.h"
 #include "manager/dynamic_manager.h"
+#include "extension/umount_paths.h"
+#include "extension/version_spoof.h"
 
 static int do_grant_root(void __user *arg)
 {
@@ -26,6 +29,7 @@ static int do_get_info(void __user *arg)
 
     cmd.features = KSU_FEATURE_MAX;
     cmd.uapi_version = KERNEL_SU_UAPI_VERSION;
+    ksu_version_spoof_apply_info(&cmd);
 
     if (copy_to_user(arg, &cmd, sizeof(cmd))) {
         pr_err("get_version: copy_to_user failed\n");
@@ -50,6 +54,7 @@ static int do_get_info_legacy(void __user *arg)
     cmd.flags |= KSU_GET_INFO_FLAG_PR_BUILD;
 #endif
     cmd.features = KSU_FEATURE_MAX;
+    ksu_version_spoof_apply_info_legacy(&cmd);
 
     if (copy_to_user(arg, &cmd, sizeof(cmd))) {
         pr_err("get_version: copy_to_user failed\n");
@@ -543,111 +548,6 @@ static int do_nuke_ext4_sysfs(void __user *arg)
     return nuke_ext4_sysfs(mnt);
 }
 
-struct list_head mount_list = LIST_HEAD_INIT(mount_list);
-DECLARE_RWSEM(mount_list_lock);
-
-static int add_try_umount(void __user *arg)
-{
-    struct mount_entry *new_entry, *entry, *tmp;
-    struct ksu_add_try_umount_cmd cmd;
-    char buf[256] = { 0 };
-
-    if (copy_from_user(&cmd, arg, sizeof cmd))
-        return -EFAULT;
-
-    switch (cmd.mode) {
-    case KSU_UMOUNT_WIPE: {
-        struct mount_entry *entry, *tmp;
-        down_write(&mount_list_lock);
-        list_for_each_entry_safe (entry, tmp, &mount_list, list) {
-            pr_info("wipe_umount_list: removing entry: %s\n", entry->umountable);
-            list_del(&entry->list);
-            kfree(entry->umountable);
-            kfree(entry);
-        }
-        up_write(&mount_list_lock);
-
-        return 0;
-    }
-
-    case KSU_UMOUNT_ADD: {
-        long len = ksu_strncpy_from_user_nofault(buf, (const char __user *)cmd.arg, 256);
-        if (len <= 0)
-            return -EFAULT;
-
-        buf[sizeof(buf) - 1] = '\0';
-
-        new_entry = kzalloc(sizeof(*new_entry), GFP_KERNEL);
-        if (!new_entry)
-            return -ENOMEM;
-
-        new_entry->umountable = kstrdup(buf, GFP_KERNEL);
-        if (!new_entry->umountable) {
-            kfree(new_entry);
-            return -ENOMEM;
-        }
-
-        down_write(&mount_list_lock);
-
-        // disallow dupes
-        // if this gets too many, we can consider moving this whole task to a kthread
-        list_for_each_entry (entry, &mount_list, list) {
-            if (!strcmp(entry->umountable, buf)) {
-                pr_info("cmd_add_try_umount: %s is already here!\n", buf);
-                up_write(&mount_list_lock);
-                kfree(new_entry->umountable);
-                kfree(new_entry);
-                return -EEXIST;
-            }
-        }
-
-        // now check flags and add
-        // this also serves as a null check
-        if (cmd.flags)
-            new_entry->flags = cmd.flags;
-        else
-            new_entry->flags = 0;
-
-        // debug
-        list_add(&new_entry->list, &mount_list);
-        up_write(&mount_list_lock);
-        pr_info("cmd_add_try_umount: %s added!\n", buf);
-
-        return 0;
-    }
-
-    // this is just strcmp'd wipe anyway
-    case KSU_UMOUNT_DEL: {
-        long len = ksu_strncpy_from_user_nofault(buf, (const char __user *)cmd.arg, sizeof(buf) - 1);
-        if (len <= 0)
-            return -EFAULT;
-
-        buf[sizeof(buf) - 1] = '\0';
-
-        down_write(&mount_list_lock);
-        list_for_each_entry_safe (entry, tmp, &mount_list, list) {
-            if (!strcmp(entry->umountable, buf)) {
-                pr_info("cmd_add_try_umount: entry removed: %s\n", entry->umountable);
-                list_del(&entry->list);
-                kfree(entry->umountable);
-                kfree(entry);
-            }
-        }
-        up_write(&mount_list_lock);
-
-        return 0;
-    }
-
-    default: {
-        pr_err("cmd_add_try_umount: invalid operation %u\n", cmd.mode);
-        return -EINVAL;
-    }
-
-    } // switch(cmd.mode)
-
-    return 0;
-}
-
 static int do_set_init_pgrp(void __user *arg)
 {
     int err;
@@ -808,6 +708,7 @@ static int do_get_full_version(void __user *arg)
     struct ksu_get_full_version_cmd cmd = { 0 };
 
     strscpy(cmd.version_full, KSU_VERSION_FULL, sizeof(cmd.version_full));
+    ksu_version_spoof_apply_full_version(cmd.version_full, sizeof(cmd.version_full));
 
     if (copy_to_user(arg, &cmd, sizeof(cmd))) {
         pr_err("get_full_version: copy_to_user failed\n");
@@ -925,6 +826,115 @@ out:
     kvfree(names);
     kvfree(addrs);
     return ret;
+}
+
+static u32 extension_reply_caps(u32 extension_id, u32 caps)
+{
+    if (ksu_extension_is_forced(extension_id))
+        caps |= KSU_EXTENSION_FLAG_FORCED;
+    return caps;
+}
+
+static int do_extension(void __user *arg)
+{
+    struct ksu_extension_cmd cmd;
+    u32 extension_id;
+    int ret;
+
+    if (copy_from_user(&cmd, arg, sizeof(cmd)))
+        return -EFAULT;
+
+    if (cmd.op == KSU_EXTENSION_ABI) {
+        if (cmd.id != KSU_EXTENSION_ABI_PROBE_ID)
+            return -EINVAL;
+        cmd.value = 0;
+        cmd.supported = 0;
+        cmd.api_version = KSU_EXTENSION_API_VERSION;
+        if (copy_to_user(arg, &cmd, sizeof(cmd)))
+            return -EFAULT;
+        return 0;
+    }
+
+    if (cmd.op == KSU_EXTENSION_ENUM) {
+        struct ksu_extension_desc desc;
+
+        if (cmd.id != KSU_EXTENSION_ABI_PROBE_ID)
+            return -EINVAL;
+        if (!cmd.user_ptr || cmd.value >> 32)
+            return -EINVAL;
+
+        ret = ksu_extension_enumerate((u32)cmd.value, &desc);
+        if (ret)
+            return ret;
+        if (copy_to_user((void __user *)(uintptr_t)cmd.user_ptr, &desc,
+                         sizeof(desc)))
+            return -EFAULT;
+
+        cmd.id = desc.id;
+        cmd.supported = desc.caps;
+        cmd.value = 0;
+        cmd.api_version = KSU_EXTENSION_API_VERSION;
+        if (copy_to_user(arg, &cmd, sizeof(cmd)))
+            return -EFAULT;
+        return 0;
+    }
+
+    extension_id = cmd.id;
+    if (extension_id >= KSU_EXTENSION_MAX)
+        return -EINVAL;
+
+    /* op == IO  -> forward the user pointer verbatim */
+    if (cmd.op == KSU_EXTENSION_IO)
+        return ksu_extension_ioctl(extension_id, cmd.api_version,
+                                   (void __user *)(uintptr_t)cmd.user_ptr);
+
+    /* op == WIPE -> call the extension's wipe handler if any */
+    if (cmd.op == KSU_EXTENSION_WIPE)
+        return ksu_extension_wipe(extension_id, cmd.api_version);
+
+    if (cmd.op == KSU_EXTENSION_SET) {
+        ret = ksu_extension_set(extension_id, cmd.api_version, cmd.value);
+        if (ret)
+            return ret;
+        /*
+         * Round-trip the post-set state to userspace. The cmd.supported
+         * field is documented as out, and a manager that just wrote
+         * `value=1` wants to see "supported, FORCED if applicable"
+         * come back rather than zeroed bytes. Failure to copy_to_user
+         * is non-fatal here (the write itself succeeded) but reported
+         * as -EFAULT so the caller can retry.
+         */
+        {
+            u64 value = 0;
+            u32 caps = 0;
+
+            (void)ksu_extension_get(extension_id, KSU_EXTENSION_API_VERSION,
+                                    &value, &caps);
+            cmd.supported = extension_reply_caps(extension_id, caps);
+            cmd.value = value;
+            cmd.api_version = KSU_EXTENSION_API_VERSION;
+            if (copy_to_user(arg, &cmd, sizeof(cmd)))
+                return -EFAULT;
+        }
+        return 0;
+    }
+
+    {
+        u64 value = 0;
+        u32 caps = 0;
+
+        ret = ksu_extension_get(extension_id, cmd.api_version, &value, &caps);
+        if (ret)
+            return ret;
+        if (!(caps & KSU_FEATURE_FLAG_SUPPORTED))
+            return -EOPNOTSUPP;
+        cmd.value = value;
+        cmd.supported = extension_reply_caps(extension_id, caps);
+        cmd.api_version = KSU_EXTENSION_API_VERSION;
+        if (copy_to_user(arg, &cmd, sizeof(cmd)))
+            return -EFAULT;
+        return 0;
+    }
 }
 
 static const struct ksu_ioctl_cmd_map ksu_ioctl_handlers[] = {
@@ -1115,6 +1125,12 @@ static const struct ksu_ioctl_cmd_map ksu_ioctl_handlers[] = {
         .name = "LOOKUP_SYMBOLS",
         .handler = do_lookup_symbols,
         .perm_check = only_root
+    },
+    {
+        .cmd = KSU_IOCTL_EXTENSION,
+        .name = "EXTENSION",
+        .handler = do_extension,
+        .perm_check = manager_or_root
     },
     {
         .cmd = 0,

@@ -56,6 +56,9 @@ struct st_susfs_hide_sus_mnts_for_non_su_procs {
 	bool                                    enabled;
 	int                                     err;
 };
+
+bool susfs_is_hide_sus_mnts_enabled(void);
+int susfs_set_hide_sus_mnts_enabled(bool enabled);
 #endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 
 /* sus_kstat */
@@ -227,6 +230,10 @@ void susfs_add_open_redirect(void __user **user_info);
 void susfs_add_sus_map(void __user **user_info);
 #endif
 
+#ifdef CONFIG_KSU_SUSFS
+bool susfs_avc_log_spoofing_is_enabled(void);
+int susfs_set_avc_log_spoofing_enabled(bool enabled);
+#endif
 void susfs_set_avc_log_spoofing(void __user **user_info);
 
 void susfs_get_enabled_features(void __user **user_info);

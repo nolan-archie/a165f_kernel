@@ -121,8 +121,11 @@ struct ksu_set_app_profile_cmd {
 struct ksu_get_feature_cmd {
     __u32 feature_id; /* Input: feature ID (enum ksu_feature_id) */
     __u64 value; /* Output: feature value/state */
-    __u8 supported; /* Output: true if feature is supported, false otherwise */
+    __u8 supported; /* Output: KSU_FEATURE_FLAG_* bits, 0 if unsupported */
 };
+
+#define KSU_FEATURE_FLAG_SUPPORTED (1U << 0)
+#define KSU_FEATURE_FLAG_FORCED (1U << 1)
 
 struct ksu_set_feature_cmd {
     __u32 feature_id; /* Input: feature ID (enum ksu_feature_id) */
@@ -155,14 +158,6 @@ struct ksu_set_spoof_version_cmd {
     __u8 version[65]; /* Input: e.g., "#1 SMP PREEMPT Thu Jan 1 00:00:00 UTC 2026" */
 };
 
-struct ksu_set_spoof_cpu_cmd {
-    __u32 cpu_index;  /* Target processor core index */
-    __u32 midr;       /* Main ID Register payload */
-    __u32 bogomips;   /* BogoMIPS performance timing metric */
-    __u64 hwcap;      /* Main ELF Hardware Capabilities mask */
-    __u64 hwcap2;     /* Auxiliary ELF Hardware Capabilities mask */
-};
-
 struct ksu_nuke_ext4_sysfs_cmd {
     __aligned_u64 arg; /* Input: mnt pointer */
 };
@@ -175,12 +170,6 @@ struct ksu_add_try_umount_cmd {
 
 struct ksu_get_sulog_fd_cmd {
     __u32 flags; /* Input: reserved for future use, must be 0 */
-};
-
-// List current umount entries
-struct ksu_list_try_umount_cmd {
-    __aligned_u64 arg; // User buffer
-    __u32 buf_size; // Buffer size provided by userspace
 };
 
 DECLARE(__u8, KSU_UMOUNT_WIPE, 0); /* ignore everything and wipe list */
@@ -198,21 +187,6 @@ struct ksu_hook_type_cmd {
 
 struct ksu_enable_kpm_cmd {
     __u8 enabled; // Output: true if KPM is enabled
-};
-
-DECLARE(__u32, SUKISU_KPM_LOAD, 1);
-DECLARE(__u32, SUKISU_KPM_UNLOAD, 2);
-DECLARE(__u32, SUKISU_KPM_NUM, 3);
-DECLARE(__u32, SUKISU_KPM_LIST, 4);
-DECLARE(__u32, SUKISU_KPM_INFO, 5);
-DECLARE(__u32, SUKISU_KPM_CONTROL, 6);
-DECLARE(__u32, SUKISU_KPM_VERSION, 7);
-
-struct ksu_kpm_cmd {
-    __aligned_u64 __user control_code;
-    __aligned_u64 __user arg1;
-    __aligned_u64 __user arg2;
-    __aligned_u64 __user result_code;
 };
 
 /* IOCTL command definitions */
@@ -267,5 +241,8 @@ struct ksu_lookup_symbols_cmd {
 DECLARE(__u32, KSU_LOOKUP_SYMBOLS_MAX, 1024);
 
 DECLARE(__u32, KSU_IOCTL_LOOKUP_SYMBOLS, _IOW('K', 22, struct ksu_lookup_symbols_cmd));
+
+/* Keep legacy callers of supercall.h source-compatible with the unified ABI. */
+#include "uapi/extension.h"
 
 #endif

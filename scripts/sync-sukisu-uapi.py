@@ -477,6 +477,19 @@ def extract_static_int_function(source: str, name: str) -> tuple[int, int, str]:
     return match.start(), close_pos + 1, source[match.start():close_pos + 1]
 
 
+def extract_static_u32_function(source: str, name: str) -> tuple[int, int, str]:
+    masked = mask_comments_and_strings(source)
+    match = re.search(
+        rf"\bstatic\s+u32\s+{re.escape(name)}\s*\([^)]*\)\s*\{{",
+        masked,
+    )
+    if not match:
+        fail(f"could not find {name}()")
+    open_pos = match.end() - 1
+    close_pos = matching_brace(source, open_pos, masked)
+    return match.start(), close_pos + 1, source[match.start():close_pos + 1]
+
+
 def extract_ioctl_entry(source: str, command: str) -> tuple[int, int, str]:
     masked = mask_comments_and_strings(source)
     table = re.search(
@@ -712,6 +725,107 @@ def merge_lookup_symbols_dispatch(
     return local_dispatch
 
 
+def merge_extension_dispatch(upstream_dispatch: str, local_dispatch: str) -> str:
+    """Import the unified extension ioctl dispatcher and its permission-checked map entry."""
+    _, _, upstream_helper = extract_static_u32_function(
+        upstream_dispatch, "extension_reply_caps"
+    )
+    _, _, upstream_function = extract_static_int_function(
+        upstream_dispatch, "do_extension"
+    )
+    if (
+        "KSU_EXTENSION_ABI" not in upstream_function
+        or "ksu_extension_enumerate" not in upstream_function
+        or "ksu_extension_ioctl" not in upstream_function
+    ):
+        fail("upstream do_extension() does not implement the extension ABI")
+
+    _, _, upstream_entry = extract_ioctl_entry(upstream_dispatch, "KSU_IOCTL_EXTENSION")
+    if not re.search(r"\.handler\s*=\s*do_extension\b", upstream_entry):
+        fail("upstream KSU_IOCTL_EXTENSION entry has no do_extension() handler")
+    if not re.search(r"\.perm_check\s*=\s*manager_or_root\b", upstream_entry):
+        fail("upstream KSU_IOCTL_EXTENSION entry has unexpected permissions")
+
+    masked = mask_comments_and_strings(local_dispatch)
+    has_helper = re.search(r"\bstatic\s+u32\s+extension_reply_caps\s*\(", masked)
+    has_function = re.search(r"\bstatic\s+int\s+do_extension\s*\(", masked)
+    if bool(has_helper) != bool(has_function):
+        fail("local extension dispatcher is incomplete")
+
+    if has_helper:
+        helper_start, helper_end, _ = extract_static_u32_function(
+            local_dispatch, "extension_reply_caps"
+        )
+        function_start, function_end, local_function = extract_static_int_function(
+            local_dispatch, "do_extension"
+        )
+        if "ksu_extension_enumerate" not in local_function:
+            fail("local do_extension() has an unexpected implementation")
+        # Replace in descending order so offsets remain valid.
+        replacements = [
+            (helper_start, helper_end, upstream_helper),
+            (function_start, function_end, upstream_function),
+        ]
+        for start, end, replacement in sorted(replacements, reverse=True):
+            local_dispatch = local_dispatch[:start] + replacement + local_dispatch[end:]
+    else:
+        masked = mask_comments_and_strings(local_dispatch)
+        anchor = re.search(
+            r"(?=static\s+const\s+struct\s+ksu_ioctl_cmd_map\s+"
+            r"ksu_ioctl_handlers\s*\[\s*\]\s*=\s*\{)",
+            masked,
+        )
+        if not anchor:
+            fail("could not find ksu_ioctl_handlers[] for do_extension()")
+        local_dispatch = (
+            local_dispatch[:anchor.start()]
+            + upstream_helper
+            + "\n\n"
+            + upstream_function
+            + "\n\n"
+            + local_dispatch[anchor.start():]
+        )
+
+    if re.search(
+        r"\.cmd\s*=\s*KSU_IOCTL_EXTENSION\b",
+        mask_comments_and_strings(local_dispatch),
+    ):
+        entry_start, entry_end, local_entry = extract_ioctl_entry(
+            local_dispatch, "KSU_IOCTL_EXTENSION"
+        )
+        if (
+            not re.search(r"\.handler\s*=\s*do_extension\b", local_entry)
+            or not re.search(r"\.perm_check\s*=\s*manager_or_root\b", local_entry)
+        ):
+            fail("local KSU_IOCTL_EXTENSION entry has an unexpected handler or permissions")
+        local_dispatch = local_dispatch[:entry_start] + upstream_entry + local_dispatch[entry_end:]
+    else:
+        masked = mask_comments_and_strings(local_dispatch)
+        table = re.search(
+            r"static\s+const\s+struct\s+ksu_ioctl_cmd_map\s+"
+            r"ksu_ioctl_handlers\s*\[\s*\]\s*=\s*\{",
+            masked,
+        )
+        if not table:
+            fail("could not find ksu_ioctl_handlers[]")
+        table_open = table.end() - 1
+        table_close = matching_brace(local_dispatch, table_open, masked)
+        sentinel = re.search(r"\{\s*\.cmd\s*=\s*0\b", masked[table_open + 1:table_close])
+        if not sentinel:
+            fail("could not find the ioctl map sentinel for KSU_IOCTL_EXTENSION")
+        insert_at = table_open + 1 + sentinel.start()
+        local_dispatch = (
+            local_dispatch[:insert_at]
+            + upstream_entry
+            + ",\n    "
+            + local_dispatch[insert_at:]
+        )
+
+    if '#include "extension/extension.h"' not in local_dispatch:
+        local_dispatch = '#include "extension/extension.h"\n' + local_dispatch
+    return local_dispatch
+
+
 def event_cases(function: str) -> tuple[list[tuple[str, int, int]], int]:
     masked = mask_comments_and_strings(function)
     switch = re.search(r"\bswitch\s*\(\s*cmd\.event\s*\)\s*\{", masked)
@@ -847,6 +961,11 @@ def main() -> None:
     )
     merged_dispatch = merge_lookup_symbols_dispatch(upstream_dispatch, merged_dispatch)
     merged_dispatch = merge_manager_dispatch(upstream_dispatch, merged_dispatch)
+    # The in-tree SukiSU source on susfs-dev is a unity build (kernel/ksu.c)
+    # and needs the extension hub wired explicitly. KernelSU-Next has its own
+    # build layout and handler integration; leave that tree to its own sync.
+    if (local_dispatch_path.parent.parent / "ksu.c").is_file():
+        merged_dispatch = merge_extension_dispatch(upstream_dispatch, merged_dispatch)
 
     header_changed = write_if_changed(local_header_path, merged_header)
     dispatch_changed = write_if_changed(local_dispatch_path, merged_dispatch)
