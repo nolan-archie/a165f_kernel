@@ -59,11 +59,6 @@ static int shell_su_adb_only_feature_get(u64 *value)
 static int shell_su_adb_only_feature_set(u64 value)
 {
     bool enable = value != 0;
-
-    /* Feature SET may be retried; static keys are reference-counted. */
-    if (static_key_enabled(&ksu_shell_su_adb_only.key) == enable)
-        return 0;
-
     if (enable) {
         static_key_enable(&ksu_shell_su_adb_only.key);
     } else {
