@@ -19,15 +19,3 @@ index d34243b..dae7b42 100644
  	return 0;
  }
  
-@@ -428,8 +429,9 @@ void track_throne(bool prune_only)
- 	goto *label;
- 
- first_run:
--	if (guarded_mutex_lock(&throne_tracker_mutex))
--		throne_tracker_fn(prune_only);
-+	mutex_lock(&throne_tracker_mutex);
-+	throne_tracker_fn(prune_only);
-+	mutex_unlock(&throne_tracker_mutex);
- 	
- 	label = &&threaded;
- 	return;
