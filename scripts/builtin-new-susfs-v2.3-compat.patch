@@ -1,0 +1,203 @@
+diff --git a/kernel/manager/pkg_observer.c b/kernel/manager/pkg_observer.c
+--- a/kernel/manager/pkg_observer.c
++++ b/kernel/manager/pkg_observer.c
+@@ -53,7 +53,7 @@
+ 
+ 	pr_info("renameat: %s -> %s, new path: %s\n", old_dentry->d_iname, new_dentry->d_iname, buf);
+ 	track_throne(false);
+-#ifdef CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER
++#if defined(CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER) && defined(CMD_SUSFS_SET_PRIORITY_UID_FILTER)
+ 	// Renew the priority uid bitmap filter after packages.list changed
+ 	susfs_parse_priority_app_strings();
+ #endif
+@@ -110,7 +110,7 @@
+ 
+ 	pr_info("renameat: %s -> %s, /data/system d_inode: 0x%lx \n", old_dentry->d_iname, new_dentry->d_iname, system_dir_inode_ptr);
+ 	track_throne(false);
+-#if defined(CONFIG_KSU_SUSFS_SUS_PATH) 
++#if defined(CONFIG_KSU_SUSFS_SUS_PATH) && defined(CMD_SUSFS_SET_SUS_PATH_UID_FILTER)
+ 	// Renew the sus path uid bitmap filter after packages.list changed
+ 	susfs_parse_sus_path_app_strings();
+ #endif // CONFIG_KSU_SUSFS_SUS_PATH
+diff --git a/kernel/supercall/supercall.c b/kernel/supercall/supercall.c
+--- a/kernel/supercall/supercall.c
++++ b/kernel/supercall/supercall.c
+@@ -99,9 +99,11 @@
+ 		case CMD_SUSFS_ADD_SUS_PATH_LOOP:
+ 			susfs_add_sus_path_loop(arg);
+ 			return 0;
++#ifdef CMD_SUSFS_SET_SUS_PATH_UID_FILTER
+ 		case CMD_SUSFS_SET_SUS_PATH_UID_FILTER:
+ 			susfs_set_sus_path_uid_filter(arg);
+ 			return 0;
++#endif
+ #endif // CONFIG_KSU_SUSFS_SUS_PATH
+ #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+ 		case CMD_SUSFS_HIDE_SUS_MNTS_FOR_NON_SU_PROCS:
+@@ -145,9 +147,11 @@
+ 			return 0;
+ #endif // CONFIG_KSU_SUSFS_SUS_MAP
+ #ifdef CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER
++#ifdef CMD_SUSFS_SET_PRIORITY_UID_FILTER
+ 		case CMD_SUSFS_SET_PRIORITY_UID_FILTER:
+ 			susfs_set_priority_uid_filter(arg);
+ 			return 0;
++#endif
+ #endif // CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER
+ 		case CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING:
+ 			susfs_set_avc_log_spoofing(arg);
+diff --git a/kernel/feature/selinux_hide.c b/kernel/feature/selinux_hide.c
+index 5c5d0572..b32877dc 100644
+--- a/kernel/feature/selinux_hide.c
++++ b/kernel/feature/selinux_hide.c
+@@ -31,7 +31,7 @@
+  */
+ 
+ // enabled by default
+-static bool ksu_selinux_hide_enabled __read_mostly = true;
++bool ksu_selinux_hide_enabled __read_mostly = true;
+ 
+ // selinux_setprocattr handler
+ static __always_inline int ksu_hide_setprocattr_inline(const char *name, void *value, size_t size)
+@@ -484,4 +484,3 @@ void __exit ksu_selinux_hide_exit()
+ #endif
+ 	ksu_unregister_feature_handler(KSU_FEATURE_SELINUX_HIDE);
+ }
+-
+diff --git a/kernel/feature/selinux_hide_arm64.c b/kernel/feature/selinux_hide_arm64.c
+index 1813eda9..e22226ef 100644
+--- a/kernel/feature/selinux_hide_arm64.c
++++ b/kernel/feature/selinux_hide_arm64.c
+@@ -19,7 +19,7 @@ static void ksu_init_hook_sel_handle_status_ops_open(void);
+ 
+ static void ksu_decide_inode_setxattr(bool sh_hooked);
+ static void ksu_decide_setprocattr(bool sh_hooked);
+-static bool ksu_selinux_hide_enabled __read_mostly;
++bool ksu_selinux_hide_enabled __read_mostly;
+ static struct page *ksu_fake_status_page __read_mostly;
+ 
+ #if defined(CONFIG_ARM64) && defined(CONFIG_KALLSYMS)
+diff --git a/kernel/selinux/rules.c b/kernel/selinux/rules.c
+index 832cf092..78275e37 100644
+--- a/kernel/selinux/rules.c
++++ b/kernel/selinux/rules.c
+@@ -2,6 +2,48 @@
+ #define SELINUX_POLICY_INSTEAD_SELINUX_SS
+ #endif
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0) && defined(CONFIG_KSU_SUSFS)
++struct selinux_policy *backup_sepolicy;
++
++/*
++ * SUSFS v2.3's SELinux query hooks use an unmodified policy snapshot to hide
++ * KernelSU's injected types and allow rules. Keep this legacy integration for
++ * kernels without SUSFS v2.4's native SELinux type/AV tables.
++ */
++static void ksu_save_backup_sepolicy(struct selinux_policy *policy)
++{
++	struct selinux_policy *backup;
++	int ret;
++
++	if (READ_ONCE(backup_sepolicy))
++		return;
++
++	backup = ksu_dup_sepolicy(policy);
++	if (IS_ERR(backup)) {
++		pr_err("failed to create backup sepolicy: %ld\n", PTR_ERR(backup));
++		return;
++	}
++
++	backup->sidtab = kzalloc(sizeof(*backup->sidtab), GFP_KERNEL);
++	if (!backup->sidtab) {
++		pr_err("failed to allocate backup sidtab\n");
++		ksu_destroy_sepolicy(backup);
++		return;
++	}
++
++	ret = policydb_load_isids(&backup->policydb, backup->sidtab);
++	if (ret) {
++		pr_err("failed to load initial SIDs for backup sepolicy: %d\n", ret);
++		kfree(backup->sidtab);
++		ksu_destroy_sepolicy(backup);
++		return;
++	}
++
++	WRITE_ONCE(backup_sepolicy, backup);
++	pr_info("SUSFS v2.3 backup sepolicy initialized\n");
++}
++#endif
++
+ #define ALL NULL
+ 
+ #if ((!defined(KSU_COMPAT_USE_SELINUX_STATE)) || LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0))
+@@ -192,6 +234,9 @@ void apply_kernelsu_rules()
+ 	struct selinux_policy *pol, *old_pol;
+ 	mutex_lock(&selinux_state.policy_mutex);
+ 	old_pol = rcu_dereference_protected(selinux_state.policy, lockdep_is_held(&selinux_state.policy_mutex));
++#if defined(CONFIG_KSU_SUSFS)
++	ksu_save_backup_sepolicy(old_pol);
++#endif
+ 	pol = ksu_dup_sepolicy(old_pol);
+ 	if (IS_ERR(pol)) {
+ 		pr_err("failed to dup selinux_policy: %ld\n", PTR_ERR(pol));
+diff --git a/kernel/selinux/sepolicy.c b/kernel/selinux/sepolicy.c
+index d1714633..712ba0be 100644
+--- a/kernel/selinux/sepolicy.c
++++ b/kernel/selinux/sepolicy.c
+@@ -1,9 +1,9 @@
+ #define KSU_SUPPORT_ADD_TYPE
+ 
+-#ifdef CONFIG_KSU_SUSFS
++#if defined(CONFIG_KSU_SUSFS) && defined(CONFIG_KSU_SUSFS_V24_SELINUX_TABLES)
+ extern int susfs_add_sus_avd_allowed_by_type(u32 s_type, u32 t_type, u32 c_type, u32 orig_avd_allowed);
+ extern int susfs_add_sus_type(const char *secctx, u32 type_value);
+-#endif // CONFIG_KSU_SUSFS
++#endif // CONFIG_KSU_SUSFS && CONFIG_KSU_SUSFS_V24_SELINUX_TABLES
+ 
+ /*
+  * Adapt to Huawei HISI kernel without affecting other kernels ,
+@@ -344,11 +344,11 @@ static bool add_rule_raw(struct policydb *db, struct type_datum *src, struct typ
+ 				return false;
+ 		}
+ 
+-#ifdef CONFIG_KSU_SUSFS
++#if defined(CONFIG_KSU_SUSFS) && defined(CONFIG_KSU_SUSFS_V24_SELINUX_TABLES)
+ 		// track the allowed bits before inversion, SUSFS evades avc log
+ 		// spoofing based on this per type/class bitmap
+ 		susfs_add_sus_avd_allowed_by_type(src->value, tgt->value, cls->value, node->datum.u.data);
+-#endif // CONFIG_KSU_SUSFS
++#endif // CONFIG_KSU_SUSFS && CONFIG_KSU_SUSFS_V24_SELINUX_TABLES
+ 
+ 		if (invert) {
+ 			if (perm)
+@@ -1036,7 +1036,7 @@ static bool add_type(struct policydb *db, const char *type_name, bool attr)
+ {
+ 	bool ret = __add_type(db, type_name, attr);
+ 
+-#ifdef CONFIG_KSU_SUSFS
++#if defined(CONFIG_KSU_SUSFS) && defined(CONFIG_KSU_SUSFS_V24_SELINUX_TABLES)
+ 	if (ret) {
+ 		// let SUSFS track the new type so sus_avd/type based hiding keeps working
+ 		struct type_datum *type = symtab_search(&db->p_types, type_name);
+@@ -1044,7 +1044,7 @@ static bool add_type(struct policydb *db, const char *type_name, bool attr)
+ 		if (type)
+ 			susfs_add_sus_type(type_name, type->value);
+ 	}
+-#endif // CONFIG_KSU_SUSFS
++#endif // CONFIG_KSU_SUSFS && CONFIG_KSU_SUSFS_V24_SELINUX_TABLES
+ 
+ 	return ret;
+ }
+diff --git a/kernel/downstream/slow_avc_audit_defs.h b/kernel/downstream/slow_avc_audit_defs.h
+index fd1ff266..701fd81b 100644
+--- a/kernel/downstream/slow_avc_audit_defs.h
++++ b/kernel/downstream/slow_avc_audit_defs.h
+@@ -16,7 +16,7 @@
+ 
+ #include "../feature/avc_spoof.h"
+ 
+-static bool ksu_selinux_hide_enabled;
++extern bool ksu_selinux_hide_enabled __read_mostly;
+ static u32 cached_su_sid;
+ static u32 priv_app_sid __read_mostly = 0;
+ 

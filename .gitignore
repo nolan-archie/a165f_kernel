@@ -33,6 +33,7 @@
 *.order
 *.patch
 !scripts/builtin-new-build-version.patch
+!scripts/builtin-new-susfs-v2.3-compat.patch
 *.s
 *.so
 *.so.dbg
