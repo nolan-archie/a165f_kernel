@@ -7,6 +7,9 @@ CONFIG_FIVE=n
 # SukiSU Nova (KernelSU)
 CONFIG_KSU=y
 CONFIG_KSU_FEATURE_ADBROOT=y
+# Avoid SukiSU's downstream raw LSM hook-list rewriting on this Samsung 5.10 tree.
+# SUSFS inline hooks remain enabled below.
+# CONFIG_KSU_LSM_SECURITY_HOOKS is not set
 CONFIG_SECURITY=y
 CONFIG_SECURITY_NETWORK=y
 CONFIG_AUDIT=y
