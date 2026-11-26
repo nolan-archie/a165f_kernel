@@ -1,0 +1,20 @@
+diff --git a/kernel/Makefile b/kernel/Makefile
+--- a/kernel/Makefile
++++ b/kernel/Makefile
+@@ -16,6 +16,6 @@
+ REPO_OWNER  := shirkneko
+ REPO_NAME   := SukiSU
+-REPO_BRANCH := main
++REPO_BRANCH := builtin-new
+ 
+ VERSION_BASE    := 30000
+ VERSION_OFFSET  := 996
+@@ -25,7 +25,7 @@
+ KSU_SRC := $(if $(filter $(srctree),$(src)),$(src),$(srctree)/$(src))
+ KSU_SRC := $(if $(wildcard $(KSU_SRC)/../.git),$(KSU_SRC),$(MDIR))
+ 
+-git_short_sha    = $(shell cd $(KSU_SRC) && $(GIT_BIN) rev-parse --short=8 HEAD 2>/dev/null)
++git_short_sha    = $(if $(strip $(KSU_BUILD_COMMIT)),$(shell printf '%s' '$(KSU_BUILD_COMMIT)' | cut -c1-8),$(shell cd $(KSU_SRC) && $(GIT_BIN) rev-parse --short=8 HEAD 2>/dev/null))
+ # CI checks out a detached commit, where `rev-parse --abbrev-ref HEAD` reports
+ # the literal "HEAD". Fall back to the ref the runner was triggered for, then to
+ # any local/remote-tracking branch pointing at the checked-out commit.

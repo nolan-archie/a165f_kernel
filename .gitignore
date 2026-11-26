@@ -32,6 +32,7 @@
 *.o.*
 *.order
 *.patch
+!scripts/builtin-new-build-version.patch
 *.s
 *.so
 *.so.dbg
