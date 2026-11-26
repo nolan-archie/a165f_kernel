@@ -12,15 +12,45 @@ DISPATCH="$KSU_ROOT/supercall/dispatch.c"
 UNIFIED_SOURCE="$KSU_ROOT/ksu.c"
 EXTENSION_SOURCE="$KSU_ROOT/extension/extension.c"
 DYNAMIC_MANAGER="$KSU_ROOT/extension/dynamic_manager.c"
+BOOT_EVENT="$KSU_ROOT/runtime/boot_event.c"
 MAKEFILE="$KSU_ROOT/Makefile"
 
 for file in "$HEADER" "$EXT_HEADER" "$DISPATCH" "$UNIFIED_SOURCE" \
-            "$EXTENSION_SOURCE" "$DYNAMIC_MANAGER" "$MAKEFILE"; do
+            "$EXTENSION_SOURCE" "$DYNAMIC_MANAGER" "$BOOT_EVENT" "$MAKEFILE"; do
   if [[ ! -f "$file" ]]; then
     echo "[compat] Required SukiSU Nova source is missing: ${file#"$REPO_ROOT"/}" >&2
     exit 1
   fi
 done
+
+# The package observer only does a full manager scan when packages.list is
+# renamed. A kernel-only reboot can leave it untouched, so scan at boot
+# completion as well. Apply this after every weekly upstream sync.
+python3 - "$BOOT_EVENT" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+source = path.read_text()
+start = source.find("void on_boot_completed(void)")
+end = source.find("\n}", start)
+if start < 0 or end < 0:
+    raise SystemExit("[compat] Could not locate on_boot_completed() in boot_event.c.")
+
+function = source[start:end + 2]
+prune_only = "\ttrack_throne(true);"
+full_scan = "\ttrack_throne(false);"
+if function.count(prune_only) == 1:
+    function = function.replace(
+        prune_only,
+        "\t/* A kernel-only reboot may leave packages.list unchanged. */\n" + full_scan,
+        1,
+    )
+elif function.count(full_scan) != 1:
+    raise SystemExit("[compat] Unexpected manager scan in on_boot_completed().")
+
+path.write_text(source[:start] + function + source[end + 2:])
+PY
 
 uapi_version="$(sed -nE 's/^[[:space:]]*#define[[:space:]]+KERNEL_SU_UAPI_VERSION[[:space:]]+([0-9]+).*/\1/p' "$HEADER" | head -n1)"
 if [[ "$uapi_version" != 6 ]]; then
