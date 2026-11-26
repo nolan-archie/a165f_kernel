@@ -3,37 +3,42 @@
 
 #define KSUD_PATH "/data/adb/ksud"
 
-void ksu_ksud_init(void);
-void ksu_ksud_exit(void);
+void ksu_ksud_init();
+void ksu_ksud_exit();
 
-void on_post_fs_data(void);
-void on_module_mounted(void);
-void on_boot_completed(void);
+static void ksu_stop_input_hook_runtime();
 
-bool ksu_is_safe_mode(void);
+static bool ksu_vfs_read_hook __read_mostly;
+static bool ksu_input_hook __read_mostly;
 
-int nuke_ext4_sysfs(const char *mnt);
+#ifdef CONFIG_KSU_SUSFS
+/*
+ * The SUSFS kernel patch passes the kernel's own struct user_arg_ptr
+ * (include/linux/binfmts.h) to the inline hook callbacks. fs/exec.c has a
+ * private copy of this helper; we need our own for preinit.
+ */
+#define KSU_MAX_ARG_STRINGS 0x7FFFFFFF
 
-extern bool ksu_execveat_hook __read_mostly;
-extern bool ksu_vfs_read_hook __read_mostly;
+static inline const char __user *ksu_get_user_arg_ptr(struct user_arg_ptr argv, int nr)
+{
+	const char __user *native;
 
-extern u32 ksu_file_sid;
-extern bool ksu_module_mounted;
-extern bool ksu_boot_completed;
-
-struct user_arg_ptr {
 #ifdef CONFIG_COMPAT
-    bool is_compat;
-#endif
-    union {
-        const char __user *const __user *native;
-#ifdef CONFIG_COMPAT
-        const compat_uptr_t __user *compat;
-#endif
-    } ptr;
-};
+	if (unlikely(argv.is_compat)) {
+		compat_uptr_t compat;
 
-int ksu_handle_execveat_ksud(int *fd, struct filename **filename_ptr, struct user_arg_ptr *argv,
-                             struct user_arg_ptr *envp, int *flags);
+		if (get_user(compat, argv.ptr.compat + nr))
+			return ERR_PTR(-EFAULT);
+
+		return compat_ptr(compat);
+	}
+#endif
+
+	if (get_user(native, argv.ptr.native + nr))
+		return ERR_PTR(-EFAULT);
+
+	return native;
+}
+#endif // CONFIG_KSU_SUSFS
 
 #endif

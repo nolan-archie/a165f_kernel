@@ -17,8 +17,6 @@
 
 #include <linux/types.h>
 
-#include "extension.h"
-
 int ksu_extension_susfs_get(u32 extension_id, u64 *value);
 int ksu_extension_susfs_set(u32 extension_id, u64 value);
 int ksu_extension_susfs_io(u32 extension_id, void __user *arg);

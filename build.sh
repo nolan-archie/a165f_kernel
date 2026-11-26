@@ -301,8 +301,8 @@ package_artifacts() {
 
     # PACKAGE_PREFIX is exported by the calling branch script:
     #   build-main.sh       -> KernelSU-NEXT
-    #   build-susfs-dev.sh  -> SukiSU-Ultra
-    local package_name="${PACKAGE_PREFIX:-SukiSU-Ultra}-A165F-${BUILD_KERNEL_VERSION}"
+    #   build-susfs-dev.sh  -> SukiSU-Nova
+    local package_name="${PACKAGE_PREFIX:-SukiSU-Nova}-A165F-${BUILD_KERNEL_VERSION}"
     log_info "Creating package with boot.img"
 
     tar -cvf "${package_name}.tar" boot.img || die "Tar creation failed"
@@ -318,7 +318,7 @@ main() {
     start_time=$(date +%s)
 
     log_info "====================================================================="
-    log_info "SukiSU-Ultra Build Script"
+    log_info "SukiSU Nova Build Script"
     log_info "====================================================================="
 
     mkdir -p "${SCRIPT_DIR}/dist"
@@ -338,7 +338,7 @@ main() {
     log_info "====================================================================="
     log_success "Build completed in ${duration} seconds"
     log_info "====================================================================="
-    log_info "Output: ${SCRIPT_DIR}/dist/${PACKAGE_PREFIX:-SukiSU-Ultra}-A165F-${BUILD_KERNEL_VERSION}-packaged.zip"
+    log_info "Output: ${SCRIPT_DIR}/dist/${PACKAGE_PREFIX:-SukiSU-Nova}-A165F-${BUILD_KERNEL_VERSION}-packaged.zip"
 }
 
 trap 'log_error "Build failed at line $LINENO"' ERR

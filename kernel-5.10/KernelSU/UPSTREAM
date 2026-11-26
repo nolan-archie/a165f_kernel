@@ -1,0 +1,19 @@
+Repository: https://codeberg.org/ShirkNeko/SukiSU.git
+Announced primary: https://git.shirkneko.top/shirkneko/SukiSU
+Documented integration endpoint: https://git.zako.shirkneko.top:20004/shirkneko/SukiSU.git
+Branch: builtin-new
+Commit: fcc3d27f5b22ff7b788fe443e65a561566d34225
+
+The announced primary returned HTTP 521, and the documented integration
+endpoint did not serve this pin. The Codeberg mirror was used under the
+fallback rule. Its pin is one mirror-specific setup.sh fix ahead of the
+documented integration endpoint tip d8aafb76eeef070dad2dc39161ddf922545fce90.
+The old SukiSU-Ultra history and this branch share the cf41f112 ancestor, then
+diverge; the old branch tip is not an ancestor of builtin-new.
+
+Local compatibility patches: builtin-new-kernel-5.10-compat.patch,
+builtin-new-build-version.patch, and builtin-new-susfs-v2.3-compat.patch.
+The local SUSFS v2.3.0 core uses the legacy SELinux backup-policy query path;
+builtin-new's v2.4 native SELinux table calls are gated until that API exists.
+The optional priority UID filter is disabled because the local core does not
+expose its command/API.

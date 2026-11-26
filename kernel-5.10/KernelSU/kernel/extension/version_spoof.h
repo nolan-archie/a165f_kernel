@@ -4,9 +4,6 @@
 
 #include <linux/types.h>
 
-#include "uapi/extension.h"
-#include "uapi/supercall.h"
-
 int ksu_extension_version_spoof_io(u32 id, void __user *raw);
 int ksu_extension_version_spoof_wipe(u32 id);
 void ksu_version_spoof_apply_info(struct ksu_get_info_cmd *cmd);

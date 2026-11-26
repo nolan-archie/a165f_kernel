@@ -2,7 +2,7 @@
 # scripts/build-susfs-dev.sh
 #
 # Everything for the `susfs-dev` branch in one file:
-#   1. Update manager-detection code via YOUR existing sync-manager-detection.sh
+#   1. Sync the vendored SukiSU Nova builtin-new source to its reviewed pin
 #   2. Run your existing build.sh (unchanged)
 #   3. Read the REAL .config/Makefile it produced
 #   4. Send a Telegram build card (pass or fail)
@@ -20,15 +20,13 @@ BRANCH="susfs-dev"
 KERNEL_SRC_DIR="${KERNEL_SRC_DIR:-$REPO_ROOT/kernel-5.10}"
 KSU_DIR="${KSU_DIR:-$KERNEL_SRC_DIR/drivers/kernelsu}"
 SYNC_SCRIPT="$REPO_ROOT/sync-manager-detection.sh"
-KSU_SOURCE_LABEL="SukiSU-Ultra (main manager/UAPI + builtin-new tracker)"
+source "$REPO_ROOT/scripts/sukisu-upstream.env"
+KSU_SOURCE_LABEL="SukiSU Nova ($SUKISU_BRANCH @ ${SUKISU_COMMIT:0:8})"
 DEVICE="A165F"
 GITHUB_REPO="${GITHUB_REPOSITORY:-nolan-archie/a165f_kernel}"
 # Telegram creds come from BOT_TOKEN/CHAT_ID (set by kernel_builder.yml)
 # and are read directly by scripts/lib-telegram.sh — sourced below.
 # -----------------------------------------------------------------------------
-
-echo "[update] Ensuring git submodules are initialized..."
-git -C "$REPO_ROOT" submodule update --init --recursive 2>/dev/null || true
 
 # Symlink handling (same as before)
 if [ ! -e "$KSU_DIR" ]; then
@@ -60,39 +58,12 @@ if [ ! -d "$KSU_DIR" ]; then
   exit 1
 fi
 
-echo "[update] Snapshotting manager files..."
-BEFORE_HASH="$(find "$KSU_DIR/manager" "$KSU_DIR/include" "$KSU_DIR/supercall" "$KSU_DIR/extension" "$KSU_DIR/feature" "$KSU_DIR/Makefile" "$KSU_DIR/infra/symbol_resolver.c" "$KSU_DIR/infra/symbol_resolver.h" -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum || echo none)"
-
-echo "[update] Running sync-manager-detection.sh..."
+echo "[update] Syncing SukiSU Nova builtin-new at $SUKISU_COMMIT..."
 SYNC_EXIT=0
 bash "$SYNC_SCRIPT" "$KSU_DIR" || SYNC_EXIT=$?
-
-AFTER_HASH="$(find "$KSU_DIR/manager" "$KSU_DIR/include" "$KSU_DIR/supercall" "$KSU_DIR/extension" "$KSU_DIR/feature" "$KSU_DIR/Makefile" "$KSU_DIR/infra/symbol_resolver.c" "$KSU_DIR/infra/symbol_resolver.h" -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum || echo none)"
-CHANGED=0
-[ "$BEFORE_HASH" != "$AFTER_HASH" ] && CHANGED=1
-echo "[update] changed=$CHANGED"
 if [ "$SYNC_EXIT" -ne 0 ]; then
-  echo "[update] SukiSU source sync failed (exit $SYNC_EXIT); weekly build will be skipped."
+  echo "[update] SukiSU source sync failed (exit $SYNC_EXIT); build will be skipped."
 fi
-echo "CHANGED=$CHANGED" >> "${GITHUB_OUTPUT:-/dev/stdout}"
-
-if [ "$CHANGED" -eq 1 ] && [ "$SYNC_EXIT" -eq 0 ]; then
-  cd "$REPO_ROOT"
-  KSU_REAL_DIR="$(realpath "$KSU_DIR")"
-  KSU_GIT_DIR="${KSU_REAL_DIR#"$REPO_ROOT"/}"
-  git add -A -- \
-    "$KSU_GIT_DIR/manager" \
-    "$KSU_GIT_DIR/include" \
-    "$KSU_GIT_DIR/extension" \
-    "$KSU_GIT_DIR/feature" \
-    "$KSU_GIT_DIR/infra/symbol_resolver.c" \
-    "$KSU_GIT_DIR/infra/symbol_resolver.h" \
-    "$KSU_GIT_DIR/supercall" \
-    "$KSU_GIT_DIR/Makefile"
-  git commit -m "Weekly sync: update SukiSU manager and builtin-new tracker [skip ci]" || true
-  git push origin HEAD:"$BRANCH" 2>/dev/null || true
-fi
-
 # Verify the current upstream SukiSU API after syncing its UAPI and event
 # handlers. Unsupported API changes stop the weekly build before publishing.
 COMPAT_EXIT="$SYNC_EXIT"
@@ -104,7 +75,9 @@ fi
 cd "$REPO_ROOT"
 RUN_TAG="$(date -u '+%Y%m%d')-${BRANCH}-$(git rev-parse --short HEAD)"
 export BUILD_KERNEL_VERSION="$RUN_TAG"
-export PACKAGE_PREFIX="SukiSU-Ultra"
+export PACKAGE_PREFIX="SukiSU-Nova"
+export KSU_BUILD_REF="$SUKISU_BRANCH"
+export KSU_BUILD_COMMIT="$SUKISU_COMMIT"
 echo "[build] BUILD_KERNEL_VERSION=$BUILD_KERNEL_VERSION"
 
 if [ "$COMPAT_EXIT" -eq 0 ]; then
@@ -131,19 +104,7 @@ fi
 echo "[verify] Using .config: ${DOT_CONFIG:-none found}"
 
 # KSU version
-KSU_VERSION_DISPLAY="unknown"
-if git -C "$KSU_DIR" rev-parse --git-dir >/dev/null 2>&1; then
-  DESCRIBE="$(git -C "$KSU_DIR" describe --tags --always --dirty 2>/dev/null || true)"
-  COUNT="$(git -C "$KSU_DIR" rev-list --count HEAD 2>/dev/null || true)"
-  SHORT_SHA="$(git -C "$KSU_DIR" rev-parse --short HEAD 2>/dev/null || true)"
-  if [ -n "$DESCRIBE" ]; then
-    KSU_VERSION_DISPLAY="$DESCRIBE"
-  elif [ -n "$COUNT" ]; then
-    KSU_VERSION_DISPLAY="r${COUNT} (${SHORT_SHA})"
-  fi
-else
-  KSU_VERSION_DISPLAY="$(git -C "$REPO_ROOT" rev-parse --short HEAD)"
-fi
+KSU_VERSION_DISPLAY="$SUKISU_BRANCH @ ${SUKISU_COMMIT:0:12}"
 
 # EXPECTED_HASH / EXPECTED_SIZE — robust parsing
 MANAGER_EXPECTED_HASH="unknown"
@@ -175,7 +136,8 @@ SUSFS_MATCH="$(grep -rhoE 'SUSFS_VERSION[[:space:]]+"[^"]+"' "$KSU_DIR" 2>/dev/n
 # Hook type
 HOOK_TYPE="unknown"
 if [ -f "$DOT_CONFIG" ]; then
-  if grep -q '^CONFIG_KSU_MANUAL_HOOK=y' "$DOT_CONFIG"; then HOOK_TYPE="Manual"
+  if grep -q '^CONFIG_KSU_SUSFS_INLINE_HOOK=y' "$DOT_CONFIG"; then HOOK_TYPE="SUSFS inline hooks"
+  elif grep -q '^CONFIG_KSU_LSM_SECURITY_HOOKS=y' "$DOT_CONFIG"; then HOOK_TYPE="LSM security hooks"
   elif grep -q '^CONFIG_KPROBES=y' "$DOT_CONFIG"; then HOOK_TYPE="Kprobes"
   elif grep -q '^CONFIG_MODULES=y' "$DOT_CONFIG"; then HOOK_TYPE="LKM"
   fi
@@ -184,7 +146,8 @@ fi
 # Features — compact, only show enabled
 declare -A FEATURE_CHECKS=(
   ["SuSFS"]="CONFIG_KSU_SUSFS"
-  ["Manual Hooks"]="CONFIG_KSU_MANUAL_HOOK"
+  ["SUSFS inline hooks"]="CONFIG_KSU_SUSFS_INLINE_HOOK"
+  ["Priority UID filter"]="CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER"
   ["KPM"]="CONFIG_KPM"
   ["Magic Mount"]="CONFIG_KSU_SUSFS_SUS_MOUNT"
   ["LZ4K"]="CONFIG_LZ4K"

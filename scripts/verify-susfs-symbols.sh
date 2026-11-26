@@ -42,6 +42,69 @@ done
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
+# Comments can mention a SUSFS helper without calling it (for example,
+# mount_hide.c documents SUSFS's private susfs_show_vfsmnt implementation).
+# Scan comment-free copies so those notes are not mistaken for C references.
+C_SCAN_DIR="$WORK_DIR/comment-free-c"
+mkdir -p "$C_SCAN_DIR"
+python3 - "$KSU_DIR" "$C_SCAN_DIR" <<'PY'
+import sys
+from pathlib import Path
+
+source_root, output_root = map(Path, sys.argv[1:])
+
+def strip_comments(text):
+    out = []
+    i = 0
+    state = "code"
+    quote = ""
+    while i < len(text):
+        char = text[i]
+        nxt = text[i + 1] if i + 1 < len(text) else ""
+        if state == "line":
+            if char == "\n":
+                out.append(char)
+                state = "code"
+            else:
+                out.append(" ")
+        elif state == "block":
+            if char == "*" and nxt == "/":
+                out.extend("  ")
+                i += 1
+                state = "code"
+            else:
+                out.append("\n" if char == "\n" else " ")
+        elif state == "string":
+            out.append(char)
+            if char == "\\" and nxt:
+                out.append(nxt)
+                i += 1
+            elif char == quote:
+                state = "code"
+        elif char in ('"', "'"):
+            quote = char
+            state = "string"
+            out.append(char)
+        elif char == "/" and nxt == "/":
+            out.extend("  ")
+            i += 1
+            state = "line"
+        elif char == "/" and nxt == "*":
+            out.extend("  ")
+            i += 1
+            state = "block"
+        else:
+            out.append(char)
+        i += 1
+    return "".join(out)
+
+for source in source_root.rglob("*.c"):
+    if source.is_file():
+        destination = output_root / source.relative_to(source_root)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(strip_comments(source.read_text(errors="replace")))
+PY
+
 echo "[+] Scanning for declared susfs_* symbols (headers + same-line defs)..."
 : > "$WORK_DIR/declared.txt"
 
@@ -60,7 +123,7 @@ grep -rhoE '#define\s+susfs_[A-Za-z0-9_]+' "$SUSFS_CORE_C" "${SUSFS_CORE_H[@]}" 
 #    mistaking "call followed by a brace" for a definition.
 grep -hoE '^[A-Za-z_][A-Za-z0-9_ \*]*\bsusfs_[A-Za-z0-9_]+\s*\(' "$SUSFS_CORE_C" 2>/dev/null \
   | grep -oE '\bsusfs_[A-Za-z0-9_]+' >> "$WORK_DIR/declared.txt" || true
-find -L "$KSU_DIR" -name '*.c' -print0 2>/dev/null \
+find "$C_SCAN_DIR" -name '*.c' -print0 2>/dev/null \
   | xargs -0 -r grep -hoE '^[A-Za-z_][A-Za-z0-9_ \*]*\bsusfs_[A-Za-z0-9_]+\s*\(' 2>/dev/null \
   | grep -oE '\bsusfs_[A-Za-z0-9_]+' >> "$WORK_DIR/declared.txt" || true
 
@@ -73,7 +136,7 @@ echo "    $DECLARED_COUNT distinct susfs_* symbols found declared/defined"
 #    and would otherwise false-positive as "called but undeclared".
 grep -hoE '^[A-Za-z_][A-Za-z0-9_ \*]*\bsusfs_[A-Za-z0-9_]+\s*[;=\[]' "$SUSFS_CORE_C" 2>/dev/null \
   | grep -oE '\bsusfs_[A-Za-z0-9_]+' >> "$WORK_DIR/declared.txt" || true
-find -L "$KSU_DIR" -name '*.c' -print0 2>/dev/null \
+find "$C_SCAN_DIR" -name '*.c' -print0 2>/dev/null \
   | xargs -0 -r grep -hoE '^[A-Za-z_][A-Za-z0-9_ \*]*\bsusfs_[A-Za-z0-9_]+\s*[;=\[]' 2>/dev/null \
   | grep -oE '\bsusfs_[A-Za-z0-9_]+' >> "$WORK_DIR/declared.txt" || true
 sort -u -o "$WORK_DIR/declared.txt" "$WORK_DIR/declared.txt"
@@ -82,7 +145,7 @@ echo "[+] Scanning for susfs_* FUNCTIONS called from $KSU_DIR/*.c ..."
 # Only symbols used in call syntax (name followed by '(') count as "called" --
 # bare variable references (no paren) are a different class of usage and are
 # checked separately below.
-find -L "$KSU_DIR" -name '*.c' -print0 2>/dev/null \
+find "$C_SCAN_DIR" -name '*.c' -print0 2>/dev/null \
   | xargs -0 -r grep -hoE '\bsusfs_[A-Za-z0-9_]+\s*\(' 2>/dev/null \
   | sed -E 's/\s*\($//' \
   | sort -u > "$WORK_DIR/called.txt" || true
@@ -91,6 +154,19 @@ echo "    $CALLED_COUNT distinct susfs_* symbols referenced"
 
 echo "[+] Cross-checking..."
 MISSING=$(comm -23 "$WORK_DIR/called.txt" "$WORK_DIR/declared.txt")
+
+# SukiSU builtin-new can consume these optional APIs when a newer SUSFS core
+# defines the matching commands. This kernel's SUSFS v2.3.0 does not provide
+# those commands; every downstream call is guarded by the missing command
+# macro, and the defconfig leaves priority UID filtering disabled.
+if ! grep -Eq '^#define[[:space:]]+CMD_SUSFS_SET_PRIORITY_UID_FILTER\b' \
+     "$KDIR/include/linux/susfs.h" "$KDIR/include/linux/susfs_def.h"; then
+  MISSING="$(printf '%s\n' "$MISSING" | grep -Ev '^(susfs_parse_priority_app_strings|susfs_set_priority_uid_filter)$' || true)"
+fi
+if ! grep -Eq '^#define[[:space:]]+CMD_SUSFS_SET_SUS_PATH_UID_FILTER\b' \
+     "$KDIR/include/linux/susfs.h" "$KDIR/include/linux/susfs_def.h"; then
+  MISSING="$(printf '%s\n' "$MISSING" | grep -Ev '^(susfs_parse_sus_path_app_strings|susfs_set_sus_path_uid_filter)$' || true)"
+fi
 
 if [ -z "$MISSING" ]; then
   echo

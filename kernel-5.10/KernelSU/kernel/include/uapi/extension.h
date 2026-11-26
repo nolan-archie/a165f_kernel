@@ -4,9 +4,6 @@
 #include <linux/ioctl.h>
 #include <linux/types.h>
 
-#include "uapi/manager.h"
-#include "uapi/supercall.h"
-
 /*
  * Extension subsystem architecture.
  *
@@ -176,15 +173,15 @@ struct ksu_extension_cmd {
 };
 
 // 0. KPM
-static const __u32 SUKISU_KPM_LOAD = 1;
-static const __u32 SUKISU_KPM_UNLOAD = 2;
-static const __u32 SUKISU_KPM_NUM = 3;
-static const __u32 SUKISU_KPM_LIST = 4;
-static const __u32 SUKISU_KPM_INFO = 5;
-static const __u32 SUKISU_KPM_CONTROL = 6;
-static const __u32 SUKISU_KPM_VERSION = 7;
+#define SUKISU_KPM_LOAD 1
+#define SUKISU_KPM_UNLOAD 2
+#define SUKISU_KPM_NUM 3
+#define SUKISU_KPM_LIST 4
+#define SUKISU_KPM_INFO 5
+#define SUKISU_KPM_CONTROL 6
+#define SUKISU_KPM_VERSION 7
 /* Optional event-aware load used for boot-stage modules. */
-static const __u32 SUKISU_KPM_LOAD_EVENT = 8;
+#define SUKISU_KPM_LOAD_EVENT 8
 
 struct ksu_kpm_cmd {
     __aligned_u64 control_code;
@@ -255,8 +252,7 @@ struct ksu_version_spoof_cmd {
 };
 
 /* IOCTL command: one ioctl, extension handlers are enumerated above. */
-static const __u32 KSU_IOCTL_EXTENSION =
-    _IOC(_IOC_READ | _IOC_WRITE, 'K', 300, sizeof(struct ksu_extension_cmd));
+#define KSU_IOCTL_EXTENSION	 _IOC(_IOC_READ | _IOC_WRITE, 'K', 300, sizeof(struct ksu_extension_cmd))
 
 /*
  * NOTE: the `force_extension=<id>:<value>` boot-config encoding is

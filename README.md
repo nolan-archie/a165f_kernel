@@ -9,7 +9,7 @@ Two branches, two root implementations, one shared build pipeline:
 | Branch       | Root manager                                      | Hook type          |
 |--------------|----------------------------------------------------|---------------------|
 | `main`       | [KernelSU-Next](https://github.com/pershoot/KernelSU-Next) (`dev-susfs` fork) | Kprobes / Manual |
-| `susfs-dev`  | [SukiSU-Ultra](https://github.com/SukiSU-Ultra/SukiSU-Ultra) (`builtin` fork) | Kprobes / LKM    |
+| `susfs-dev`  | [SukiSU Nova](https://git.zako.shirkneko.top:20004/shirkneko/SukiSU) (`builtin-new`) | Inline / LSM hooks |
 
 Both branches ship [SUSFS4KSU](https://gitlab.com/simonpunk/susfs4ksu) —
 kernel-side hiding of root artifacts from userspace detection (mount
@@ -20,7 +20,7 @@ the respective root manager's code path.
 
 ## Why two branches instead of one
 
-`KernelSU-Next` and `SukiSU-Ultra` each implement SUSFS support differently
+`KernelSU-Next` and `SukiSU Nova` each implement SUSFS support differently
 (different hook mechanisms, different manager-detection/handshake code,
 incompatible driver layouts under `drivers/kernelsu`). Rather than fork a
 single implementation, this repo tracks both upstream projects independently
@@ -43,8 +43,8 @@ kernel_builder.yml  (GitHub Actions, matrix: main + susfs-dev)
         ├─ checkout branch
         ├─ scripts/build-main.sh  or  scripts/build-susfs-dev.sh
         │        │
-        │        ├─ 1. sync KSU source (fetch dev-susfs branch / run
-        │        │      sync-manager-detection.sh against upstream SukiSU-Ultra)
+        │        ├─ 1. sync KSU source (fetch dev-susfs branch / sync the
+        │        │      pinned SukiSU Nova builtin-new source)
         │        ├─ 2. ./build.sh            (actual kernel compile + packaging)
         │        ├─ 3. read the real .config/Makefile the build produced
         │        │      — never hardcode feature claims
@@ -58,7 +58,7 @@ kernel_builder.yml  (GitHub Actions, matrix: main + susfs-dev)
 Branch-agnostic. Installs toolchain/dependencies, patches
 `gen_build_config.py` for Python 3, generates the build config, compiles the
 kernel, builds `boot.img`, and zips the final package into `dist/`. The
-output filename prefix (`KernelSU-NEXT-...` vs `SukiSU-Ultra-...`) is
+output filename prefix (`KernelSU-NEXT-...` vs `SukiSU-Nova-...`) is
 controlled by the `PACKAGE_PREFIX` env var set by whichever branch script
 calls it, so the artifact name always matches the branch's actual root
 manager. The A16 uses a single boot-image layout: `boot.img` is produced
@@ -82,15 +82,18 @@ kernel.
 
 ### `scripts/build-main.sh` / `scripts/build-susfs-dev.sh`
 Branch-specific orchestration: update the KSU source, invoke `build.sh`,
-verify the resulting `.config` for the real feature set (SuSFS, Manual
-Hooks, KPM, Magic Mount, LZ4K/LZ4KD, BBR, CAKE, WireGuard, and NTSYNC), and
+verify the resulting `.config` for the real feature set (SuSFS, inline SUSFS
+hooks, KPM, Magic Mount, LZ4K/LZ4KD, BBR, CAKE, WireGuard, and NTSYNC), and
 hand structured results back to the workflow.
 
 On `susfs-dev`, the weekly script runs
 [`scripts/apply-sukisu-manager-uapi.sh`](scripts/apply-sukisu-manager-uapi.sh)
-after manager sync. It reapplies the tracked UAPI compatibility diff when
-needed and verifies UAPI 5 `EVENT_SERVICES` support before allowing the build
-to proceed, so a source refresh cannot silently remove this fix.
+after source sync. It verifies the builtin-new UAPI, dynamic-manager
+extension, Nova manager identity, and upstream SUSFS hook options before
+allowing the build to proceed. The vendored source pin and both upstream
+locations are recorded in `kernel-5.10/KernelSU/UPSTREAM`.
+The optional SukiSU priority UID filter stays disabled because the local
+SUSFS v2.3.0 core does not provide its command/API.
 
 ### `scripts/lib-telegram.sh`
 Single shared Telegram notifier sourced by both branch scripts, so message
@@ -100,14 +103,10 @@ workflow env (backed by the `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`
 repository secrets).
 
 ### `sync-manager-detection.sh`
-`susfs-dev` only. Pulls the manager-detection/handshake code from
-[SukiSU-Ultra's upstream `main`](https://github.com/SukiSU-Ultra/SukiSU-Ultra)
-into this repo's in-tree copy, so manager-app compatibility (hash/size
-checks, etc.) stays current without hand-patching. It also syncs the dynamic
-manager implementation and UAPI and merges the manager ioctl into this
-kernel's dispatch. The persisted manager list is loaded at `post-fs-data`,
-before package observation begins. The UAPI compatibility check fails closed
-if upstream changes the manager contract or dispatch shape incompatibly.
+`susfs-dev` only. Syncs the vendored kernel directory from the pinned
+`builtin-new` branch of SukiSU Nova. It tries the documented primary host
+first and falls back to the Codeberg mirror. The sync never commits or pushes.
+The Linux 5.10 tracker compatibility patch is applied only when needed.
 
 ### Scheduling
 `kernel_builder.yml` runs every Monday at 00:00 UTC and on manual dispatch,
@@ -136,8 +135,8 @@ This project builds on top of, and would not exist without:
 - **[KernelSU-Next](https://github.com/KernelSU-Next/KernelSU-Next)** and
   the **[pershoot `dev-susfs` fork](https://github.com/pershoot/KernelSU-Next)**
   used on `main`.
-- **[SukiSU-Ultra](https://github.com/SukiSU-Ultra/SukiSU-Ultra)**, used on
-  `susfs-dev`.
+- **[SukiSU Nova](https://git.zako.shirkneko.top:20004/shirkneko/SukiSU)**,
+  used on `susfs-dev`.
 - **[KernelSU](https://github.com/tiann/KernelSU)** by tiann — the original
   project both of the above build on.
 - **Samsung Open Source** and the stock Galaxy A16 (SM-A165F) kernel source

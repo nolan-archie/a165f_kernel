@@ -1,356 +1,132 @@
 #!/usr/bin/env bash
-# sync-manager-detection.sh
-#
-# Keeps the manager/UAPI layer in sync with SukiSU-Ultra main, while taking the
-# throne tracker and signature fallback from builtin-new. The existing kernel
-# tree keeps its SUSFS integration and legacy manual-hook implementation.
-#
-# Usage:
-#   ./sync-manager-detection.sh /path/to/your/a165f_kernel/kernel-5.10/drivers/kernelsu
-#
+# Sync the vendored SukiSU Nova kernel source to the reviewed builtin-new pin.
+# The Codeberg mirror is used when the announced primary cannot provide it.
+# This script never commits or pushes changes.
+
 set -euo pipefail
 
-TARGET_DIR="${1:?Usage: $0 <path-to-drivers/kernelsu>}"
+TARGET_DIR="${1:?Usage: $0 <path-to-drivers/kernelsu> }"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$ROOT_DIR/scripts/sukisu-upstream.env"
+
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
-if [ ! -f "$TARGET_DIR/Makefile" ]; then
-  echo "[ERROR] $TARGET_DIR/Makefile not found. Point this at drivers/kernelsu." >&2
+TRACKER_PATCH="$ROOT_DIR/scripts/builtin-new-kernel-5.10-compat.patch"
+VERSION_PATCH="$ROOT_DIR/scripts/builtin-new-build-version.patch"
+SUSFS_PATCH="$ROOT_DIR/scripts/builtin-new-susfs-v2.3-compat.patch"
+
+if [[ ! -f "$TARGET_DIR/Makefile" ]]; then
+  echo "[ERROR] $TARGET_DIR/Makefile not found; expected the kernelsu source directory." >&2
   exit 1
 fi
-TARGET_DIR="$(cd "$TARGET_DIR" && pwd -P)"
+TARGET_DIR="$(realpath "$TARGET_DIR")"
+KSU_ROOT="$(dirname "$TARGET_DIR")"
 
-echo "[+] Fetching upstream main (manager and UAPI sources, shallow)..."
-git clone --filter=blob:none --no-checkout --depth=50 \
-  https://github.com/SukiSU-Ultra/SukiSU-Ultra.git "$WORK_DIR/repo" >/dev/null 2>&1
-cd "$WORK_DIR/repo"
-git sparse-checkout init --cone >/dev/null 2>&1
-git sparse-checkout set uapi kernel/manager kernel/include kernel/infra kernel/supercall kernel/extension kernel/feature >/dev/null 2>&1
-git checkout -q origin/main -- uapi kernel/manager kernel/include kernel/infra kernel/supercall kernel/extension kernel/feature 2>/dev/null || \
-  git checkout -q main -- uapi kernel/manager kernel/include kernel/infra kernel/supercall kernel/extension kernel/feature
-
-MANAGER_FILES=(
-  apk_sign.c
-  apk_sign.h
-  dynamic_manager.c
-  dynamic_manager.h
-  manager_identity.h
-  manager_observer.h
-  pkg_observer.c
-)
-
-echo "[+] Diffing against your current tree (from upstream main)..."
-CHANGED=0
-mkdir -p "$TARGET_DIR/manager"
-for f in "${MANAGER_FILES[@]}"; do
-  SRC="kernel/manager/$f"
-  DST="$TARGET_DIR/manager/$f"
-  if [ ! -f "$SRC" ]; then
-    echo "    [skip] $f not present upstream"
-    continue
-  fi
-  if [ -f "$DST" ] && diff -q "$SRC" "$DST" >/dev/null 2>&1; then
-    echo "    [ok]   $f already up to date"
-  else
-    cp "$SRC" "$DST"
-    echo "    [sync] $f updated"
-    CHANGED=1
-  fi
-done
-
-echo "[+] Syncing builtin-new throne tracker and signature fallback..."
-git clone --filter=blob:none --no-checkout --depth=50 --branch=builtin-new \
-  https://github.com/SukiSU-Ultra/SukiSU-Ultra.git "$WORK_DIR/builtin-new" >/dev/null 2>&1
-cd "$WORK_DIR/builtin-new"
-git sparse-checkout init --cone >/dev/null 2>&1
-git sparse-checkout set kernel/manager kernel/extension >/dev/null 2>&1
-git checkout -q origin/builtin-new -- \
-  kernel/manager/throne_tracker.c \
-  kernel/manager/throne_tracker.h \
-  kernel/extension/dynamic_sig_fallback.c \
-  kernel/extension/dynamic_sig_fallback.h 2>/dev/null || \
-  git checkout -q HEAD -- \
-  kernel/manager/throne_tracker.c \
-  kernel/manager/throne_tracker.h \
-  kernel/extension/dynamic_sig_fallback.c \
-  kernel/extension/dynamic_sig_fallback.h
-
-TRACKER_SOURCE="$WORK_DIR/builtin-new/kernel/manager/throne_tracker.c"
-if grep -Fq 'guarded_mutex_lock(&throne_tracker_mutex)' "$TRACKER_SOURCE"; then
-  echo "[+] Applying Linux 5.10 mutex compatibility to builtin-new tracker..."
-  if ! git -C "$WORK_DIR/builtin-new" apply --check \
-       "$ROOT_DIR/scripts/builtin-new-kernel-5.10-compat.patch"; then
-    echo "[ERROR] builtin-new throne tracker changed; update the Linux 5.10 compatibility patch." >&2
-    exit 1
-  fi
-  git -C "$WORK_DIR/builtin-new" apply \
-    "$ROOT_DIR/scripts/builtin-new-kernel-5.10-compat.patch"
-fi
-
-for file in \
-  kernel/manager/throne_tracker.c \
-  kernel/manager/throne_tracker.h \
-  kernel/extension/dynamic_sig_fallback.c \
-  kernel/extension/dynamic_sig_fallback.h
-do
-  SRC="$WORK_DIR/builtin-new/$file"
-  DST="$TARGET_DIR/${file#kernel/}"
-  if [ ! -f "$SRC" ]; then
-    echo "[ERROR] builtin-new source file missing: $file" >&2
-    exit 1
-  fi
-  mkdir -p "$(dirname "$DST")"
-  if [ -f "$DST" ] && diff -q "$SRC" "$DST" >/dev/null 2>&1; then
-    echo "    [ok]   ${file#kernel/} already matches builtin-new"
-  else
-    cp "$SRC" "$DST"
-    echo "    [sync] ${file#kernel/} updated from builtin-new"
-    CHANGED=1
-  fi
-done
-cd "$ROOT_DIR"
-
-echo "[+] Syncing manager UAPI..."
-mkdir -p "$TARGET_DIR/include/uapi"
-if [ ! -f "$WORK_DIR/repo/uapi/manager.h" ]; then
-  echo "[ERROR] upstream uapi/manager.h is missing; refusing to build without the manager UAPI." >&2
-  exit 1
-fi
-
-# The legacy in-tree SukiSU kernel on susfs-dev is a unity build. It needs
-# the newer extension hub wired into its own dispatch and initialization;
-# KernelSU-Next has a separate build layout and owns that integration itself.
-if [ -f "$TARGET_DIR/ksu.c" ]; then
-  echo "[+] Syncing the extension ABI and legacy unity-build handlers..."
-  for file in uapi/extension.h uapi/feature.h; do
-    SRC="$WORK_DIR/repo/$file"
-    DST="$TARGET_DIR/include/$file"
-    if [ ! -f "$SRC" ]; then
-      echo "[ERROR] Required upstream ABI file is missing: $file" >&2
-      exit 1
-    fi
-    mkdir -p "$(dirname "$DST")"
-    if [ -f "$DST" ] && diff -q "$SRC" "$DST" >/dev/null 2>&1; then
-      echo "    [ok]   include/${file#uapi/} already up to date"
-    else
-      cp "$SRC" "$DST"
-      echo "    [sync] include/${file#uapi/} updated"
-      CHANGED=1
-    fi
-  done
-
-  EXTENSION_FILES=(
-    extension.c
-    extension.h
-    cpu_spoof.c
-    cpu_spoof.h
-    susfs_extension.c
-    susfs_extension.h
-    umount_paths.c
-    umount_paths.h
-    version_spoof.c
-    version_spoof.h
-  )
-  for file in "${EXTENSION_FILES[@]}"; do
-    SRC="$WORK_DIR/repo/kernel/extension/$file"
-    DST="$TARGET_DIR/extension/$file"
-    if [ ! -f "$SRC" ]; then
-      echo "[ERROR] Required upstream extension source is missing: $file" >&2
-      exit 1
-    fi
-    mkdir -p "$(dirname "$DST")"
-    if [ -f "$DST" ] && diff -q "$SRC" "$DST" >/dev/null 2>&1; then
-      echo "    [ok]   extension/$file already up to date"
-    else
-      cp "$SRC" "$DST"
-      echo "    [sync] extension/$file updated"
-      CHANGED=1
-    fi
-  done
-
-  for file in shell_su_adb_only.c shell_su_adb_only.h; do
-    SRC="$WORK_DIR/repo/kernel/feature/$file"
-    DST="$TARGET_DIR/feature/$file"
-    if [ ! -f "$SRC" ]; then
-      echo "[ERROR] Required upstream feature source is missing: $file" >&2
-      exit 1
-    fi
-    mkdir -p "$(dirname "$DST")"
-    if [ -f "$DST" ] && diff -q "$SRC" "$DST" >/dev/null 2>&1; then
-      echo "    [ok]   feature/$file already up to date"
-    else
-      cp "$SRC" "$DST"
-      echo "    [sync] feature/$file updated"
-      CHANGED=1
-    fi
-  done
-fi
-if [ -f "$TARGET_DIR/include/uapi/manager.h" ] && \
-   diff -q "$WORK_DIR/repo/uapi/manager.h" "$TARGET_DIR/include/uapi/manager.h" >/dev/null 2>&1; then
-  echo "    [ok]   include/uapi/manager.h already up to date"
-else
-  cp "$WORK_DIR/repo/uapi/manager.h" "$TARGET_DIR/include/uapi/manager.h"
-  echo "    [sync] include/uapi/manager.h updated"
-  CHANGED=1
-fi
-
-# kernel/include/*.h files that manager/ sources depend on via quoted
-# includes. The synced manager files include util.h, which also includes
-# arch.h, so keep both headers in sync with the upstream manager sources.
-INCLUDE_FILES=(
-  arch.h
-  util.h
-)
-
-echo "[+] Diffing manager's kernel/include dependencies against your current tree..."
-mkdir -p "$TARGET_DIR/include"
-for f in "${INCLUDE_FILES[@]}"; do
-  SRC="kernel/include/$f"
-  DST="$TARGET_DIR/include/$f"
-  if [ ! -f "$SRC" ]; then
-    echo "    [skip] include/$f not present upstream"
-    continue
-  fi
-  if [ -f "$DST" ] && diff -q "$SRC" "$DST" >/dev/null 2>&1; then
-    echo "    [ok]   include/$f already up to date"
-  else
-    cp "$SRC" "$DST"
-    echo "    [sync] include/$f updated"
-    CHANGED=1
-  fi
-done
-
-# UAPI v6 adds batched symbol lookup. Prefer syncing its resolver from upstream,
-# but keep the known local implementation when a partial upstream checkout omits
-# either file. In both cases, verify that the v6 lookup API is present.
-RESOLVER_FILES=(
-  symbol_resolver.c
-  symbol_resolver.h
-)
-echo "[+] Syncing UAPI symbol resolver..."
-mkdir -p "$TARGET_DIR/infra"
-resolver_api_present() {
-  local source_file="$1"
-  local header_file="$2"
-  [ -f "$source_file" ] && [ -f "$header_file" ] && \
-    grep -Eq 'int([[:space:]]+__nocfi)?[[:space:]]+ksu_lookup_kernel_symbols[[:space:]]*\(' "$source_file" && \
-    grep -Eq 'int[[:space:]]+ksu_lookup_kernel_symbols[[:space:]]*\(' "$header_file"
+tree_hash() {
+  (
+    cd "$TARGET_DIR"
+    find . -type f -print0 | sort -z | xargs -0 -r sha256sum
+  ) | sha256sum | awk '{print $1}'
 }
 
-UPSTREAM_RESOLVER_C="$WORK_DIR/repo/kernel/infra/symbol_resolver.c"
-UPSTREAM_RESOLVER_H="$WORK_DIR/repo/kernel/infra/symbol_resolver.h"
-LOCAL_RESOLVER_C="$TARGET_DIR/infra/symbol_resolver.c"
-LOCAL_RESOLVER_H="$TARGET_DIR/infra/symbol_resolver.h"
-if [ -f "$UPSTREAM_RESOLVER_C" ] && [ -f "$UPSTREAM_RESOLVER_H" ]; then
-  if ! resolver_api_present "$UPSTREAM_RESOLVER_C" "$UPSTREAM_RESOLVER_H"; then
-    echo "[ERROR] Upstream symbol resolver does not implement the UAPI v6 lookup API." >&2
+clone_pinned_source() {
+  local url="$1"
+  git clone --filter=blob:none --no-checkout --single-branch \
+    --branch "$SUKISU_BRANCH" "$url" "$WORK_DIR/upstream" >/dev/null 2>&1 || return 1
+
+  if ! git -C "$WORK_DIR/upstream" cat-file -e "$SUKISU_COMMIT^{commit}" 2>/dev/null; then
+    git -C "$WORK_DIR/upstream" fetch --quiet --no-tags origin "$SUKISU_COMMIT" || return 1
+  fi
+  git -C "$WORK_DIR/upstream" checkout --quiet --detach "$SUKISU_COMMIT" || return 1
+  SOURCE_URL="$url"
+}
+
+SOURCE_URL=""
+if ! clone_pinned_source "$SUKISU_PRIMARY_URL"; then
+  rm -rf "$WORK_DIR/upstream"
+  echo "[sync] Primary did not provide $SUKISU_COMMIT; using Codeberg mirror."
+  clone_pinned_source "$SUKISU_MIRROR_URL" || {
+    echo "[ERROR] Could not fetch SukiSU Nova $SUKISU_BRANCH at $SUKISU_COMMIT from either source." >&2
+    exit 1
+  }
+fi
+
+UPSTREAM_DIR="$WORK_DIR/upstream/kernel"
+for required in Kconfig Makefile ksu.c include/uapi/supercall.h manager/throne_tracker.c; do
+  if [[ ! -f "$UPSTREAM_DIR/$required" ]]; then
+    echo "[ERROR] Pinned SukiSU source is missing kernel/$required." >&2
     exit 1
   fi
-  for f in "${RESOLVER_FILES[@]}"; do
-    SRC="$WORK_DIR/repo/kernel/infra/$f"
-    DST="$TARGET_DIR/infra/$f"
-    if [ -f "$DST" ] && diff -q "$SRC" "$DST" >/dev/null 2>&1; then
-      echo "    [ok]   infra/$f already up to date"
-    else
-      cp "$SRC" "$DST"
-      echo "    [sync] infra/$f updated"
-      CHANGED=1
-    fi
-  done
-else
-  echo "    [fallback] upstream resolver pair unavailable; retaining local UAPI v6 resolver"
-  if ! resolver_api_present "$LOCAL_RESOLVER_C" "$LOCAL_RESOLVER_H"; then
-    echo "[ERROR] Upstream resolver is incomplete and the local resolver lacks the UAPI v6 lookup API." >&2
+done
+
+# SukiSU's builtin-new tracker uses guarded_mutex_lock(), unavailable in this
+# device's Linux 5.10 tree. Keep the reviewed compatibility patch when needed.
+TRACKER="$UPSTREAM_DIR/manager/throne_tracker.c"
+if grep -Fq 'guarded_mutex_lock(&throne_tracker_mutex)' "$TRACKER"; then
+  git -C "$WORK_DIR/upstream" apply --check "$TRACKER_PATCH" || {
+    echo "[ERROR] Linux 5.10 tracker compatibility patch no longer applies." >&2
     exit 1
-  fi
+  }
+  git -C "$WORK_DIR/upstream" apply "$TRACKER_PATCH"
 fi
 
-if ! grep -Fq '#include "infra/symbol_resolver.c"' "$TARGET_DIR/ksu.c" || \
-   ! grep -Fq 'ksu_init_symbol_resolver();' "$TARGET_DIR/ksu.c"; then
-  echo "[ERROR] UAPI v6 symbol resolver is not compiled and initialized by ksu.c." >&2
-  exit 1
+# Use the reviewed pin in the kernel version string even when the vendored
+# checkout is built from a detached source snapshot with no nested .git.
+if ! grep -Fq 'KSU_BUILD_COMMIT' "$UPSTREAM_DIR/Makefile" || \
+   ! grep -Fq 'REPO_BRANCH := builtin-new' "$UPSTREAM_DIR/Makefile"; then
+  git -C "$WORK_DIR/upstream" apply --check "$VERSION_PATCH" || {
+    echo "[ERROR] Pinned build-version patch no longer applies." >&2
+    exit 1
+  }
+  git -C "$WORK_DIR/upstream" apply "$VERSION_PATCH"
 fi
 
-echo "[+] Syncing current upstream UAPI and event handlers..."
-UAPI_BEFORE="$(sha256sum "$TARGET_DIR/include/uapi/supercall.h" "$TARGET_DIR/supercall/dispatch.c" | sha256sum)"
-python3 "$ROOT_DIR/scripts/sync-sukisu-uapi.py" \
-  "$WORK_DIR/repo/uapi/supercall.h" \
-  "$WORK_DIR/repo/kernel/supercall/dispatch.c" \
-  "$TARGET_DIR/include/uapi/supercall.h" \
-  "$TARGET_DIR/supercall/dispatch.c"
-UAPI_AFTER="$(sha256sum "$TARGET_DIR/include/uapi/supercall.h" "$TARGET_DIR/supercall/dispatch.c" | sha256sum)"
-[ "$UAPI_BEFORE" != "$UAPI_AFTER" ] && CHANGED=1
+# The local SUSFS v2.3.0 tree predates builtin-new's optional UID-filter
+# commands and v2.4 native SELinux tables. Guard those unavailable APIs and
+# retain the legacy backup-policy query path for the local SELinux integration.
+if ! grep -Fq 'defined(CMD_SUSFS_SET_PRIORITY_UID_FILTER)' "$UPSTREAM_DIR/manager/pkg_observer.c" || \
+   ! grep -Fq 'defined(CMD_SUSFS_SET_SUS_PATH_UID_FILTER)' "$UPSTREAM_DIR/manager/pkg_observer.c" || \
+   ! grep -Fq '#ifdef CMD_SUSFS_SET_SUS_PATH_UID_FILTER' "$UPSTREAM_DIR/supercall/supercall.c" || \
+   ! grep -Fq '#ifdef CMD_SUSFS_SET_PRIORITY_UID_FILTER' "$UPSTREAM_DIR/supercall/supercall.c" || \
+   ! grep -Fq 'CONFIG_KSU_SUSFS_V24_SELINUX_TABLES' "$UPSTREAM_DIR/selinux/sepolicy.c" || \
+   ! grep -Fq 'struct selinux_policy *backup_sepolicy;' "$UPSTREAM_DIR/selinux/rules.c" || \
+   ! grep -Fq 'extern bool ksu_selinux_hide_enabled __read_mostly;' "$UPSTREAM_DIR/downstream/slow_avc_audit_defs.h" || \
+   ! grep -Fq 'bool ksu_selinux_hide_enabled __read_mostly = true;' "$UPSTREAM_DIR/feature/selinux_hide.c" || \
+   ! grep -Fq 'bool ksu_selinux_hide_enabled __read_mostly;' "$UPSTREAM_DIR/feature/selinux_hide_arm64.c"; then
+  git -C "$WORK_DIR/upstream" apply --check "$SUSFS_PATCH" || {
+    echo "[ERROR] SUSFS v2.3.0 compatibility patch no longer applies." >&2
+    exit 1
+  }
+  git -C "$WORK_DIR/upstream" apply "$SUSFS_PATCH"
+fi
 
-echo "[+] Ensuring the SukiSU manager package identity is configured..."
-if ! grep -Fq 'ccflags-y += -DKSU_PACKAGE_NAME=\"$(KSU_PACKAGE_NAME)\"' "$TARGET_DIR/Makefile" || \
-   ! grep -Fq 'ccflags-y += -DKSU_IS_PR_BUILD=$(KSU_IS_PR_BUILD)' "$TARGET_DIR/Makefile"; then
-  PACKAGE_BLOCK=$(cat <<'EOF'
-KSU_IS_PR_BUILD ?= 0
-ifeq ($(KSU_IS_PR_BUILD),0)
-KSU_PACKAGE_NAME ?= com.sukisu.ultra
+BEFORE_HASH="$(tree_hash)"
+rsync -a --delete \
+  --exclude='/.clang-format' \
+  --exclude='/.clangd' \
+  --exclude='/.gitignore' \
+  "$UPSTREAM_DIR/" "$TARGET_DIR/"
+cp "$WORK_DIR/upstream/LICENSE" "$KSU_ROOT/LICENSE"
+cp "$WORK_DIR/upstream/.gitignore" "$KSU_ROOT/.gitignore"
+AFTER_HASH="$(tree_hash)"
+
+# This checkout carried a nested clone of the old fork. Keep its local origin
+# aligned with the source used for this vendored tree, without changing files.
+if [[ -d "$KSU_ROOT/.git" ]] && git -C "$KSU_ROOT" remote get-url origin >/dev/null 2>&1; then
+  git -C "$KSU_ROOT" remote set-url origin "$SOURCE_URL"
+fi
+
+if [[ "$BEFORE_HASH" == "$AFTER_HASH" ]]; then
+  CHANGED=0
+  echo "[sync] SukiSU Nova $SUKISU_BRANCH is already at $SUKISU_COMMIT with local compatibility patches."
 else
-KSU_PACKAGE_NAME ?= com.sukisu.ultra.pr
-endif
-
-$(info -- KernelSU Manager package name: $(KSU_PACKAGE_NAME))
-ccflags-y += -DKSU_PACKAGE_NAME=\"$(KSU_PACKAGE_NAME)\"
-ccflags-y += -DKSU_IS_PR_BUILD=$(KSU_IS_PR_BUILD)
-EOF
-)
-  printf '\n%s\n' "$PACKAGE_BLOCK" >> "$TARGET_DIR/Makefile"
-  echo "    [sync] KSU_PACKAGE_NAME and KSU_IS_PR_BUILD definitions added"
   CHANGED=1
-else
-  echo "    [ok]   KSU_PACKAGE_NAME and KSU_IS_PR_BUILD already configured"
+  echo "[sync] Vendored SukiSU Nova $SUKISU_BRANCH at $SUKISU_COMMIT."
 fi
 
-echo "[+] Ensuring EXPECTED_SIZE/EXPECTED_HASH block is present in Makefile..."
-if ! grep -q "EXPECTED_SIZE" "$TARGET_DIR/Makefile"; then
-  BLOCK=$(cat <<'EOF'
-ifndef KSU_EXPECTED_SIZE
-KSU_EXPECTED_SIZE := 0x35c
-endif
-
-ifndef KSU_EXPECTED_HASH
-KSU_EXPECTED_HASH := 947ae944f3de4ed4c21a7e4f7953ecf351bfa2b36239da37a34111ad29993eef
-endif
-
-$(info -- KernelSU Manager signature size: $(KSU_EXPECTED_SIZE))
-$(info -- KernelSU Manager signature hash: $(KSU_EXPECTED_HASH))
-
-ccflags-y += -DEXPECTED_SIZE=$(KSU_EXPECTED_SIZE)
-ccflags-y += -DEXPECTED_HASH=\"$(KSU_EXPECTED_HASH)\"
-
-ifdef KSU_EXPECTED_SIZE2
-ifndef KSU_EXPECTED_HASH2
-$(error KSU_EXPECTED_HASH2 must be set when KSU_EXPECTED_SIZE2 is set)
-endif
-ccflags-y += -DEXPECTED_SIZE2=$(KSU_EXPECTED_SIZE2)
-ccflags-y += -DEXPECTED_HASH2=\"$(KSU_EXPECTED_HASH2)\"
-endif
-EOF
-)
-  if grep -q "^ifdef KSU_MANAGER_PACKAGE$" "$TARGET_DIR/Makefile"; then
-    awk -v block="$BLOCK" '
-      /^ifdef KSU_MANAGER_PACKAGE$/ && !done { print block; print ""; done=1 }
-      { print }
-    ' "$TARGET_DIR/Makefile" > "$TARGET_DIR/Makefile.new"
-    mv "$TARGET_DIR/Makefile.new" "$TARGET_DIR/Makefile"
-  else
-    printf '\n%s\n' "$BLOCK" >> "$TARGET_DIR/Makefile"
-  fi
-  echo "    [sync] EXPECTED_SIZE/HASH block inserted into Makefile"
-  CHANGED=1
-else
-  echo "    [ok]   EXPECTED_SIZE/HASH block already present"
-fi
-
-if [ "$CHANGED" -eq 1 ]; then
-  echo
-  echo "[+] Done. Files changed — rebuild your kernel now:"
-  echo "      cd <your kernel build root> && ./build_kernel_a16.sh"
-else
-  echo
-  echo "[+] Already fully in sync. Nothing to rebuild."
+echo "CHANGED=$CHANGED" >> "${GITHUB_OUTPUT:-/dev/stdout}"
+if [[ -n "${GITHUB_ENV:-}" ]]; then
+  echo "KSU_BUILD_REF=$SUKISU_BRANCH" >> "$GITHUB_ENV"
+  echo "KSU_BUILD_COMMIT=$SUKISU_COMMIT" >> "$GITHUB_ENV"
 fi
