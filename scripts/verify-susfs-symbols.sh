@@ -168,6 +168,51 @@ if ! grep -Eq '^#define[[:space:]]+CMD_SUSFS_SET_SUS_PATH_UID_FILTER\b' \
   MISSING="$(printf '%s\n' "$MISSING" | grep -Ev '^(susfs_parse_sus_path_app_strings|susfs_set_sus_path_uid_filter)$' || true)"
 fi
 
+# The 5.10 SUSFS path hooks run before user_path_at() and receive userspace
+# pathname pointers. Symbol-name checks alone miss a same-name, wrong-pointer
+# ABI, which can fault on the first stat/faccessat during boot.
+KERNEL_VERSION_MAJOR="$(sed -n 's/^VERSION[[:space:]]*=[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$KDIR/Makefile" | head -n1)"
+KERNEL_VERSION_PATCH="$(sed -n 's/^PATCHLEVEL[[:space:]]*=[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$KDIR/Makefile" | head -n1)"
+if [[ "$KERNEL_VERSION_MAJOR" == "5" && "$KERNEL_VERSION_PATCH" == "10" ]]; then
+  echo "[+] Checking Linux 5.10 SuSFS pathname hook ABIs..."
+  python3 - "$KDIR" "$KSU_DIR" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+kernel_dir, ksu_dir = map(Path, sys.argv[1:])
+open_c = (kernel_dir / "fs/open.c").read_text(errors="replace")
+stat_c = (kernel_dir / "fs/stat.c").read_text(errors="replace")
+sucompat_c = (ksu_dir / "feature/sucompat.c").read_text(errors="replace")
+
+user_path_arg = r"const\s+char\s+__user\s*\*\s*\*\s*filename_user"
+checks = [
+    ("fs/open.c faccessat declaration", open_c,
+     rf"extern\s+int\s+ksu_handle_faccessat\s*\(\s*int\s*\*\s*dfd\s*,\s*{user_path_arg}"),
+    ("fs/stat.c stat declaration", stat_c,
+     rf"extern\s+int\s+ksu_handle_stat\s*\(\s*int\s*\*\s*dfd\s*,\s*{user_path_arg}"),
+]
+for label, source, pattern in checks:
+    if not re.search(pattern, source, re.S):
+        raise SystemExit(f"[FAIL] {label} does not use the Linux 5.10 userspace-path ABI")
+
+version_start = sucompat_c.find(
+    "#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)")
+version_end = sucompat_c.find("#endif", version_start)
+if version_start < 0 or version_end < 0:
+    raise SystemExit("[FAIL] SukiSU lacks a Linux 6.1 pathname-hook ABI split")
+old_kernel_branch = sucompat_c[version_start:version_end].split("#else", 1)
+if len(old_kernel_branch) != 2:
+    raise SystemExit("[FAIL] SukiSU lacks the Linux 5.10 pathname-hook ABI branch")
+old_kernel_branch = old_kernel_branch[1]
+for name in ("ksu_handle_faccessat", "ksu_handle_stat"):
+    pattern = rf"int\s+{name}\s*\(\s*int\s*\*\s*dfd\s*,\s*{user_path_arg}"
+    if not re.search(pattern, old_kernel_branch, re.S):
+        raise SystemExit(f"[FAIL] SukiSU {name} definition mismatches Linux 5.10 call sites")
+print("[PASS] Linux 5.10 SuSFS pathname hook ABIs match fs/open.c and fs/stat.c.")
+PY
+fi
+
 if [ -z "$MISSING" ]; then
   echo
   echo "[PASS] Every susfs_* symbol referenced in $KSU_DIR is declared/defined somewhere in scope."

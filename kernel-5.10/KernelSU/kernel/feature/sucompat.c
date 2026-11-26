@@ -180,7 +180,9 @@ int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv, voi
 	return ksu_handle_execveat_sucompat(fd, filename_ptr, argv, envp, flags);
 }
 
-int ksu_handle_faccessat(int *dfd, struct filename **filename_ptr, int *mode, int *__unused_flags)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
+int ksu_handle_faccessat(int *dfd, struct filename **filename_ptr, int *mode,
+			 int *__unused_flags)
 {
 	struct filename *filename = *filename_ptr;
 
@@ -209,6 +211,46 @@ int ksu_handle_stat(int *dfd, struct filename **filename_ptr, int *flags)
 	memcpy_inline(filename->name, sh_path, sizeof(sh_path));
 	return 0;
 }
+#else
+/*
+ * The 5.10 SUSFS call sites run before user_path_at() and pass a userspace
+ * pathname pointer. They do not pass struct filename **. Keep these hook
+ * ABIs aligned with fs/open.c and fs/stat.c, and only rewrite after a safe
+ * copy confirms the exact su path.
+ */
+int ksu_handle_faccessat(int *dfd, const char __user **filename_user,
+			 int *mode, int *__unused_flags)
+{
+	char path[sizeof(su_path) + 1] = { 0 };
+
+	if (unlikely(!filename_user || !*filename_user))
+		return 0;
+	if (strncpy_from_user(path, *filename_user, sizeof(path)) < 0)
+		return 0;
+	if (likely(memcmp(path, su_path, sizeof(su_path))))
+		return 0;
+
+	pr_info("ksu_handle_faccessat: su->sh!\n");
+	*filename_user = sh_user_path();
+	return 0;
+}
+
+int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags)
+{
+	char path[sizeof(su_path) + 1] = { 0 };
+
+	if (unlikely(!filename_user || !*filename_user))
+		return 0;
+	if (strncpy_from_user(path, *filename_user, sizeof(path)) < 0)
+		return 0;
+	if (likely(memcmp(path, su_path, sizeof(su_path))))
+		return 0;
+
+	pr_info("ksu_handle_stat: su->sh!\n");
+	*filename_user = sh_user_path();
+	return 0;
+}
+#endif
 
 #else /* LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0) */
 
