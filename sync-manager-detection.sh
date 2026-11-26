@@ -15,6 +15,7 @@ trap 'rm -rf "$WORK_DIR"' EXIT
 TRACKER_PATCH="$ROOT_DIR/scripts/builtin-new-kernel-5.10-compat.patch"
 VERSION_PATCH="$ROOT_DIR/scripts/builtin-new-build-version.patch"
 SUSFS_PATCH="$ROOT_DIR/scripts/builtin-new-susfs-v2.3-compat.patch"
+PATH_ABI_APPLIER="$ROOT_DIR/scripts/apply-sukisu-susfs-5.10-path-abi.py"
 
 if [[ ! -f "$TARGET_DIR/Makefile" ]]; then
   echo "[ERROR] $TARGET_DIR/Makefile not found; expected the kernelsu source directory." >&2
@@ -99,6 +100,17 @@ if ! grep -Fq 'defined(CMD_SUSFS_SET_PRIORITY_UID_FILTER)' "$UPSTREAM_DIR/manage
     exit 1
   }
   git -C "$WORK_DIR/upstream" apply "$SUSFS_PATCH"
+fi
+
+# Linux 5.10's fs/open.c and fs/stat.c SUSFS hooks pass const char __user **
+# before user_path_at(). builtin-new's struct filename ** handlers are for a
+# different call-site ABI and can fault when those pathname syscalls run.
+if ! grep -Fq 'The 5.10 SUSFS call sites run before user_path_at()' \
+     "$UPSTREAM_DIR/feature/sucompat.c"; then
+  python3 "$PATH_ABI_APPLIER" "$UPSTREAM_DIR/feature/sucompat.c" || {
+    echo "[ERROR] Linux 5.10 SUSFS pathname ABI adaptation failed; review upstream." >&2
+    exit 1
+  }
 fi
 
 BEFORE_HASH="$(tree_hash)"

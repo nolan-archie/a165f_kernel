@@ -13,6 +13,8 @@ diverge; the old branch tip is not an ancestor of builtin-new.
 
 Local compatibility patches: builtin-new-kernel-5.10-compat.patch,
 builtin-new-build-version.patch, and builtin-new-susfs-v2.3-compat.patch.
+The Linux 5.10 SUSFS pathname hook ABI is adapted by
+scripts/apply-sukisu-susfs-5.10-path-abi.py.
 The local SUSFS v2.3.0 core uses the legacy SELinux backup-policy query path;
 builtin-new's v2.4 native SELinux table calls are gated until that API exists.
 The optional priority UID filter is disabled because the local core does not
